@@ -1,0 +1,21 @@
+product_id,product_name,category,cost_price,selling_price,shelf_life_days,reorder_threshold,supplier_id
+P101,Milk,Dairy,40,60,7,20,SUP1
+P102,Bread,Bakery,20,35,3,15,SUP2
+P103,Rice 1kg,Grains,50,80,180,30,SUP3
+P104,Cooking Oil 1L,Grocery,120,180,365,10,SUP3
+P105,Eggs (12 pack),Dairy,60,90,10,25,SUP1
+P106,Biscuits Pack,Snacks,10,20,120,40,SUP5
+P107,Soft Drink 1L,Beverages,30,50,180,20,SUP5
+P108,Chocolates,Snacks,20,40,150,20,SUP5
+P109,Curd,Dairy,30,50,5,15,SUP1
+P110,Butter,Dairy,80,120,20,20,SUP1
+P111,Cheese,Dairy,150,250,30,20,SUP1
+P112,Bananas,Fruits,20,40,4,10,SUP4
+P113,Apples,Fruits,60,120,10,15,SUP4
+P114,Tomatoes,Vegetables,15,30,3,10,SUP4
+P115,Potatoes,Vegetables,20,35,15,25,SUP4
+P116,Noodles Pack,Snacks,20,40,180,30,SUP5
+P117,Chips,Snacks,10,20,90,25,SUP5
+P118,Ice Cream,Frozen,100,180,30,10,SUP6
+P119,Tea Powder,Grocery,200,300,365,20,SUP3
+P120,Coffee Powder,Grocery,250,400,365,15,SUP3

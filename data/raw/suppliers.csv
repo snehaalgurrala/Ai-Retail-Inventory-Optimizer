@@ -1,0 +1,7 @@
+supplier_id,supplier_name,avg_delivery_days,reliability_score
+SUP1,Fresh Dairy Suppliers,2,0.95
+SUP2,Daily Bakery Distributors,1,0.92
+SUP3,Grain & Grocery Wholesale,4,0.9
+SUP4,Farm Fresh Produce,2,0.88
+SUP5,Snacks & Beverages Hub,3,0.91
+SUP6,Frozen Foods Distributor,5,0.86
