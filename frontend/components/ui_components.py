@@ -50,17 +50,17 @@ def render_recommendation_card(
     """Render one detailed recommendation review card."""
     disabled_statuses = disabled_statuses or {"approved", "rejected"}
     type_icon_map = {
-        "reorder": "📦",
-        "stock_transfer": "↔",
-        "discount": "💸",
-        "clearance": "⏳",
-        "supplier_risk_alert": "⚠",
-        "overstock_alert": "📊",
-        "stockout_prevention_alert": "🚨",
+        "reorder": "\U0001F4E6",
+        "stock_transfer": "\u2194",
+        "discount": "\U0001F4B8",
+        "clearance": "\u23F3",
+        "supplier_risk_alert": "\u26A0",
+        "overstock_alert": "\U0001F4CA",
+        "stockout_prevention_alert": "\U0001F6A8",
     }
 
     recommendation_type = str(recommendation.get("recommendation_type", ""))
-    icon = type_icon_map.get(recommendation_type, "•")
+    icon = type_icon_map.get(recommendation_type, "\u2022")
     title = f"{icon} {recommendation_type} - {recommendation.get('product_name', '')}"
 
     store_id = recommendation.get("store_id", "")

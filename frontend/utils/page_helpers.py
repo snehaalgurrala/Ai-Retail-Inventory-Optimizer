@@ -35,14 +35,14 @@ CHART_PALETTE = [
 DASHBOARD_CSS = """
 <style>
 :root {
-    --app-bg: #0b1120;
-    --card-bg: #111827;
-    --card-bg-soft: #172033;
-    --card-border: rgba(148, 163, 184, 0.18);
-    --text-main: #e5eefb;
-    --text-muted: #9ca3af;
-    --primary-blue: #38bdf8;
-    --primary-blue-soft: rgba(56, 189, 248, 0.16);
+    --app-bg: var(--background-color, #0b1120);
+    --card-bg: var(--secondary-background-color, #111827);
+    --card-bg-soft: color-mix(in srgb, var(--secondary-background-color, #111827) 82%, var(--background-color, #0b1120));
+    --card-border: color-mix(in srgb, var(--text-color, #e5eefb) 16%, transparent);
+    --text-main: var(--text-color, #e5eefb);
+    --text-muted: color-mix(in srgb, var(--text-color, #e5eefb) 62%, transparent);
+    --primary-blue: var(--primary-color, #38bdf8);
+    --primary-blue-soft: color-mix(in srgb, var(--primary-color, #38bdf8) 16%, transparent);
     --success: #22c55e;
     --warning: #f59e0b;
     --danger: #ef4444;
@@ -53,8 +53,8 @@ DASHBOARD_CSS = """
 
 .stApp {
     background:
-        radial-gradient(circle at top left, rgba(56, 189, 248, 0.10), transparent 28rem),
-        linear-gradient(180deg, #0b1120 0%, #0f172a 100%);
+        radial-gradient(circle at top left, var(--primary-blue-soft), transparent 28rem),
+        linear-gradient(180deg, var(--app-bg) 0%, color-mix(in srgb, var(--app-bg) 88%, var(--card-bg)) 100%);
     color: var(--text-main);
 }
 
@@ -65,7 +65,7 @@ DASHBOARD_CSS = """
 }
 
 h1 {
-    color: #f8fafc;
+    color: var(--text-main);
     font-size: 2.15rem !important;
     font-weight: 750 !important;
     letter-spacing: 0;
@@ -73,7 +73,7 @@ h1 {
 }
 
 h2, h3 {
-    color: #f8fafc;
+    color: var(--text-main);
     font-weight: 680 !important;
     letter-spacing: 0;
     margin-top: 1rem !important;
@@ -85,7 +85,7 @@ p, label, span {
 }
 
 div[data-testid="stMetric"] {
-    background: linear-gradient(145deg, rgba(17, 24, 39, 0.98), rgba(23, 32, 51, 0.92));
+    background: linear-gradient(145deg, var(--card-bg), var(--card-bg-soft));
     border: 1px solid var(--card-border);
     border-radius: var(--radius-lg);
     padding: 1rem 1.1rem;
@@ -99,13 +99,13 @@ div[data-testid="stMetric"] [data-testid="stMetricLabel"] {
 }
 
 div[data-testid="stMetric"] [data-testid="stMetricValue"] {
-    color: #f8fafc !important;
+    color: var(--text-main) !important;
     font-size: 1.65rem !important;
     font-weight: 750 !important;
 }
 
 div[data-testid="stVerticalBlockBorderWrapper"] {
-    background: rgba(17, 24, 39, 0.82);
+    background: color-mix(in srgb, var(--card-bg) 82%, transparent);
     border: 1px solid var(--card-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-soft);
@@ -120,7 +120,7 @@ div[data-testid="stDataFrame"] {
 }
 
 div[data-testid="stPlotlyChart"] {
-    background: rgba(17, 24, 39, 0.72);
+    background: color-mix(in srgb, var(--card-bg) 72%, transparent);
     border: 1px solid var(--card-border);
     border-radius: var(--radius-lg);
     padding: 0.75rem;
@@ -152,15 +152,15 @@ div[data-testid="stPlotlyChart"] {
 }
 
 section[data-testid="stSidebar"] {
-    background: #0f172a;
+    background: var(--card-bg);
     border-right: 1px solid var(--card-border);
 }
 
 div[data-baseweb="select"] > div,
 div[data-testid="stTextInput"] input,
 textarea {
-    background: #111827 !important;
-    border-color: rgba(148, 163, 184, 0.26) !important;
+    background: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
     border-radius: var(--radius-md) !important;
 }
 
@@ -192,7 +192,7 @@ hr {
 }
 
 .section-header-title {
-    color: #f8fafc;
+    color: var(--text-main);
     font-size: 1.35rem;
     font-weight: 800;
     line-height: 1.15;
@@ -205,7 +205,7 @@ hr {
 }
 
 .dashboard-section {
-    background: rgba(17, 24, 39, 0.78);
+    background: color-mix(in srgb, var(--card-bg) 78%, transparent);
     border: 1px solid var(--card-border);
     border-radius: var(--radius-lg);
     padding: 1.1rem;
@@ -214,7 +214,7 @@ hr {
 }
 
 .chart-heading {
-    color: #f8fafc;
+    color: var(--text-main);
     font-size: 1.05rem;
     font-weight: 750;
     margin-bottom: 0.2rem;
@@ -229,7 +229,7 @@ hr {
 .kpi-card {
     position: relative;
     min-height: 142px;
-    background: linear-gradient(145deg, rgba(17, 24, 39, 0.98), rgba(23, 32, 51, 0.94));
+    background: linear-gradient(145deg, var(--card-bg), var(--card-bg-soft));
     border: 1px solid var(--card-border);
     border-radius: 18px;
     padding: 1.15rem 1.2rem;
@@ -273,7 +273,7 @@ hr {
 }
 
 .kpi-value {
-    color: #f8fafc;
+    color: var(--text-main);
     font-size: 2rem;
     line-height: 1.05;
     font-weight: 800;
@@ -282,7 +282,7 @@ hr {
 }
 
 .kpi-subtext {
-    color: #b6c2d1;
+    color: var(--text-muted);
     font-size: 0.9rem;
     line-height: 1.35;
     max-width: 15rem;
@@ -320,7 +320,7 @@ hr {
 }
 
 .recommendation-card {
-    background: linear-gradient(145deg, rgba(17, 24, 39, 0.98), rgba(15, 23, 42, 0.96));
+    background: linear-gradient(145deg, var(--card-bg), var(--card-bg-soft));
     border: 1px solid var(--card-border);
     border-left: 4px solid var(--primary-blue);
     border-radius: var(--radius-lg);
@@ -332,7 +332,7 @@ hr {
 .summary-card {
     position: relative;
     min-height: 230px;
-    background: linear-gradient(145deg, rgba(17, 24, 39, 0.98), rgba(23, 32, 51, 0.92));
+    background: linear-gradient(145deg, var(--card-bg), var(--card-bg-soft));
     border: 1px solid var(--card-border);
     border-radius: 18px;
     padding: 1.15rem;
@@ -377,14 +377,14 @@ hr {
 }
 
 .summary-card-title {
-    color: #f8fafc;
+    color: var(--text-main);
     font-size: 1.05rem;
     font-weight: 780;
     margin-bottom: 0.5rem;
 }
 
 .summary-card-summary {
-    color: #dbeafe;
+    color: var(--text-main);
     font-size: 1.55rem;
     font-weight: 800;
     letter-spacing: 0;
@@ -405,7 +405,7 @@ hr {
 .summary-card-insights {
     position: relative;
     z-index: 1;
-    color: #b6c2d1;
+    color: var(--text-muted);
     font-size: 0.9rem;
     line-height: 1.45;
     margin: 1rem 0 0;
@@ -443,83 +443,110 @@ hr {
 </style>
 """
 
-LIGHT_MODE_CSS = """
+THEME_AWARE_CSS = """
 <style>
 :root {
-    --app-bg: #f7f9fc;
-    --card-bg: #ffffff;
-    --card-bg-soft: #f1f5f9;
-    --card-border: rgba(15, 23, 42, 0.12);
-    --text-main: #0f172a;
-    --text-muted: #64748b;
-    --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.10);
+    --ui-bg: var(--background-color, #0b1120);
+    --ui-surface: var(--secondary-background-color, #111827);
+    --ui-text: var(--text-color, #e5eefb);
+    --ui-primary: var(--primary-color, #38bdf8);
+    --ui-muted: color-mix(in srgb, var(--text-color, #e5eefb) 62%, transparent);
+    --ui-border: color-mix(in srgb, var(--text-color, #e5eefb) 16%, transparent);
+    --ui-card: color-mix(in srgb, var(--secondary-background-color, #111827) 92%, var(--background-color, #0b1120));
+    --ui-card-soft: color-mix(in srgb, var(--secondary-background-color, #111827) 76%, var(--background-color, #0b1120));
+    --ui-primary-soft: color-mix(in srgb, var(--primary-color, #38bdf8) 16%, transparent);
+    --shadow-soft: 0 18px 45px color-mix(in srgb, #000000 22%, transparent);
 }
 
 .stApp {
     background:
-        radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 28rem),
-        linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
-    color: var(--text-main);
+        radial-gradient(circle at top left, color-mix(in srgb, var(--ui-primary) 12%, transparent), transparent 28rem),
+        linear-gradient(180deg, var(--ui-bg) 0%, color-mix(in srgb, var(--ui-bg) 88%, var(--ui-surface)) 100%);
+    color: var(--ui-text);
 }
 
 h1, h2, h3,
 .section-header-title,
 .chart-heading,
 .summary-card-title,
-.kpi-value {
-    color: #0f172a !important;
+.summary-card-summary,
+.kpi-value,
+div[data-testid="stMetric"] [data-testid="stMetricValue"] {
+    color: var(--ui-text) !important;
+}
+
+.section-header-subtitle,
+.chart-subtitle,
+.kpi-title,
+.kpi-subtext,
+.summary-card-insights,
+.soft-caption,
+div[data-testid="stMetric"] label,
+div[data-testid="stMetric"] [data-testid="stMetricLabel"] {
+    color: var(--ui-muted) !important;
 }
 
 .dashboard-section,
 .summary-card,
 .kpi-card,
+.recommendation-card,
 div[data-testid="stMetric"] {
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.92));
-    border-color: var(--card-border);
+    background: linear-gradient(145deg, var(--ui-card), var(--ui-card-soft));
+    border-color: var(--ui-border);
     box-shadow: var(--shadow-soft);
 }
 
 div[data-testid="stPlotlyChart"],
 div[data-testid="stDataFrame"],
 div[data-testid="stVerticalBlockBorderWrapper"] {
-    background: rgba(255, 255, 255, 0.86);
-    border-color: var(--card-border);
+    background: color-mix(in srgb, var(--ui-surface) 76%, transparent);
+    border-color: var(--ui-border);
     box-shadow: var(--shadow-soft);
 }
 
-.kpi-subtext,
-.summary-card-insights,
-.chart-subtitle,
-.section-header-subtitle,
-.soft-caption {
-    color: #64748b;
-}
-
-.summary-card-summary {
-    color: #1e293b;
+.section-header-icon {
+    background: var(--ui-primary-soft);
+    border-color: color-mix(in srgb, var(--ui-primary) 28%, transparent);
 }
 
 section[data-testid="stSidebar"] {
-    background: #ffffff;
-    border-right: 1px solid var(--card-border);
+    background: var(--ui-surface);
+    border-right: 1px solid var(--ui-border);
 }
 
 div[data-baseweb="select"] > div,
 div[data-testid="stTextInput"] input,
 textarea {
-    background: #ffffff !important;
-    border-color: rgba(15, 23, 42, 0.18) !important;
+    background: var(--ui-surface) !important;
+    border-color: var(--ui-border) !important;
+    color: var(--ui-text) !important;
+}
+
+hr {
+    border-color: var(--ui-border);
 }
 
 .stButton > button {
-    background: rgba(14, 165, 233, 0.08);
-    color: #0369a1;
-    border-color: rgba(14, 165, 233, 0.42);
+    background: color-mix(in srgb, var(--ui-primary) 11%, transparent);
+    color: var(--ui-text);
+    border-color: color-mix(in srgb, var(--ui-primary) 54%, transparent);
 }
 
 .stButton > button:hover {
-    background: linear-gradient(135deg, #0ea5e9, #38bdf8);
-    color: #ffffff;
+    background: color-mix(in srgb, var(--ui-primary) 86%, var(--ui-surface));
+    color: var(--ui-text);
+    border-color: var(--ui-primary);
+}
+
+.stButton > button:disabled {
+    background: color-mix(in srgb, var(--ui-surface) 84%, transparent);
+    color: var(--ui-muted);
+    border-color: var(--ui-border);
+}
+
+.summary-card-icon {
+    background: var(--summary-glow);
+    color: var(--summary-accent);
 }
 </style>
 """
@@ -527,17 +554,8 @@ textarea {
 
 def apply_page_style() -> None:
     """Apply the shared modern SaaS dashboard styling."""
-    with st.sidebar:
-        theme_mode = st.radio(
-            "Appearance",
-            ["Dark", "Light"],
-            horizontal=True,
-            key="ui_theme_mode",
-        )
-
     st.markdown(DASHBOARD_CSS, unsafe_allow_html=True)
-    if theme_mode == "Light":
-        st.markdown(LIGHT_MODE_CSS, unsafe_allow_html=True)
+    st.markdown(THEME_AWARE_CSS, unsafe_allow_html=True)
 
 
 def render_section_header(icon: str, title: str, subtitle: str = "") -> None:
@@ -564,29 +582,23 @@ def apply_chart_theme(chart, height: int = 360):
     if chart is None:
         return None
 
-    is_light = st.session_state.get("ui_theme_mode") == "Light"
-    font_color = "#0f172a" if is_light else "#e5eefb"
-    grid_color = "rgba(15, 23, 42, 0.10)" if is_light else "rgba(148, 163, 184, 0.12)"
-    zero_color = "rgba(15, 23, 42, 0.16)" if is_light else "rgba(148, 163, 184, 0.18)"
-    hover_bg = "#ffffff" if is_light else "#111827"
-
     chart.update_layout(
-        template="plotly_white" if is_light else "plotly_dark",
+        template="plotly",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color=font_color, size=12),
+        font=dict(color="#64748b", size=12),
         title=None,
         colorway=CHART_PALETTE,
         margin=dict(l=24, r=24, t=16, b=24),
         height=height,
         hoverlabel=dict(
-            bgcolor=hover_bg,
-            bordercolor="rgba(148, 163, 184, 0.35)",
-            font_color=font_color,
+            bgcolor="rgba(15, 23, 42, 0.94)",
+            bordercolor="rgba(148, 163, 184, 0.42)",
+            font_color="#e2e8f0",
         ),
         legend=dict(
             bgcolor="rgba(0,0,0,0)",
-            font=dict(color=font_color),
+            font=dict(color="#64748b"),
             orientation="h",
             yanchor="bottom",
             y=1.02,
@@ -595,14 +607,14 @@ def apply_chart_theme(chart, height: int = 360):
         ),
     )
     chart.update_xaxes(
-        gridcolor=grid_color,
-        zerolinecolor=zero_color,
-        linecolor=zero_color,
+        gridcolor="rgba(148, 163, 184, 0.16)",
+        zerolinecolor="rgba(148, 163, 184, 0.20)",
+        linecolor="rgba(148, 163, 184, 0.20)",
     )
     chart.update_yaxes(
-        gridcolor=grid_color,
-        zerolinecolor=zero_color,
-        linecolor=zero_color,
+        gridcolor="rgba(148, 163, 184, 0.16)",
+        zerolinecolor="rgba(148, 163, 184, 0.20)",
+        linecolor="rgba(148, 163, 184, 0.20)",
     )
     return chart
 
@@ -638,7 +650,7 @@ def style_sales_trend_chart(chart):
         marker=dict(
             size=7,
             color=CHART_COLORS["blue"],
-            line=dict(width=2, color="#0b1120"),
+            line=dict(width=2, color="rgba(15, 23, 42, 0.86)"),
         ),
         fill="tozeroy",
         fillcolor="rgba(56, 189, 248, 0.18)",
@@ -655,7 +667,10 @@ def style_donut_chart(chart):
     chart = apply_chart_theme(chart, height=390)
     chart.update_traces(
         hole=0.58,
-        marker=dict(colors=CHART_PALETTE, line=dict(color="#0b1120", width=2)),
+        marker=dict(
+            colors=CHART_PALETTE,
+            line=dict(color="rgba(15, 23, 42, 0.86)", width=2),
+        ),
         textposition="outside",
         textinfo="label+percent",
         hovertemplate="<b>%{label}</b><br>Stock units: %{value:,}<extra></extra>",
