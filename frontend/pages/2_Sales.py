@@ -1,8 +1,21 @@
+from pathlib import Path
+import sys
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from frontend.utils.page_helpers import load_data_or_stop, safe_sum, show_chart
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
+from frontend.utils.page_helpers import (
+    apply_page_style,
+    load_data_or_stop,
+    safe_sum,
+    show_chart,
+)
 
 
 st.set_page_config(
@@ -10,6 +23,8 @@ st.set_page_config(
     page_icon="S",
     layout="wide",
 )
+
+apply_page_style()
 
 st.title("Sales")
 st.caption("Sales history from sales.csv.")

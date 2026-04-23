@@ -11,6 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 from backend.utils.data_loader import load_all_data  # noqa: E402
+from frontend.utils.page_helpers import apply_page_style  # noqa: E402
 
 
 st.set_page_config(
@@ -163,11 +164,17 @@ def show_chart(chart, empty_message: str) -> None:
         return
 
     chart.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#e5eefb"),
+        title_font=dict(color="#f8fafc"),
         margin=dict(l=20, r=20, t=60, b=20),
         hovermode="x unified",
     )
     st.plotly_chart(chart, use_container_width=True)
 
+
+apply_page_style()
 
 st.title("AI Retail Inventory Optimizer")
 st.caption("First dashboard built from the CSV files in data/raw.")

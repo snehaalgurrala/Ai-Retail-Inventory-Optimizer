@@ -10,6 +10,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
+from frontend.utils.page_helpers import apply_page_style  # noqa: E402
+
 PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
 RECOMMENDATIONS_FILE = PROCESSED_DATA_DIR / "recommendations.csv"
 DECISIONS_FILE = PROCESSED_DATA_DIR / "recommendation_decisions.csv"
@@ -31,14 +33,16 @@ st.set_page_config(
     layout="wide",
 )
 
+apply_page_style()
+
 
 @st.cache_data
 def load_recommendations() -> pd.DataFrame:
     """Load recommendations, generating them once if the CSV is missing."""
     if not RECOMMENDATIONS_FILE.exists():
-        from backend.services.recommendation_engine import build_recommendations
+        from backend.agents.orchestrator_agent import run_all_agents
 
-        build_recommendations()
+        run_all_agents()
 
     if not RECOMMENDATIONS_FILE.exists():
         return pd.DataFrame()

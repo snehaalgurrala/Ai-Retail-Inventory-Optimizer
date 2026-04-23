@@ -9,6 +9,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
+from frontend.utils.page_helpers import apply_page_style  # noqa: E402
+
 PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
 
 
@@ -17,6 +19,8 @@ st.set_page_config(
     page_icon="C",
     layout="wide",
 )
+
+apply_page_style()
 
 
 @st.cache_data
