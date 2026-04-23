@@ -31,13 +31,9 @@ CHART_PALETTE = [
     "#c084fc",
 ]
 
-CHART_TEXT_COLOR = "#64748b"
-CHART_TEXT_STRONG = "#334155"
-CHART_GRID_COLOR = "rgba(148, 163, 184, 0.22)"
-CHART_AXIS_LINE_COLOR = "rgba(148, 163, 184, 0.34)"
+CHART_GRID_COLOR = "rgba(127, 127, 127, 0.18)"
+CHART_AXIS_LINE_COLOR = "rgba(127, 127, 127, 0.24)"
 CHART_TRANSPARENT = "rgba(0,0,0,0)"
-CHART_HOVER_BACKGROUND = "rgba(255, 255, 255, 0.94)"
-CHART_HOVER_BORDER = "rgba(100, 116, 139, 0.28)"
 CHART_SEPARATOR = "rgba(100, 116, 139, 0.32)"
 
 
@@ -50,14 +46,10 @@ DASHBOARD_CSS = """
 </style>
 """
 
-THEME_AWARE_CSS = ""
-
 
 def apply_page_style() -> None:
     """Apply light-touch component styling without changing Streamlit chrome."""
     st.markdown(DASHBOARD_CSS, unsafe_allow_html=True)
-    if THEME_AWARE_CSS:
-        st.markdown(THEME_AWARE_CSS, unsafe_allow_html=True)
 
 
 def render_section_header(icon: str, title: str, subtitle: str = "") -> None:
@@ -87,30 +79,22 @@ def render_kpi_card(
 
 
 def apply_chart_theme(chart, height: int | None = 360):
-    """Apply a transparent, theme-friendly Plotly chart style."""
+    """Apply a light-touch Plotly style that still respects Streamlit themes."""
     if chart is None:
         return None
 
     chart_height = height if height is not None else chart.layout.height or 360
 
     chart.update_layout(
-        template="plotly_white",
+        template="plotly",
         paper_bgcolor=CHART_TRANSPARENT,
         plot_bgcolor=CHART_TRANSPARENT,
-        font=dict(color=CHART_TEXT_COLOR, size=12, family="sans-serif"),
         title=None,
         colorway=CHART_PALETTE,
         margin=dict(l=28, r=24, t=12, b=30),
         height=chart_height,
-        hoverlabel=dict(
-            bgcolor=CHART_HOVER_BACKGROUND,
-            bordercolor=CHART_HOVER_BORDER,
-            font_color=CHART_TEXT_STRONG,
-            font_size=12,
-        ),
         legend=dict(
             bgcolor=CHART_TRANSPARENT,
-            font=dict(color=CHART_TEXT_COLOR, size=11),
             orientation="h",
             yanchor="bottom",
             y=1.02,
@@ -120,8 +104,6 @@ def apply_chart_theme(chart, height: int | None = 360):
     )
     chart.update_xaxes(
         automargin=True,
-        title_font=dict(color=CHART_TEXT_COLOR, size=12),
-        tickfont=dict(color=CHART_TEXT_COLOR, size=11),
         gridcolor=CHART_GRID_COLOR,
         zerolinecolor=CHART_AXIS_LINE_COLOR,
         linecolor=CHART_AXIS_LINE_COLOR,
@@ -129,8 +111,6 @@ def apply_chart_theme(chart, height: int | None = 360):
     )
     chart.update_yaxes(
         automargin=True,
-        title_font=dict(color=CHART_TEXT_COLOR, size=12),
-        tickfont=dict(color=CHART_TEXT_COLOR, size=11),
         gridcolor=CHART_GRID_COLOR,
         zerolinecolor=CHART_AXIS_LINE_COLOR,
         linecolor=CHART_AXIS_LINE_COLOR,
@@ -194,7 +174,6 @@ def style_donut_chart(chart):
         textposition="outside",
         textinfo="label+percent",
         hovertemplate="<b>%{label}</b><br>Stock units: %{value:,}<extra></extra>",
-        textfont=dict(color=CHART_TEXT_COLOR, size=11),
     )
     chart.update_layout(
         showlegend=True,
@@ -245,4 +224,4 @@ def show_chart(chart, empty_message: str) -> None:
         return
 
     apply_chart_theme(chart, height=None)
-    st.plotly_chart(chart, use_container_width=True)
+    st.plotly_chart(chart, use_container_width=True, theme="streamlit")

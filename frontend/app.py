@@ -160,105 +160,6 @@ def build_inventory_distribution_chart(
     return style_donut_chart(chart)
 
 
-def build_category_chart(products: pd.DataFrame):
-    if products.empty or "category" not in products.columns:
-        return None
-
-    category_counts = (
-        products.dropna(subset=["category"])
-        .groupby("category", as_index=False)
-        .size()
-        .rename(columns={"size": "product_count"})
-        .sort_values("product_count", ascending=False)
-    )
-    if category_counts.empty:
-        return None
-
-    chart = px.bar(
-        category_counts,
-        x="category",
-        y="product_count",
-        labels={"category": "Category", "product_count": "Products"},
-    )
-    return style_bar_chart(chart, "purple")
-
-
-def build_top_products_chart(sales: pd.DataFrame, products: pd.DataFrame):
-    if sales.empty or not {"product_id", "quantity_sold"}.issubset(sales.columns):
-        return None
-
-    top_products = (
-        sales.assign(
-            quantity_sold=pd.to_numeric(
-                sales["quantity_sold"],
-                errors="coerce",
-            ).fillna(0)
-        )
-        .groupby("product_id", as_index=False)["quantity_sold"]
-        .sum()
-        .sort_values("quantity_sold", ascending=False)
-        .head(10)
-    )
-
-    if "product_name" in products.columns:
-        top_products = top_products.merge(
-            products[["product_id", "product_name"]],
-            on="product_id",
-            how="left",
-        )
-        top_products["product_label"] = top_products["product_name"].fillna(
-            top_products["product_id"]
-        )
-    else:
-        top_products["product_label"] = top_products["product_id"]
-
-    chart = px.bar(
-        top_products,
-        x="quantity_sold",
-        y="product_label",
-        orientation="h",
-        labels={"quantity_sold": "Quantity Sold", "product_label": "Product"},
-    )
-    return style_bar_chart(chart, "blue")
-
-
-def build_sales_by_store_chart(sales: pd.DataFrame, stores: pd.DataFrame):
-    if sales.empty or not {"store_id", "quantity_sold"}.issubset(sales.columns):
-        return None
-
-    sales_by_store = (
-        sales.assign(
-            quantity_sold=pd.to_numeric(
-                sales["quantity_sold"],
-                errors="coerce",
-            ).fillna(0)
-        )
-        .groupby("store_id", as_index=False)["quantity_sold"]
-        .sum()
-        .sort_values("quantity_sold", ascending=False)
-    )
-
-    if "store_name" in stores.columns:
-        sales_by_store = sales_by_store.merge(
-            stores[["store_id", "store_name"]],
-            on="store_id",
-            how="left",
-        )
-        sales_by_store["store_label"] = sales_by_store["store_name"].fillna(
-            sales_by_store["store_id"]
-        )
-    else:
-        sales_by_store["store_label"] = sales_by_store["store_id"]
-
-    chart = px.bar(
-        sales_by_store,
-        x="store_label",
-        y="quantity_sold",
-        labels={"store_label": "Store", "quantity_sold": "Quantity Sold"},
-    )
-    return style_bar_chart(chart, "green")
-
-
 def recommendation_type_rows(
     recommendations: pd.DataFrame,
     recommendation_types: list[str],
@@ -380,8 +281,6 @@ except Exception as error:
 
 products = data["products"]
 sales = data["sales"]
-stores = data["stores"]
-suppliers = data["suppliers"]
 inventory = data["inventory"]
 transactions = data["transactions"]
 
