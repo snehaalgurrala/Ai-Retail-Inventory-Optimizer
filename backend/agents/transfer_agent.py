@@ -1,9 +1,9 @@
 import pandas as pd
 
+from backend.agents.tools import describe_agent_tools, invoke_agent_tool
+from backend.memory.learning_loop import get_learning_context
 from backend.services.llm_reasoner import reason_over_recommendations
-from backend.services.recommendation_engine import (
-    generate_stock_transfer_recommendations,
-)
+from backend.services.llm_reasoner import select_tools_for_agent
 
 
 SOURCE_AGENT = "transfer_agent"
@@ -38,6 +38,11 @@ def _build_llm_candidates(inputs: dict, recommendations: list[dict]) -> list[dic
         product_id = str(recommendation.get("product_id", ""))
         store_id = str(recommendation.get("store_id", ""))
         low_stock_row = low_stock_lookup.get((product_id, store_id), {})
+        memory_context = get_learning_context(
+            product_id=product_id,
+            store_id=store_id,
+            recommendation_type="stock_transfer",
+        )
 
         candidates.append(
             {
@@ -61,6 +66,14 @@ def _build_llm_candidates(inputs: dict, recommendations: list[dict]) -> list[dic
                 "days_of_stock_remaining": low_stock_row.get(
                     "days_of_stock_remaining",
                     "",
+                ),
+                "memory_hint": memory_context.get("memory_hint", ""),
+                "learning_hint": memory_context.get("learning_hint", ""),
+                "recent_decisions": memory_context.get("recent_decisions", []),
+                "recent_outcomes": memory_context.get("recent_outcomes", []),
+                "recent_learning_insights": memory_context.get(
+                    "recent_learning_insights",
+                    [],
                 ),
             }
         )
@@ -108,12 +121,34 @@ def analyze_transfer_opportunities(
     inputs: dict,
     config: dict | None = None,
 ) -> list[dict]:
-    """Identify stock transfer opportunities across stores."""
-    recommendations = generate_stock_transfer_recommendations(
-        inputs.get("current_inventory"),
-        inputs.get("low_stock_items"),
-        config,
+    """Identify transfer opportunities through LangChain tool calls."""
+    selected_tools = select_tools_for_agent(
+        agent_name=SOURCE_AGENT,
+        agent_goal=(
+            "Use inventory and transfer tools to decide whether stock should move "
+            "between stores."
+        ),
+        available_tools=describe_agent_tools(SOURCE_AGENT),
+        context={
+            "inventory_rows": len(inputs.get("current_inventory", pd.DataFrame())),
+            "low_stock_count": len(inputs.get("low_stock_items", pd.DataFrame())),
+        },
+        default_tools=["recommend_transfer"],
     )
+    if "recommend_transfer" not in selected_tools:
+        selected_tools.append("recommend_transfer")
+
+    for tool_name in selected_tools:
+        if tool_name == "recommend_transfer":
+            tool_output = invoke_agent_tool(
+                tool_name,
+                {"config": config or {}, "limit": 0},
+            )
+            recommendations = tool_output.get("records", [])
+            break
+    else:
+        recommendations = []
+
     llm_decisions = reason_over_recommendations(
         agent_name=SOURCE_AGENT,
         agent_goal=(
@@ -125,6 +160,8 @@ def analyze_transfer_opportunities(
         shared_context={
             "inventory_rows": len(inputs.get("current_inventory", pd.DataFrame())),
             "low_stock_count": len(inputs.get("low_stock_items", pd.DataFrame())),
+            "system_memory": inputs.get("memory_context", {}),
+            "system_learning": inputs.get("learning_context", {}),
         },
     )
     recommendations = _apply_llm_decisions(recommendations, llm_decisions)

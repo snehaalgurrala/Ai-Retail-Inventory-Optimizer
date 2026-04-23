@@ -11,6 +11,14 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.agents import pricing_agent, risk_agent, transfer_agent
 from backend.agents.procurement_agent import run as run_procurement_agent
+from backend.memory.memory_store import (
+    get_system_memory_summary,
+    save_recommendation_batch,
+)
+from backend.memory.learning_loop import (
+    build_learning_insights,
+    get_system_learning_summary,
+)
 from backend.services.data_processor import build_processed_datasets
 from backend.services.inventory_analyzer import build_inventory_analysis
 from backend.services.llm_reasoner import summarize_orchestration
@@ -26,6 +34,8 @@ class AgentGraphState(TypedDict, total=False):
     config: dict
     save_output: bool
     inputs: dict[str, pd.DataFrame]
+    memory_context: dict
+    learning_context: dict
     inventory_output: dict
     pricing_output: dict
     transfer_output: dict
@@ -71,11 +81,18 @@ def _orchestrator_node(state: AgentGraphState) -> AgentGraphState:
     build_processed_datasets()
     build_inventory_analysis(config)
     inputs = load_recommendation_inputs()
+    memory_context = get_system_memory_summary()
+    build_learning_insights(save_output=True)
+    learning_context = get_system_learning_summary()
+    inputs["memory_context"] = memory_context
+    inputs["learning_context"] = learning_context
 
     return {
         "config": config,
         "save_output": state.get("save_output", True),
         "inputs": inputs,
+        "memory_context": memory_context,
+        "learning_context": learning_context,
     }
 
 
@@ -195,10 +212,13 @@ def _combine_results_node(state: AgentGraphState) -> AgentGraphState:
     output_path = ""
     if state.get("save_output", True):
         output_path = str(save_recommendations(recommendations_df))
+        save_recommendation_batch(recommendations_df)
 
     combined_output = {
         "agent_name": "orchestrator",
         "inventory_summary": state.get("inventory_output", {}),
+        "memory_context": state.get("memory_context", {}),
+        "learning_context": state.get("learning_context", {}),
         "agent_counts": agent_counts,
         "total_recommendations": int(len(recommendations_df)),
         "output_path": output_path,
@@ -206,6 +226,8 @@ def _combine_results_node(state: AgentGraphState) -> AgentGraphState:
     llm_summary = summarize_orchestration(
         {
             "inventory_summary": state.get("inventory_output", {}),
+            "memory_context": state.get("memory_context", {}),
+            "learning_context": state.get("learning_context", {}),
             "agent_counts": agent_counts,
             "total_recommendations": int(len(recommendations_df)),
             "sample_recommendations": recommendations_df.head(10).to_dict(

@@ -18,6 +18,7 @@ from frontend.utils.page_helpers import (  # noqa: E402
     render_kpi_card,
     render_section_header,
 )
+from backend.memory.memory_store import save_decision_record  # noqa: E402
 
 PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
 RECOMMENDATIONS_FILE = PROCESSED_DATA_DIR / "recommendations.csv"
@@ -90,6 +91,7 @@ def save_decision(recommendation: pd.Series, decision: str) -> None:
         ignore_index=True,
     )
     decisions.to_csv(DECISIONS_FILE, index=False)
+    save_decision_record(recommendation, decision, new_decision["decided_at"])
 
 
 def apply_latest_decisions(

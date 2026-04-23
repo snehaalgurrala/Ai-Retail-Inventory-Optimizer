@@ -1,10 +1,12 @@
 import pandas as pd
 
-from backend.services.llm_reasoner import reason_over_recommendations
-from backend.services.recommendation_engine import (
-    generate_clearance_recommendations,
-    generate_discount_recommendations,
+from backend.agents.tools import (
+    describe_agent_tools,
+    invoke_agent_tool,
 )
+from backend.memory.learning_loop import get_learning_context
+from backend.services.llm_reasoner import reason_over_recommendations
+from backend.services.llm_reasoner import select_tools_for_agent
 
 
 SOURCE_AGENT = "pricing_agent"
@@ -45,6 +47,13 @@ def _build_llm_candidates(inputs: dict, recommendations: list[dict]) -> list[dic
         slow_row = slow_lookup.get(key, {})
         overstock_row = overstock_lookup.get(key, {})
         dead_stock_row = dead_stock_lookup.get(key, {})
+        memory_context = get_learning_context(
+            product_id=product_id,
+            store_id=store_id,
+            recommendation_type=str(
+                recommendation.get("recommendation_type", "")
+            ),
+        )
 
         candidates.append(
             {
@@ -80,6 +89,14 @@ def _build_llm_candidates(inputs: dict, recommendations: list[dict]) -> list[dic
                     overstock_row.get("stock_level", dead_stock_row.get("stock_level", "")),
                 ),
                 "shelf_life_days": dead_stock_row.get("shelf_life_days", ""),
+                "memory_hint": memory_context.get("memory_hint", ""),
+                "learning_hint": memory_context.get("learning_hint", ""),
+                "recent_decisions": memory_context.get("recent_decisions", []),
+                "recent_outcomes": memory_context.get("recent_outcomes", []),
+                "recent_learning_insights": memory_context.get(
+                    "recent_learning_insights",
+                    [],
+                ),
             }
         )
 
@@ -131,21 +148,37 @@ def analyze_pricing_opportunities(
     inputs: dict,
     config: dict | None = None,
 ) -> list[dict]:
-    """Identify discount and clearance opportunities from analyzer outputs."""
-    recommendations = []
-    recommendations.extend(
-        generate_discount_recommendations(
-            inputs.get("slow_moving_items"),
-            inputs.get("overstock_items"),
-            config,
-        )
+    """Identify pricing opportunities through LangChain tool calls."""
+    selected_tools = select_tools_for_agent(
+        agent_name=SOURCE_AGENT,
+        agent_goal=(
+            "Use pricing-related tools to review inventory movement and create "
+            "discount or clearance candidates."
+        ),
+        available_tools=describe_agent_tools(SOURCE_AGENT),
+        context={
+            "slow_moving_count": len(inputs.get("slow_moving_items", pd.DataFrame())),
+            "overstock_count": len(inputs.get("overstock_items", pd.DataFrame())),
+            "dead_stock_count": len(
+                inputs.get("dead_stock_candidates", pd.DataFrame())
+            ),
+        },
+        default_tools=["recommend_discount"],
     )
-    recommendations.extend(
-        generate_clearance_recommendations(
-            inputs.get("dead_stock_candidates"),
-            config,
-        )
-    )
+    if "recommend_discount" not in selected_tools:
+        selected_tools.append("recommend_discount")
+
+    for tool_name in selected_tools:
+        if tool_name == "recommend_discount":
+            tool_output = invoke_agent_tool(
+                tool_name,
+                {"config": config or {}, "limit": 0},
+            )
+            recommendations = tool_output.get("records", [])
+            break
+    else:
+        recommendations = []
+
     llm_decisions = reason_over_recommendations(
         agent_name=SOURCE_AGENT,
         agent_goal=(
@@ -160,6 +193,8 @@ def analyze_pricing_opportunities(
             "dead_stock_count": len(
                 inputs.get("dead_stock_candidates", pd.DataFrame())
             ),
+            "system_memory": inputs.get("memory_context", {}),
+            "system_learning": inputs.get("learning_context", {}),
         },
     )
     recommendations = _apply_llm_decisions(recommendations, llm_decisions)

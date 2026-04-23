@@ -1,7 +1,9 @@
 import pandas as pd
 
+from backend.agents.tools import describe_agent_tools, invoke_agent_tool
+from backend.memory.learning_loop import get_learning_context
+from backend.services.llm_reasoner import select_tools_for_agent
 from backend.services.recommendation_engine import (
-    generate_reorder_recommendations,
     get_config,
 )
 
@@ -77,10 +79,33 @@ def analyze_procurement(
     inputs: dict,
     config: dict | None = None,
 ) -> list[dict]:
-    """Create procurement-focused reorder recommendations with supplier context."""
+    """Create procurement-focused recommendations through LangChain tools."""
     config = get_config(config)
-    low_stock_items = inputs.get("low_stock_items", pd.DataFrame())
-    recommendations = generate_reorder_recommendations(low_stock_items, config)
+    selected_tools = select_tools_for_agent(
+        agent_name=SOURCE_AGENT,
+        agent_goal=(
+            "Use procurement tools to create grounded reorder recommendations and "
+            "consider supplier context."
+        ),
+        available_tools=describe_agent_tools(SOURCE_AGENT),
+        context={
+            "low_stock_count": len(inputs.get("low_stock_items", pd.DataFrame())),
+            "supplier_count": len(inputs.get("suppliers", pd.DataFrame())),
+        },
+        default_tools=["recommend_procurement", "get_product_performance"],
+    )
+    if "recommend_procurement" not in selected_tools:
+        selected_tools.append("recommend_procurement")
+
+    recommendations = []
+    for tool_name in selected_tools:
+        if tool_name == "recommend_procurement":
+            tool_output = invoke_agent_tool(
+                tool_name,
+                {"config": config, "limit": 0},
+            )
+            recommendations = tool_output.get("records", [])
+            break
 
     if not recommendations:
         return recommendations
@@ -111,12 +136,27 @@ def analyze_procurement(
             f"reliability_score={round(float(reliability_score), 2)}, "
             f"avg_delivery_days={round(float(avg_delivery_days), 2)}"
         )
+        memory_context = get_learning_context(
+            product_id=product_id,
+            store_id=str(recommendation.get("store_id", "")),
+            recommendation_type="reorder",
+        )
         existing_evidence = str(recommendation.get("evidence", "")).strip()
         recommendation["evidence"] = (
             f"{existing_evidence}, {supplier_evidence}"
             if existing_evidence
             else supplier_evidence
         )
+        memory_hint = memory_context.get("memory_hint", "")
+        if memory_hint:
+            recommendation["evidence"] = (
+                f"{recommendation['evidence']}, memory={memory_hint}"
+            )
+        learning_hint = memory_context.get("learning_hint", "")
+        if learning_hint:
+            recommendation["evidence"] = (
+                f"{recommendation['evidence']}, learning={learning_hint}"
+            )
 
         if supplier_is_risky:
             recommendation["priority"] = "high"

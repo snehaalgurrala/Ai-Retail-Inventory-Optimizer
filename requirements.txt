@@ -6,6 +6,9 @@ streamlit
 plotly
 langchain
 langgraph
+langchain-openai
+chromadb
+google-genai
 openai
 python-dotenv
 pydantic

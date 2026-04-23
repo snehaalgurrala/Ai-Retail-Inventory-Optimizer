@@ -1,11 +1,9 @@
 import pandas as pd
 
+from backend.agents.tools import describe_agent_tools, invoke_agent_tool
+from backend.memory.learning_loop import get_learning_context
 from backend.services.llm_reasoner import reason_over_recommendations
-from backend.services.recommendation_engine import (
-    generate_overstock_alerts,
-    generate_stockout_prevention_alerts,
-    generate_supplier_risk_alerts,
-)
+from backend.services.llm_reasoner import select_tools_for_agent
 
 
 SOURCE_AGENT = "risk_agent"
@@ -58,6 +56,13 @@ def _build_llm_candidates(inputs: dict, recommendations: list[dict]) -> list[dic
         stockout_row = stockout_lookup.get((product_id, store_id), {})
         overstock_row = overstock_lookup.get((product_id, store_id), {})
         product_row = product_lookup.get(product_id, {})
+        memory_context = get_learning_context(
+            product_id=product_id,
+            store_id=store_id,
+            recommendation_type=str(
+                recommendation.get("recommendation_type", "")
+            ),
+        )
 
         candidates.append(
             {
@@ -89,6 +94,14 @@ def _build_llm_candidates(inputs: dict, recommendations: list[dict]) -> list[dic
                 "supplier_name": product_row.get("supplier_name", ""),
                 "reliability_score": product_row.get("reliability_score", ""),
                 "avg_delivery_days": product_row.get("avg_delivery_days", ""),
+                "memory_hint": memory_context.get("memory_hint", ""),
+                "learning_hint": memory_context.get("learning_hint", ""),
+                "recent_decisions": memory_context.get("recent_decisions", []),
+                "recent_outcomes": memory_context.get("recent_outcomes", []),
+                "recent_learning_insights": memory_context.get(
+                    "recent_learning_insights",
+                    [],
+                ),
             }
         )
 
@@ -138,22 +151,39 @@ def analyze_risks(
     inputs: dict,
     config: dict | None = None,
 ) -> list[dict]:
-    """Identify stockout, overstock, and supplier risks."""
-    recommendations = []
-    recommendations.extend(
-        generate_supplier_risk_alerts(
-            inputs.get("product_performance"),
-            inputs.get("suppliers"),
-            config,
-        )
+    """Identify stockout, overstock, and supplier risks through tools."""
+    selected_tools = select_tools_for_agent(
+        agent_name=SOURCE_AGENT,
+        agent_goal=(
+            "Use risk-related tools to identify supplier, overstock, and stockout "
+            "recommendation candidates."
+        ),
+        available_tools=describe_agent_tools(SOURCE_AGENT),
+        context={
+            "supplier_risk_inputs": len(
+                inputs.get("product_performance", pd.DataFrame())
+            ),
+            "overstock_count": len(inputs.get("overstock_items", pd.DataFrame())),
+            "stockout_risk_count": len(
+                inputs.get("stockout_risk_items", pd.DataFrame())
+            ),
+        },
+        default_tools=["analyze_risk"],
     )
-    recommendations.extend(generate_overstock_alerts(inputs.get("overstock_items")))
-    recommendations.extend(
-        generate_stockout_prevention_alerts(
-            inputs.get("stockout_risk_items"),
-            config,
-        )
-    )
+    if "analyze_risk" not in selected_tools:
+        selected_tools.append("analyze_risk")
+
+    for tool_name in selected_tools:
+        if tool_name == "analyze_risk":
+            tool_output = invoke_agent_tool(
+                tool_name,
+                {"config": config or {}, "limit": 0},
+            )
+            recommendations = tool_output.get("records", [])
+            break
+    else:
+        recommendations = []
+
     llm_decisions = reason_over_recommendations(
         agent_name=SOURCE_AGENT,
         agent_goal=(
@@ -171,6 +201,8 @@ def analyze_risks(
             "supplier_risk_inputs": len(inputs.get("product_performance", pd.DataFrame())),
             "overstock_count": len(inputs.get("overstock_items", pd.DataFrame())),
             "stockout_risk_count": len(inputs.get("stockout_risk_items", pd.DataFrame())),
+            "system_memory": inputs.get("memory_context", {}),
+            "system_learning": inputs.get("learning_context", {}),
         },
     )
     recommendations = _apply_llm_decisions(recommendations, llm_decisions)
