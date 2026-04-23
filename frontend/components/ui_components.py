@@ -1,5 +1,77 @@
+from contextlib import contextmanager
+
 import pandas as pd
 import streamlit as st
+
+
+def render_section_header(title: str, subtitle: str = "", icon: str = "") -> None:
+    """Render a readable section header using native Streamlit text."""
+    heading = f"{icon} {title}" if icon else str(title)
+    st.subheader(heading)
+    if subtitle:
+        st.caption(str(subtitle))
+
+
+def render_info_panel(
+    title: str,
+    body: str = "",
+    status: str = "info",
+) -> None:
+    """Render a small native message panel."""
+    message = f"**{title}**"
+    if body:
+        message = f"{message}\n\n{body}"
+
+    if status == "success":
+        st.success(message)
+    elif status == "warning":
+        st.warning(message)
+    elif status == "error":
+        st.error(message)
+    else:
+        st.info(message)
+
+
+def render_empty_state(
+    title: str,
+    body: str = "",
+    action_label: str | None = None,
+    key: str | None = None,
+) -> bool:
+    """Render a consistent empty state and optionally return an action click."""
+    with st.container(border=True):
+        st.markdown(f"**{title}**")
+        if body:
+            st.caption(str(body))
+        if action_label:
+            return st.button(action_label, key=key, use_container_width=True)
+    return False
+
+
+def render_recommendation_summary(
+    title: str,
+    summary: str,
+    insights: list[str] | None = None,
+    icon: str = "",
+    button_label: str = "Review",
+    button_key: str | None = None,
+) -> bool:
+    """Render a compact recommendation summary with native components."""
+    with st.container(border=True):
+        heading = f"{icon} {title}" if icon else str(title)
+        st.markdown(f"**{heading}**")
+        st.metric("Summary", str(summary))
+        for insight in (insights or [])[:3]:
+            if insight:
+                st.caption(str(insight))
+        return st.button(button_label, key=button_key, use_container_width=True)
+
+
+def render_page_header(title: str, subtitle: str = "") -> None:
+    """Compatibility helper for page-level headings."""
+    st.title(str(title))
+    if subtitle:
+        st.caption(str(subtitle))
 
 
 def render_kpi_card(
@@ -8,37 +80,43 @@ def render_kpi_card(
     subtext: str,
     color: str,
 ) -> None:
-    """Render a custom SaaS-style KPI card."""
-    st.markdown(
-        f"""
-        <div class="kpi-card kpi-{color}">
-            <div class="kpi-title">{title}</div>
-            <div class="kpi-value">{value}</div>
-            <div class="kpi-subtext">{subtext}</div>
-            <div class="kpi-indicator"></div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    """Compatibility helper for KPI cards with native metric text."""
+    with st.container(border=True):
+        st.metric(str(title), str(value))
+        if subtext:
+            st.caption(str(subtext))
 
 
-def render_section_header(icon: str, title: str, subtitle: str = "") -> None:
-    """Render a consistent icon-led section header."""
-    subtitle_html = (
-        f'<div class="section-header-subtitle">{subtitle}</div>' if subtitle else ""
-    )
-    st.markdown(
-        f"""
-        <div class="section-header">
-            <div class="section-header-icon">{icon}</div>
-            <div>
-                <div class="section-header-title">{title}</div>
-                {subtitle_html}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+@contextmanager
+def render_content_container(
+    title: str = "",
+    subtitle: str = "",
+    compact: bool = False,
+):
+    """Compatibility context manager around a native bordered container."""
+    with st.container(border=True):
+        if title:
+            st.markdown(f"**{title}**")
+        if subtitle:
+            st.caption(str(subtitle))
+        yield
+
+
+def render_content_card_start(
+    title: str = "",
+    subtitle: str = "",
+    compact: bool = False,
+) -> None:
+    """Compatibility helper for older call sites."""
+    if title:
+        st.markdown(f"**{title}**")
+    if subtitle:
+        st.caption(str(subtitle))
+
+
+def render_content_card_end() -> None:
+    """No-op kept for backward compatibility."""
+    return None
 
 
 def render_recommendation_card(
@@ -69,13 +147,13 @@ def render_recommendation_card(
 
     with st.container(border=True):
         top_left, top_right = st.columns([3, 1])
-        top_left.subheader(title.replace("_", " ").title())
-        top_right.markdown(f"**Priority:** {recommendation.get('priority', '')}")
-        top_right.markdown(f"**Status:** {recommendation.get('status', '')}")
+        top_left.markdown(f"**{title.replace('_', ' ').title()}**")
+        top_right.caption(f"Priority: {recommendation.get('priority', '')}")
+        top_right.caption(f"Status: {recommendation.get('status', '')}")
 
         st.markdown(f"**Action:** {recommendation.get('action', '')}")
-        st.markdown(f"**Reason:** {recommendation.get('reason', '')}")
-        st.markdown(f"**Evidence:** {recommendation.get('evidence', '')}")
+        st.caption(f"Reason: {recommendation.get('reason', '')}")
+        st.caption(f"Evidence: {recommendation.get('evidence', '')}")
 
         quantity = recommendation.get("suggested_quantity", "")
         if pd.notna(quantity):

@@ -1,4 +1,4 @@
-import streamlit as st
+from frontend.components.ui_components import render_recommendation_summary
 
 
 def render_summary_card(
@@ -9,26 +9,11 @@ def render_summary_card(
     accent: str,
     button_key: str,
 ) -> bool:
-    """Render one modern recommendation summary card."""
-    insight_items = "".join(
-        f"<li>{insight}</li>" for insight in insights[:3] if insight
+    """Compatibility wrapper for recommendation summary cards."""
+    return render_recommendation_summary(
+        title=title,
+        summary=summary,
+        insights=insights,
+        icon=icon,
+        button_key=button_key,
     )
-
-    st.markdown(
-        f"""
-        <div class="summary-card summary-card-{accent}">
-            <div class="summary-card-top">
-                <div>
-                    <div class="summary-card-title">{title}</div>
-                    <div class="summary-card-summary">{summary}</div>
-                </div>
-                <div class="summary-card-icon">{icon}</div>
-            </div>
-            <ul class="summary-card-insights">
-                {insight_items}
-            </ul>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    return st.button("Review", key=button_key, use_container_width=True)

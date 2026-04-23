@@ -13,6 +13,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from frontend.utils.page_helpers import (
     apply_page_style,
     load_data_or_stop,
+    render_page_header,
+    render_kpi_card,
     render_chart_card,
     safe_sum,
     style_bar_chart,
@@ -28,8 +30,10 @@ st.set_page_config(
 
 apply_page_style()
 
-st.title("📈 Sales")
-st.caption("Sales history from sales.csv.")
+render_page_header(
+    "📈 Sales",
+    "Sales history from sales.csv.",
+)
 
 data = load_data_or_stop()
 sales = data["sales"]
@@ -61,11 +65,15 @@ total_sales_value = safe_sum(sales_view, "sales_value")
 daily_count = sales["date"].nunique() if "date" in sales.columns else 0
 average_daily_quantity = total_sales_quantity / daily_count if daily_count else 0
 
-kpi_columns = st.columns(4)
-kpi_columns[0].metric("Sales Rows", f"{len(sales):,}")
-kpi_columns[1].metric("Quantity Sold", f"{total_sales_quantity:,}")
-kpi_columns[2].metric("Sales Value", f"{total_sales_value:,}")
-kpi_columns[3].metric("Avg Daily Qty", f"{average_daily_quantity:,.1f}")
+kpi_columns = st.columns(4, gap="medium")
+with kpi_columns[0]:
+    render_kpi_card("Sales Rows", f"{len(sales):,}", "Records in sales.csv", "blue")
+with kpi_columns[1]:
+    render_kpi_card("Quantity Sold", f"{total_sales_quantity:,}", "Total units sold", "purple")
+with kpi_columns[2]:
+    render_kpi_card("Sales Value", f"{total_sales_value:,}", "Revenue from available prices", "green")
+with kpi_columns[3]:
+    render_kpi_card("Avg Daily Qty", f"{average_daily_quantity:,.1f}", "Average units per sales day", "orange")
 
 st.divider()
 
@@ -97,7 +105,7 @@ render_chart_card(
     "No date-based sales trend data is available.",
 )
 
-left_chart, right_chart = st.columns(2)
+left_chart, right_chart = st.columns(2, gap="large")
 
 with left_chart:
     product_chart = None

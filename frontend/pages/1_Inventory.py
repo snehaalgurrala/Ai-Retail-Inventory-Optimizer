@@ -12,6 +12,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from frontend.utils.page_helpers import (
     apply_page_style,
     load_data_or_stop,
+    render_page_header,
+    render_kpi_card,
     render_chart_card,
     safe_sum,
     style_bar_chart,
@@ -27,8 +29,10 @@ st.set_page_config(
 
 apply_page_style()
 
-st.title("📦 Inventory")
-st.caption("Current stock snapshot from inventory.csv.")
+render_page_header(
+    "📦 Inventory",
+    "Current stock snapshot from inventory.csv.",
+)
 
 data = load_data_or_stop()
 inventory = data["inventory"]
@@ -60,15 +64,24 @@ if {"stock_level", "reorder_threshold"}.issubset(inventory.columns):
         ).sum()
     )
 
-kpi_columns = st.columns(4)
-kpi_columns[0].metric("Stock Units", f"{total_stock:,}")
-kpi_columns[1].metric("Product-store Rows", f"{len(inventory):,}")
-kpi_columns[2].metric("Low Stock Rows", f"{low_stock_count:,}")
-kpi_columns[3].metric("Stores", f"{inventory['store_id'].nunique() if 'store_id' in inventory else 0:,}")
+kpi_columns = st.columns(4, gap="medium")
+with kpi_columns[0]:
+    render_kpi_card("Stock Units", f"{total_stock:,}", "Current inventory units", "purple")
+with kpi_columns[1]:
+    render_kpi_card("Product-store Rows", f"{len(inventory):,}", "Inventory records", "blue")
+with kpi_columns[2]:
+    render_kpi_card("Low Stock Rows", f"{low_stock_count:,}", "At or below threshold", "orange")
+with kpi_columns[3]:
+    render_kpi_card(
+        "Stores",
+        f"{inventory['store_id'].nunique() if 'store_id' in inventory else 0:,}",
+        "Store locations in inventory",
+        "red",
+    )
 
 st.divider()
 
-left_chart, right_chart = st.columns(2)
+left_chart, right_chart = st.columns(2, gap="large")
 
 with left_chart:
     stock_by_store = None

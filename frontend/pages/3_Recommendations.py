@@ -12,7 +12,12 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from frontend.components.cards import render_summary_card  # noqa: E402
 from frontend.components.ui_components import render_recommendation_card  # noqa: E402
-from frontend.utils.page_helpers import apply_page_style, render_section_header  # noqa: E402
+from frontend.utils.page_helpers import (  # noqa: E402
+    apply_page_style,
+    render_page_header,
+    render_kpi_card,
+    render_section_header,
+)
 
 PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
 RECOMMENDATIONS_FILE = PROCESSED_DATA_DIR / "recommendations.csv"
@@ -131,6 +136,8 @@ def filter_recommendations(df: pd.DataFrame) -> pd.DataFrame:
     """Apply sidebar filters to recommendation rows."""
     with st.sidebar:
         st.header("Filters")
+        st.caption("Narrow the recommendation list without changing the data.")
+        st.divider()
 
         type_options = unique_options(df, "recommendation_type")
         default_types = [
@@ -321,8 +328,10 @@ def reject_recommendation(recommendation: pd.Series) -> None:
     st.rerun()
 
 
-st.title("🤖 Recommendations")
-st.caption("Data-driven actions from processed inventory, sales, and supplier signals.")
+render_page_header(
+    "🤖 Recommendations",
+    "Data-driven actions from processed inventory, sales, and supplier signals.",
+)
 
 try:
     recommendations = load_recommendations()
@@ -344,10 +353,28 @@ high_priority_recommendations = int(
     recommendations["priority"].astype(str).str.lower().eq("high").sum()
 )
 
-kpi_columns = st.columns(3)
-kpi_columns[0].metric("Total Recommendations", f"{total_recommendations:,}")
-kpi_columns[1].metric("Pending", f"{pending_recommendations:,}")
-kpi_columns[2].metric("High Priority", f"{high_priority_recommendations:,}")
+kpi_columns = st.columns(3, gap="medium")
+with kpi_columns[0]:
+    render_kpi_card(
+        "Total Recommendations",
+        f"{total_recommendations:,}",
+        "Generated decision records",
+        "blue",
+    )
+with kpi_columns[1]:
+    render_kpi_card(
+        "Pending",
+        f"{pending_recommendations:,}",
+        "Awaiting review decision",
+        "purple",
+    )
+with kpi_columns[2]:
+    render_kpi_card(
+        "High Priority",
+        f"{high_priority_recommendations:,}",
+        "Needs faster attention",
+        "red",
+    )
 
 st.divider()
 
@@ -359,7 +386,7 @@ render_section_header(
 
 summary_cards = build_summary_card_data(recommendations)
 for row_start in range(0, len(summary_cards), 2):
-    card_columns = st.columns(2)
+    card_columns = st.columns(2, gap="large")
     for index, card_data in enumerate(summary_cards[row_start:row_start + 2]):
         with card_columns[index]:
             if render_summary_card(

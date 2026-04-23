@@ -11,10 +11,9 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 from backend.utils.data_loader import load_all_data  # noqa: E402
-from frontend.components.cards import render_summary_card  # noqa: E402
 from frontend.components.ui_components import (  # noqa: E402
     render_kpi_card,
-    render_section_header,
+    render_recommendation_summary,
 )
 from frontend.utils.page_helpers import (  # noqa: E402
     apply_page_style,
@@ -27,7 +26,7 @@ from frontend.utils.page_helpers import (  # noqa: E402
 
 st.set_page_config(
     page_title="AI Retail Inventory Optimizer",
-    page_icon="A",
+    page_icon="📊",
     layout="wide",
 )
 
@@ -365,8 +364,12 @@ def build_recommendation_summary_cards(recommendations: pd.DataFrame) -> list[di
 
 apply_page_style()
 
-st.title("📊 AI Retail Inventory Optimizer")
-st.caption("First dashboard built from the CSV files in data/raw.")
+with st.container():
+    st.title("AI Retail Inventory Optimizer")
+    st.caption(
+        "A data-grounded inventory command center for sales movement, current "
+        "stock health, and explainable recommendation workflows."
+    )
 
 try:
     data = load_dashboard_data()
@@ -402,51 +405,46 @@ if {"stock_level", "reorder_threshold"}.issubset(inventory.columns):
 dead_stock_count = processed_row_count("dead_stock_candidates.csv")
 recommendations = load_processed_output("recommendations.csv")
 
-render_section_header(
-    "📌",
-    "Business Overview",
-    "Core performance indicators from inventory, sales, and analyzer outputs.",
-)
-kpi_columns = st.columns(4)
+st.subheader("Business Overview")
+st.caption("Core performance indicators from inventory, sales, and analyzer outputs.")
+
+kpi_columns = st.columns(4, gap="medium")
 with kpi_columns[0]:
     render_kpi_card(
-        "📈 Total Sales",
+        "Total Sales",
         f"{total_sales_quantity:,}",
         f"{len(sales):,} sales rows in the current dataset",
         "blue",
     )
 with kpi_columns[1]:
     render_kpi_card(
-        "📦 Total Inventory",
+        "Total Inventory",
         f"{current_inventory_quantity:,}",
         inventory_source,
         "purple",
     )
 with kpi_columns[2]:
     render_kpi_card(
-        "⚠ Low Stock",
+        "Low Stock",
         f"{low_stock_count:,}",
         "Rows at or below reorder threshold",
         "orange",
     )
 with kpi_columns[3]:
     render_kpi_card(
-        "⏳ Dead Stock",
+        "Dead Stock",
         f"{dead_stock_count:,}",
         "Candidates from processed analyzer output",
         "red",
     )
 
 st.caption(f"Current inventory source: {inventory_source}")
-
 st.divider()
 
-render_section_header(
-    "📉",
-    "Performance Trends",
-    "Sales movement and inventory composition in a balanced two-column view.",
-)
-middle_left, middle_right = st.columns(2)
+st.subheader("Performance Trends")
+st.caption("Sales movement and inventory composition in a balanced two-column view.")
+
+middle_left, middle_right = st.columns(2, gap="large")
 with middle_left:
     render_chart_card(
         "Sales Trend",
@@ -465,26 +463,22 @@ with middle_right:
 
 st.divider()
 
-render_section_header(
-    "🤖",
-    "AI Recommendations",
-    "Grouped decision areas from the latest generated recommendations.",
-)
+st.subheader("AI Recommendations")
+st.caption("Grouped decision areas from the latest generated recommendations.")
 
 if recommendations.empty:
     st.info("No recommendations are available yet. Run the agents to generate them.")
 else:
     recommendation_cards = build_recommendation_summary_cards(recommendations)
     for row_start in range(0, len(recommendation_cards), 2):
-        card_columns = st.columns(2)
+        card_columns = st.columns(2, gap="large")
         for index, card_data in enumerate(recommendation_cards[row_start:row_start + 2]):
             with card_columns[index]:
-                if render_summary_card(
+                if render_recommendation_summary(
                     title=card_data["title"],
-                    icon=card_data["icon"],
                     summary=card_data["summary"],
                     insights=card_data["insights"],
-                    accent=card_data["accent"],
+                    icon=card_data["icon"],
                     button_key=card_data["button_key"],
                 ):
                     st.switch_page("pages/3_Recommendations.py")
