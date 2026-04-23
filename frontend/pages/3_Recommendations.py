@@ -10,7 +10,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-from frontend.utils.page_helpers import apply_page_style  # noqa: E402
+from frontend.components.cards import render_summary_card  # noqa: E402
+from frontend.components.ui_components import render_recommendation_card  # noqa: E402
+from frontend.utils.page_helpers import apply_page_style, render_section_header  # noqa: E402
 
 PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
 RECOMMENDATIONS_FILE = PROCESSED_DATA_DIR / "recommendations.csv"
@@ -130,9 +132,19 @@ def filter_recommendations(df: pd.DataFrame) -> pd.DataFrame:
     with st.sidebar:
         st.header("Filters")
 
+        type_options = unique_options(df, "recommendation_type")
+        default_types = [
+            recommendation_type
+            for recommendation_type in st.session_state.get(
+                "recommendation_type_filter",
+                [],
+            )
+            if recommendation_type in type_options
+        ]
         selected_types = st.multiselect(
             "Type",
-            unique_options(df, "recommendation_type"),
+            type_options,
+            default=default_types,
         )
         selected_products = st.multiselect(
             "Product",
@@ -171,54 +183,145 @@ def filter_recommendations(df: pd.DataFrame) -> pd.DataFrame:
     return filtered
 
 
-def show_recommendation_card(recommendation: pd.Series) -> None:
-    """Render one practical recommendation card."""
-    title = (
-        f"{recommendation.get('recommendation_type', '')}"
-        f" - {recommendation.get('product_name', '')}"
+def recommendation_type_rows(
+    recommendations: pd.DataFrame,
+    recommendation_types: list[str],
+) -> pd.DataFrame:
+    """Return rows for one recommendation summary group."""
+    if recommendations.empty or "recommendation_type" not in recommendations.columns:
+        return pd.DataFrame()
+
+    return recommendations[
+        recommendations["recommendation_type"].astype(str).isin(recommendation_types)
+    ].copy()
+
+
+def unique_count(df: pd.DataFrame, column: str) -> int:
+    if df.empty or column not in df.columns:
+        return 0
+    return df[column].fillna("").astype(str).replace("", pd.NA).dropna().nunique()
+
+
+def high_priority_count(df: pd.DataFrame) -> int:
+    if df.empty or "priority" not in df.columns:
+        return 0
+    return int(df["priority"].astype(str).str.lower().eq("high").sum())
+
+
+def pending_count(df: pd.DataFrame) -> int:
+    if df.empty or "status" not in df.columns:
+        return 0
+    return int(df["status"].astype(str).str.lower().eq("pending").sum())
+
+
+def most_common_action(df: pd.DataFrame) -> str:
+    if df.empty or "action" not in df.columns:
+        return "No current action available."
+
+    actions = df["action"].fillna("").astype(str)
+    actions = actions[actions != ""]
+    if actions.empty:
+        return "No current action available."
+
+    return actions.iloc[0]
+
+
+def build_summary_card_data(recommendations: pd.DataFrame) -> list[dict]:
+    """Build grouped summary data for recommendation cards."""
+    pricing_rows = recommendation_type_rows(
+        recommendations,
+        ["discount", "clearance"],
     )
-    store_id = recommendation.get("store_id", "")
-    if pd.notna(store_id) and str(store_id):
-        title += f" ({store_id})"
+    transfer_rows = recommendation_type_rows(
+        recommendations,
+        ["stock_transfer"],
+    )
+    dead_stock_rows = recommendation_type_rows(
+        recommendations,
+        ["clearance"],
+    )
+    risk_rows = recommendation_type_rows(
+        recommendations,
+        [
+            "supplier_risk_alert",
+            "overstock_alert",
+            "stockout_prevention_alert",
+        ],
+    )
 
-    with st.container(border=True):
-        top_left, top_right = st.columns([3, 1])
-        top_left.subheader(title.replace("_", " ").title())
-        top_right.markdown(f"**Priority:** {recommendation.get('priority', '')}")
-        top_right.markdown(f"**Status:** {recommendation.get('status', '')}")
+    return [
+        {
+            "title": "Pricing & Discounts",
+            "icon": "💸",
+            "summary": f"{unique_count(pricing_rows, 'product_id'):,} products affected",
+            "accent": "blue",
+            "button_key": "review_pricing",
+            "types": ["discount", "clearance"],
+            "insights": [
+                f"{len(pricing_rows):,} pricing recommendations available.",
+                f"{pending_count(pricing_rows):,} are still pending review.",
+                most_common_action(pricing_rows),
+            ],
+        },
+        {
+            "title": "Stock Transfer",
+            "icon": "↔",
+            "summary": f"{len(transfer_rows):,} transfer opportunities",
+            "accent": "purple",
+            "button_key": "review_transfer",
+            "types": ["stock_transfer"],
+            "insights": [
+                f"{unique_count(transfer_rows, 'store_id'):,} destination stores involved.",
+                f"{unique_count(transfer_rows, 'product_id'):,} products can be balanced across stores.",
+                most_common_action(transfer_rows),
+            ],
+        },
+        {
+            "title": "Dead Stock",
+            "icon": "⏳",
+            "summary": f"{unique_count(dead_stock_rows, 'product_id'):,} products affected",
+            "accent": "orange",
+            "button_key": "review_dead_stock",
+            "types": ["clearance"],
+            "insights": [
+                f"{len(dead_stock_rows):,} clearance recommendations found.",
+                f"{high_priority_count(dead_stock_rows):,} high priority clearance rows.",
+                most_common_action(dead_stock_rows),
+            ],
+        },
+        {
+            "title": "Risk Alerts",
+            "icon": "⚠",
+            "summary": f"{len(risk_rows):,} active alerts",
+            "accent": "red",
+            "button_key": "review_risk",
+            "types": [
+                "supplier_risk_alert",
+                "overstock_alert",
+                "stockout_prevention_alert",
+            ],
+            "insights": [
+                f"{high_priority_count(risk_rows):,} high priority risk alerts.",
+                f"{unique_count(risk_rows, 'product_id'):,} products need risk review.",
+                most_common_action(risk_rows),
+            ],
+        },
+    ]
 
-        st.markdown(f"**Action:** {recommendation.get('action', '')}")
-        st.markdown(f"**Reason:** {recommendation.get('reason', '')}")
-        st.markdown(f"**Evidence:** {recommendation.get('evidence', '')}")
 
-        if pd.notna(recommendation.get("suggested_quantity", "")):
-            quantity = str(recommendation.get("suggested_quantity", "")).strip()
-            if quantity:
-                st.caption(f"Suggested quantity: {quantity}")
-
-        button_left, button_right, _ = st.columns([1, 1, 5])
-        recommendation_id = recommendation.get("recommendation_id", "")
-        current_status = str(recommendation.get("status", "pending"))
-        disabled = current_status in {"approved", "rejected"}
-
-        if button_left.button(
-            "Approve",
-            key=f"approve_{recommendation_id}",
-            disabled=disabled,
-        ):
-            save_decision(recommendation, "approved")
-            st.rerun()
-
-        if button_right.button(
-            "Reject",
-            key=f"reject_{recommendation_id}",
-            disabled=disabled,
-        ):
-            save_decision(recommendation, "rejected")
-            st.rerun()
+def approve_recommendation(recommendation: pd.Series) -> None:
+    """Store an approval decision and refresh the page."""
+    save_decision(recommendation, "approved")
+    st.rerun()
 
 
-st.title("Recommendations")
+def reject_recommendation(recommendation: pd.Series) -> None:
+    """Store a rejection decision and refresh the page."""
+    save_decision(recommendation, "rejected")
+    st.rerun()
+
+
+st.title("🤖 Recommendations")
 st.caption("Data-driven actions from processed inventory, sales, and supplier signals.")
 
 try:
@@ -248,9 +351,36 @@ kpi_columns[2].metric("High Priority", f"{high_priority_recommendations:,}")
 
 st.divider()
 
+render_section_header(
+    "🧭",
+    "Recommendation Overview",
+    "Grouped decision areas from the generated recommendations.",
+)
+
+summary_cards = build_summary_card_data(recommendations)
+for row_start in range(0, len(summary_cards), 2):
+    card_columns = st.columns(2)
+    for index, card_data in enumerate(summary_cards[row_start:row_start + 2]):
+        with card_columns[index]:
+            if render_summary_card(
+                title=card_data["title"],
+                icon=card_data["icon"],
+                summary=card_data["summary"],
+                insights=card_data["insights"],
+                accent=card_data["accent"],
+                button_key=card_data["button_key"],
+            ):
+                st.session_state["recommendation_type_filter"] = card_data["types"]
+                st.rerun()
+
+st.divider()
+
 filtered_recommendations = filter_recommendations(recommendations)
-st.subheader("Recommendation List")
-st.caption(f"Showing {len(filtered_recommendations):,} of {total_recommendations:,}.")
+render_section_header(
+    "📋",
+    "Recommendation List",
+    f"Showing {len(filtered_recommendations):,} of {total_recommendations:,}.",
+)
 
 table_columns = [
     "recommendation_id",
@@ -277,6 +407,10 @@ else:
         hide_index=True,
     )
 
-    st.subheader("Review Actions")
+    st.subheader("✅ Review Actions")
     for _, recommendation in filtered_recommendations.iterrows():
-        show_recommendation_card(recommendation)
+        render_recommendation_card(
+            recommendation,
+            approve_callback=approve_recommendation,
+            reject_callback=reject_recommendation,
+        )

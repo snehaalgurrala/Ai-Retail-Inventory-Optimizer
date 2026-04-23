@@ -13,8 +13,10 @@ if str(PROJECT_ROOT) not in sys.path:
 from frontend.utils.page_helpers import (
     apply_page_style,
     load_data_or_stop,
+    render_chart_card,
     safe_sum,
-    show_chart,
+    style_bar_chart,
+    style_sales_trend_chart,
 )
 
 
@@ -26,7 +28,7 @@ st.set_page_config(
 
 apply_page_style()
 
-st.title("Sales")
+st.title("📈 Sales")
 st.caption("Sales history from sales.csv.")
 
 data = load_data_or_stop()
@@ -84,11 +86,16 @@ if not sales.empty and {"date", "quantity_sold"}.issubset(sales.columns):
         sales_trend,
         x="date",
         y="quantity_sold",
-        title="Sales Quantity Trend",
         markers=True,
         labels={"date": "Date", "quantity_sold": "Quantity Sold"},
     )
-show_chart(trend_chart, "No date-based sales trend data is available.")
+    trend_chart = style_sales_trend_chart(trend_chart)
+render_chart_card(
+    "Sales Quantity Trend",
+    "Daily sales movement with smoothed line, markers, and area fill.",
+    trend_chart,
+    "No date-based sales trend data is available.",
+)
 
 left_chart, right_chart = st.columns(2)
 
@@ -113,10 +120,15 @@ with left_chart:
             x="quantity_sold",
             y=product_label,
             orientation="h",
-            title="Top 10 Selling Products",
             labels={"quantity_sold": "Quantity Sold", product_label: "Product"},
         )
-    show_chart(product_chart, "No product-level sales data is available.")
+        product_chart = style_bar_chart(product_chart, "blue")
+    render_chart_card(
+        "Top 10 Selling Products",
+        "Products ranked by total quantity sold.",
+        product_chart,
+        "No product-level sales data is available.",
+    )
 
 with right_chart:
     store_chart = None
@@ -137,12 +149,17 @@ with right_chart:
             sales_by_store,
             x=store_label,
             y="quantity_sold",
-            title="Sales by Store",
             labels={store_label: "Store", "quantity_sold": "Quantity Sold"},
         )
-    show_chart(store_chart, "No store-level sales data is available.")
+        store_chart = style_bar_chart(store_chart, "green")
+    render_chart_card(
+        "Sales by Store",
+        "Store-level sales quantity across the available history.",
+        store_chart,
+        "No store-level sales data is available.",
+    )
 
-st.subheader("Sales Table")
+st.subheader("📋 Sales Table")
 if sales_view.empty:
     st.info("sales.csv is empty.")
 else:

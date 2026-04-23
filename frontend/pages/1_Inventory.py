@@ -12,8 +12,10 @@ if str(PROJECT_ROOT) not in sys.path:
 from frontend.utils.page_helpers import (
     apply_page_style,
     load_data_or_stop,
+    render_chart_card,
     safe_sum,
-    show_chart,
+    style_bar_chart,
+    style_donut_chart,
 )
 
 
@@ -25,7 +27,7 @@ st.set_page_config(
 
 apply_page_style()
 
-st.title("Inventory")
+st.title("📦 Inventory")
 st.caption("Current stock snapshot from inventory.csv.")
 
 data = load_data_or_stop()
@@ -84,10 +86,15 @@ with left_chart:
             stock_by_store,
             x="store",
             y="stock_level",
-            title="Current Stock by Store",
             labels={"store": "Store", "stock_level": "Stock Units"},
         )
-    show_chart(stock_by_store, "No stock-by-store data is available.")
+        stock_by_store = style_bar_chart(stock_by_store, "blue")
+    render_chart_card(
+        "Current Stock by Store",
+        "Total stock units available in each store.",
+        stock_by_store,
+        "No stock-by-store data is available.",
+    )
 
 with right_chart:
     stock_by_category = None
@@ -98,22 +105,26 @@ with right_chart:
             .sum()
             .sort_values("stock_level", ascending=False)
         )
-        stock_by_category = px.bar(
+        stock_by_category = px.pie(
             stock_by_category,
-            x="category",
-            y="stock_level",
-            title="Current Stock by Category",
-            labels={"category": "Category", "stock_level": "Stock Units"},
+            names="category",
+            values="stock_level",
         )
-    show_chart(stock_by_category, "No category stock data is available.")
+        stock_by_category = style_donut_chart(stock_by_category)
+    render_chart_card(
+        "Inventory Distribution",
+        "Donut view of stock units across product categories.",
+        stock_by_category,
+        "No category stock data is available.",
+    )
 
-st.subheader("Current Stock Table")
+st.subheader("📋 Current Stock Table")
 if inventory_view.empty:
     st.info("inventory.csv is empty.")
 else:
     st.dataframe(inventory_view, use_container_width=True, hide_index=True)
 
-st.subheader("Low Stock Rows")
+st.subheader("⚠ Low Stock Rows")
 if inventory_view.empty or not {"stock_level", "reorder_threshold"}.issubset(inventory_view.columns):
     st.info("Low stock status cannot be calculated from the available columns.")
 else:

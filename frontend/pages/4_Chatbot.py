@@ -447,7 +447,7 @@ SAMPLE_QUESTIONS = [
 ]
 
 
-st.title("Chatbot")
+st.title("💬 Chatbot")
 st.caption("Rule-based project assistant grounded only in processed retail data.")
 
 data = load_chatbot_data()
@@ -475,7 +475,7 @@ if question:
     st.session_state["chatbot_question"] = question
 
 if not st.session_state["chatbot_question"]:
-    st.subheader("Ask a Data Question")
+    st.subheader("💡 Ask a Data Question")
     st.write(
         "Use the sample questions in the sidebar or ask your own project question. Answers are generated from the processed CSV files only."
     )
