@@ -1,4 +1,3 @@
-from datetime import datetime
 from pathlib import Path
 import sys
 
@@ -11,20 +10,14 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 from backend.services.order_service import (  # noqa: E402
+    ORDERS_FILE,
+    STORES_FILE,
     get_available_products_by_store,
+    place_order,
     validate_order,
 )
 from frontend.utils.page_helpers import apply_page_style, render_page_header  # noqa: E402
 
-
-RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
-PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
-STORES_FILE = RAW_DATA_DIR / "stores.csv"
-INVENTORY_FILE = RAW_DATA_DIR / "inventory.csv"
-PRODUCTS_FILE = RAW_DATA_DIR / "products.csv"
-SALES_FILE = RAW_DATA_DIR / "sales.csv"
-TRANSACTIONS_FILE = RAW_DATA_DIR / "transactions.csv"
-ORDERS_FILE = PROCESSED_DATA_DIR / "customer_orders.csv"
 
 ORDER_COLUMNS = [
     "order_id",
@@ -51,20 +44,16 @@ apply_page_style()
 
 
 @st.cache_data
-def load_order_page_data() -> dict[str, pd.DataFrame]:
-    """Load the raw datasets used by the Orders page."""
-    return {
-        "stores": pd.read_csv(STORES_FILE),
-        "inventory": pd.read_csv(INVENTORY_FILE),
-        "products": pd.read_csv(PRODUCTS_FILE),
-        "sales": pd.read_csv(SALES_FILE),
-        "transactions": pd.read_csv(TRANSACTIONS_FILE),
-        "orders": load_orders(),
-    }
+def load_stores() -> pd.DataFrame:
+    """Load store data for the orders page."""
+    if not STORES_FILE.exists():
+        return pd.DataFrame()
+    return pd.read_csv(STORES_FILE)
 
 
+@st.cache_data
 def load_orders() -> pd.DataFrame:
-    """Load existing customer orders when available."""
+    """Load saved customer orders when available."""
     if not ORDERS_FILE.exists():
         return pd.DataFrame(columns=ORDER_COLUMNS)
 
@@ -80,246 +69,54 @@ def load_orders() -> pd.DataFrame:
     return orders[ORDER_COLUMNS].copy()
 
 
-def _next_prefixed_id(existing_df: pd.DataFrame, column: str, prefix: str) -> str:
-    """Generate the next sequential ID using an existing prefix pattern."""
-    if existing_df.empty or column not in existing_df.columns:
-        return f"{prefix}000001"
-
-    series = existing_df[column].fillna("").astype(str)
-    numeric_values = pd.to_numeric(
-        series.str.replace(prefix, "", regex=False),
-        errors="coerce",
-    ).dropna()
-    next_number = int(numeric_values.max()) + 1 if not numeric_values.empty else 1
-
-    if prefix == "TXN":
-        return f"{prefix}{str(next_number).zfill(7)}"
-    return f"{prefix}{str(next_number).zfill(6)}"
-
-
-def save_orders(orders: pd.DataFrame) -> None:
-    """Write customer orders safely to processed data."""
-    PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    writable_orders = orders.copy()
-    for column in ORDER_COLUMNS:
-        if column not in writable_orders.columns:
-            writable_orders[column] = ""
-    writable_orders[ORDER_COLUMNS].to_csv(ORDERS_FILE, index=False)
-
-
-def _cart_key(store_id: str) -> str:
-    """Return the session-state key for the selected store cart."""
-    return f"orders_cart_{store_id}"
-
-
-def get_cart(store_id: str) -> list[dict]:
-    """Return the current in-memory cart for one store."""
-    return list(st.session_state.get(_cart_key(store_id), []))
-
-
-def set_cart(store_id: str, cart_items: list[dict]) -> None:
-    """Persist cart items for the selected store."""
-    st.session_state[_cart_key(store_id)] = cart_items
-
-
-def add_to_cart(
-    store_id: str,
-    product_row: pd.Series,
-    quantity_ordered: int,
-) -> tuple[bool, str]:
-    """Add one product line to the current cart."""
-    if quantity_ordered <= 0:
-        return False, "Enter a valid order quantity."
-
-    product_id = str(product_row.get("product_id", ""))
-    available_quantity = int(
-        pd.to_numeric(product_row.get("stock_level", 0), errors="coerce")
-    )
-    if quantity_ordered > available_quantity:
-        return False, "Insufficient stock available"
-
-    cart_items = get_cart(store_id)
-    unit_price = float(
-        pd.to_numeric(product_row.get("selling_price", 0), errors="coerce")
-    )
-
-    for item in cart_items:
-        if str(item.get("product_id", "")) == product_id:
-            item["quantity_ordered"] = int(quantity_ordered)
-            item["available_quantity"] = available_quantity
-            item["unit_price"] = unit_price
-            item["total_amount"] = int(quantity_ordered) * unit_price
-            set_cart(store_id, cart_items)
-            return True, f"{product_row.get('product_name', 'Product')} updated in the order."
-
-    cart_items.append(
-        {
-            "product_id": product_id,
-            "product_name": str(product_row.get("product_name", "")),
-            "category": str(product_row.get("category", "")),
-            "quantity_ordered": int(quantity_ordered),
-            "available_quantity": available_quantity,
-            "unit_price": unit_price,
-            "total_amount": int(quantity_ordered) * unit_price,
-        }
-    )
-    set_cart(store_id, cart_items)
-    return True, f"{product_row.get('product_name', 'Product')} added to the order."
-
-
-def remove_from_cart(store_id: str, product_id: str) -> None:
-    """Remove one product from the current cart."""
-    cart_items = [
-        item
-        for item in get_cart(store_id)
-        if str(item.get("product_id", "")) != str(product_id)
-    ]
-    set_cart(store_id, cart_items)
-
-
-def place_order(
-    store_row: pd.Series,
-    cart_items: list[dict],
-) -> tuple[bool, str]:
-    """Persist a multi-product order and update inventory, sales, and transactions."""
-    if not cart_items:
-        return False, "Add at least one product to place an order."
-
-    inventory = pd.read_csv(INVENTORY_FILE)
-    sales = pd.read_csv(SALES_FILE)
-    transactions = pd.read_csv(TRANSACTIONS_FILE)
-    orders = load_orders()
-
-    store_id = str(store_row.get("store_id", ""))
-    order_date = datetime.now().date().isoformat()
-    order_id = _next_prefixed_id(orders, "order_id", "ORD")
-
-    sale_start = _next_prefixed_id(sales, "sale_id", "SALE")
-    sale_number = int(str(sale_start).replace("SALE", ""))
-    transaction_start = _next_prefixed_id(transactions, "transaction_id", "TXN")
-    transaction_number = int(str(transaction_start).replace("TXN", ""))
-
-    order_records = []
-    sales_records = []
-    transaction_records = []
-
-    for item in cart_items:
-        product_id = str(item.get("product_id", ""))
-        quantity_ordered = int(item.get("quantity_ordered", 0))
-        inventory_mask = (
-            inventory["store_id"].astype(str).eq(store_id)
-            & inventory["product_id"].astype(str).eq(product_id)
-        )
-        if not inventory_mask.any():
-            return False, f"Product {product_id} is not available in the chosen store."
-
-        current_stock = pd.to_numeric(
-            inventory.loc[inventory_mask, "stock_level"],
-            errors="coerce",
-        ).fillna(0)
-        available_quantity = int(current_stock.iloc[0]) if not current_stock.empty else 0
-        if quantity_ordered > available_quantity:
-            return False, f"Insufficient stock available for {item.get('product_name', product_id)}."
-
-        unit_price = float(pd.to_numeric(item.get("unit_price", 0), errors="coerce"))
-        total_amount = float(quantity_ordered * unit_price)
-
-        inventory.loc[inventory_mask, "stock_level"] = available_quantity - quantity_ordered
-        inventory.loc[inventory_mask, "last_updated"] = order_date
-
-        order_records.append(
-            {
-                "order_id": order_id,
-                "order_date": order_date,
-                "store_id": store_id,
-                "store_name": str(store_row.get("store_name", "")),
-                "city": str(store_row.get("city", "")),
-                "product_id": product_id,
-                "product_name": str(item.get("product_name", "")),
-                "quantity_ordered": quantity_ordered,
-                "unit_price": unit_price,
-                "total_amount": total_amount,
-                "status": "placed",
-            }
-        )
-        sales_records.append(
-            {
-                "sale_id": f"SALE{str(sale_number).zfill(6)}",
-                "date": order_date,
-                "product_id": product_id,
-                "store_id": store_id,
-                "quantity_sold": quantity_ordered,
-                "selling_price": unit_price,
-            }
-        )
-        transaction_records.append(
-            {
-                "transaction_id": f"TXN{str(transaction_number).zfill(7)}",
-                "date": order_date,
-                "transaction_type": "sale",
-                "product_id": product_id,
-                "store_id": store_id,
-                "quantity": quantity_ordered,
-                "source": "customer_order",
-                "remarks": f"Customer order {order_id}",
-            }
-        )
-        sale_number += 1
-        transaction_number += 1
-
-    updated_orders = pd.concat([orders, pd.DataFrame(order_records)], ignore_index=True)
-    updated_sales = pd.concat([sales, pd.DataFrame(sales_records)], ignore_index=True)
-    updated_transactions = pd.concat(
-        [transactions, pd.DataFrame(transaction_records)],
-        ignore_index=True,
-    )
-
-    inventory.to_csv(INVENTORY_FILE, index=False)
-    updated_sales.to_csv(SALES_FILE, index=False)
-    updated_transactions.to_csv(TRANSACTIONS_FILE, index=False)
-    save_orders(updated_orders)
-
-    return True, f"Order {order_id} placed successfully with {len(cart_items)} products."
+def clear_order_caches() -> None:
+    """Clear cached order page data after a successful write."""
+    load_stores.clear()
+    load_orders.clear()
+    st.cache_data.clear()
 
 
 render_page_header(
-    "🧾 Orders",
-    "Create customer orders for one store at a time and update inventory, sales, and transactions safely.",
+    "Orders",
+    "Select a store, choose a product, validate quantity, and place a customer order using the backend order service.",
 )
 
+receipt = st.session_state.get("latest_order_receipt")
+if receipt:
+    st.success(receipt.get("message", "Order placed successfully."))
+
 try:
-    page_data = load_order_page_data()
+    stores = load_stores()
 except Exception as error:
-    st.error("Could not load order page data.")
+    st.error("Could not load store data.")
     st.exception(error)
     st.stop()
-
-stores = page_data["stores"]
-inventory = page_data["inventory"]
-products = page_data["products"]
-orders = page_data["orders"]
 
 if stores.empty:
     st.info("No store data is available.")
     st.stop()
 
 store_options = stores["store_id"].astype(str).tolist()
-selected_store_id = st.selectbox("Select Store", store_options)
+selected_store_id = st.selectbox("1. Select Store", store_options)
 selected_store = stores[stores["store_id"].astype(str).eq(selected_store_id)].iloc[0]
 
 store_left, store_right = st.columns([2, 3], gap="large")
 with store_left:
     with st.container(border=True):
-        st.markdown(f"**Store Name:** {selected_store.get('store_name', '')}")
+        st.markdown("**Selected Store**")
+        st.caption(f"Store ID: {selected_store.get('store_id', '')}")
+        st.caption(f"Store Name: {selected_store.get('store_name', '')}")
         st.caption(f"City / Location: {selected_store.get('city', '')}")
         if "capacity" in selected_store.index:
-            st.caption(f"Store Capacity: {selected_store.get('capacity', '')}")
+            st.caption(f"Capacity: {selected_store.get('capacity', '')}")
 
 store_inventory_view = get_available_products_by_store(selected_store_id)
 if not store_inventory_view.empty:
     store_inventory_view = store_inventory_view.copy()
     store_inventory_view["product_label"] = (
-        store_inventory_view["product_name"].fillna(store_inventory_view["product_id"]).astype(str)
+        store_inventory_view["product_name"]
+        .fillna(store_inventory_view["product_id"])
+        .astype(str)
         + " ("
         + store_inventory_view["category"].fillna("Unknown").astype(str)
         + ")"
@@ -327,7 +124,7 @@ if not store_inventory_view.empty:
 
 with store_right:
     with st.container(border=True):
-        st.markdown("**Store Inventory**")
+        st.markdown("**2. Available Products For This Store**")
         if store_inventory_view.empty:
             st.caption("No inventory rows are available for this store.")
         else:
@@ -356,21 +153,19 @@ with store_right:
 
 st.divider()
 
-st.subheader("Build Order")
-st.caption("Add one or more products from this store to the current order.")
-
 if store_inventory_view.empty:
-    st.info("Orders cannot be placed because this store has no available inventory records.")
+    st.info("Orders cannot be placed because this store has no available products.")
     st.stop()
 
 product_options = store_inventory_view["product_id"].astype(str).tolist()
 selected_product_id = st.selectbox(
-    "Select Product",
+    "3. Select Product",
     product_options,
     format_func=lambda product_id: store_inventory_view[
         store_inventory_view["product_id"].astype(str).eq(str(product_id))
     ]["product_label"].iloc[0],
 )
+
 selected_product = store_inventory_view[
     store_inventory_view["product_id"].astype(str).eq(selected_product_id)
 ].iloc[0]
@@ -382,42 +177,48 @@ unit_price = float(
     pd.to_numeric(selected_product.get("selling_price", 0), errors="coerce")
 )
 
-order_col, info_col = st.columns([2, 3], gap="large")
-with order_col:
+order_left, order_right = st.columns([2, 3], gap="large")
+with order_left:
     quantity_ordered = st.number_input(
-        "Order Quantity",
+        "4. Enter Quantity",
         min_value=1,
         step=1,
         value=1,
     )
+
     validation = validate_order(
         selected_store_id,
         selected_product_id,
         int(quantity_ordered),
     )
-    can_add_to_order = validation["success"]
-    if not can_add_to_order:
-        st.warning(validation["message"])
+    is_valid_order = validation.get("success", False)
+
+    if not is_valid_order:
+        st.warning(validation.get("message", "Order validation failed."))
+    else:
+        st.info("5. Quantity validated successfully.")
 
     if st.button(
-        "Add to Order",
+        "6. Place Order",
         use_container_width=True,
-        disabled=not can_add_to_order,
+        disabled=not is_valid_order,
     ):
-        success, message = add_to_cart(
+        result = place_order(
             selected_store_id,
-            selected_product,
+            selected_product_id,
             int(quantity_ordered),
         )
-        if success:
-            st.success(message)
+        if result.get("success", False):
+            st.session_state["latest_order_receipt"] = result
+            clear_order_caches()
             st.rerun()
         else:
-            st.error(message)
+            st.error(result.get("message", "Order could not be placed."))
 
-with info_col:
+with order_right:
     with st.container(border=True):
-        st.markdown(f"**Product:** {selected_product.get('product_name', '')}")
+        st.markdown("**Order Preview**")
+        st.caption(f"Product: {selected_product.get('product_name', '')}")
         st.caption(f"Category: {selected_product.get('category', '')}")
         st.caption(f"Available Quantity: {available_quantity}")
         st.caption(f"Unit Price: {unit_price:,.2f}")
@@ -425,86 +226,32 @@ with info_col:
 
 st.divider()
 
-st.subheader("Current Order")
-cart_items = get_cart(selected_store_id)
-if not cart_items:
-    st.info("No products have been added to the current order yet.")
+st.subheader("7. Order Status")
+if receipt:
+    order_data = receipt.get("order_data", {})
+    with st.container(border=True):
+        st.markdown("**8. Order Receipt**")
+        st.caption(f"Order ID: {order_data.get('order_id', '')}")
+        st.caption(f"Order Date: {order_data.get('order_date', '')}")
+        st.caption(f"Store: {order_data.get('store_name', '')} ({order_data.get('store_id', '')})")
+        st.caption(f"City: {order_data.get('city', '')}")
+        st.caption(f"Product: {order_data.get('product_name', '')} ({order_data.get('product_id', '')})")
+        st.caption(f"Quantity Ordered: {order_data.get('quantity_ordered', '')}")
+        st.caption(f"Unit Price: {float(order_data.get('unit_price', 0)):,.2f}")
+        st.caption(f"Total Amount: {float(order_data.get('total_amount', 0)):,.2f}")
+        st.caption(f"Status: {order_data.get('status', '')}")
+        st.caption(f"Remaining Inventory: {order_data.get('remaining_stock', '')}")
+
+    st.info('9. Go to the Home page and click "Run / Refresh Agents" to refresh recommendations after this order.')
 else:
-    cart_df = pd.DataFrame(cart_items)
-    cart_df["line_status"] = cart_df.apply(
-        lambda row: (
-            "Insufficient stock available"
-            if int(row.get("quantity_ordered", 0)) > int(row.get("available_quantity", 0))
-            else "Ready"
-        ),
-        axis=1,
-    )
-    st.dataframe(
-        cart_df[
-            [
-                "product_id",
-                "product_name",
-                "category",
-                "quantity_ordered",
-                "available_quantity",
-                "unit_price",
-                "total_amount",
-                "line_status",
-            ]
-        ],
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    invalid_items = cart_df[cart_df["line_status"].eq("Insufficient stock available")]
-    if not invalid_items.empty:
-        st.warning("One or more items in the current order have insufficient stock available.")
-
-    cart_total = float(pd.to_numeric(cart_df["total_amount"], errors="coerce").fillna(0).sum())
-    st.caption(f"Current order total: {cart_total:,.2f}")
-
-    action_left, action_right = st.columns(2, gap="large")
-    with action_left:
-        remove_product_id = st.selectbox(
-            "Remove Product",
-            [""] + cart_df["product_id"].astype(str).tolist(),
-            format_func=lambda product_id: (
-                "Select a product"
-                if product_id == ""
-                else f"{product_id} - {cart_df[cart_df['product_id'].astype(str).eq(product_id)]['product_name'].iloc[0]}"
-            ),
-        )
-        if st.button(
-            "Remove Selected Product",
-            use_container_width=True,
-            disabled=remove_product_id == "",
-        ):
-            remove_from_cart(selected_store_id, remove_product_id)
-            st.rerun()
-    with action_right:
-        if st.button(
-            "Place Full Order",
-            use_container_width=True,
-            disabled=not invalid_items.empty,
-        ):
-            success, message = place_order(selected_store, cart_items)
-            if success:
-                set_cart(selected_store_id, [])
-                load_order_page_data.clear()
-                st.success(message)
-                st.rerun()
-            else:
-                st.error(message)
+    st.info("Place an order to see the latest receipt here.")
 
 st.divider()
 
 st.subheader("Recent Orders")
+orders = load_orders()
 if orders.empty:
     st.info("No customer orders have been placed yet.")
 else:
     recent_orders = orders.sort_values("order_date", ascending=False).head(20)
-    st.dataframe(
-        recent_orders,
-        use_container_width=True,
-        hide_index=True,
-    )
+    st.dataframe(recent_orders, use_container_width=True, hide_index=True)

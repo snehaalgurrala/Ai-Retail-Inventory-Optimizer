@@ -1,21 +1,21 @@
 product_id,product_name,category,cost_price,selling_price,shelf_life_days,reorder_threshold,supplier_id,total_quantity_sold,total_revenue,recent_7_day_quantity_sold,recent_30_day_quantity_sold,last_sale_date,current_stock_level,supplier_name,avg_delivery_days,reliability_score
-P101,Milk,Dairy,40,60,7,20,SUP1,1523,91380,207,807,2026-04-21,95,Fresh Dairy Suppliers,2,0.95
-P102,Bread,Bakery,20,35,3,15,SUP2,56,1960,6,25,2026-04-21,23,Daily Bakery Distributors,1,0.92
-P103,Rice 1kg,Grains,50,80,180,30,SUP3,318,25440,41,151,2026-04-21,380,Grain & Grocery Wholesale,4,0.9
-P104,Cooking Oil 1L,Grocery,120,180,365,10,SUP3,1029,185220,132,524,2026-04-21,75,Grain & Grocery Wholesale,4,0.9
-P105,Eggs (12 pack),Dairy,60,90,10,25,SUP1,959,86310,132,514,2026-04-21,290,Fresh Dairy Suppliers,2,0.95
-P106,Biscuits Pack,Snacks,10,20,120,40,SUP5,247,4940,32,121,2026-04-21,520,Snacks & Beverages Hub,3,0.91
-P107,Soft Drink 1L,Beverages,30,50,180,20,SUP5,1530,76500,202,789,2026-04-21,90,Snacks & Beverages Hub,3,0.91
-P108,Chocolates,Snacks,20,40,150,20,SUP5,803,32120,104,416,2026-04-21,145,Snacks & Beverages Hub,3,0.91
-P109,Curd,Dairy,30,50,5,15,SUP1,799,39950,98,413,2026-04-21,73,Fresh Dairy Suppliers,2,0.95
-P110,Butter,Dairy,80,120,20,20,SUP1,781,93720,104,411,2026-04-21,115,Fresh Dairy Suppliers,2,0.95
-P111,Cheese,Dairy,150,250,30,20,SUP1,754,188500,102,405,2026-04-21,110,Fresh Dairy Suppliers,2,0.95
-P112,Bananas,Fruits,20,40,4,10,SUP4,771,30840,104,407,2026-04-21,55,Farm Fresh Produce,2,0.88
-P113,Apples,Fruits,60,120,10,15,SUP4,773,92760,108,400,2026-04-21,81,Farm Fresh Produce,2,0.88
-P114,Tomatoes,Vegetables,15,30,3,10,SUP4,38,1140,4,21,2026-04-20,34,Farm Fresh Produce,2,0.88
-P115,Potatoes,Vegetables,20,35,15,25,SUP4,783,27405,103,405,2026-04-21,155,Farm Fresh Produce,2,0.88
-P116,Noodles Pack,Snacks,20,40,180,30,SUP5,331,13240,45,170,2026-04-21,205,Snacks & Beverages Hub,3,0.91
-P117,Chips,Snacks,10,20,90,25,SUP5,233,4660,22,117,2026-04-21,185,Snacks & Beverages Hub,3,0.91
-P118,Ice Cream,Frozen,100,180,30,10,SUP6,761,136980,93,389,2026-04-21,46,Frozen Foods Distributor,5,0.86
-P119,Tea Powder,Grocery,200,300,365,20,SUP3,794,238200,104,408,2026-04-21,255,Grain & Grocery Wholesale,4,0.9
-P120,Coffee Powder,Grocery,250,400,365,15,SUP3,757,302800,100,380,2026-04-21,235,Grain & Grocery Wholesale,4,0.9
+P101,Milk,Dairy,40,60,7,20,SUP1,1523,91380.0,129.0,727,2026-04-21,95,Fresh Dairy Suppliers,2,0.95
+P102,Bread,Bakery,20,35,3,15,SUP2,56,1960.0,3.0,23,2026-04-21,23,Daily Bakery Distributors,1,0.92
+P103,Rice 1kg,Grains,50,80,180,30,SUP3,318,25440.0,24.0,136,2026-04-21,380,Grain & Grocery Wholesale,4,0.9
+P104,Cooking Oil 1L,Grocery,120,180,365,10,SUP3,1029,185220.0,80.0,470,2026-04-21,75,Grain & Grocery Wholesale,4,0.9
+P105,Eggs (12 pack),Dairy,60,90,10,25,SUP1,959,86310.0,83.0,462,2026-04-21,290,Fresh Dairy Suppliers,2,0.95
+P106,Biscuits Pack,Snacks,10,20,120,40,SUP5,248,4960.0,21.0,111,2026-04-24,519,Snacks & Beverages Hub,3,0.91
+P107,Soft Drink 1L,Beverages,30,50,180,20,SUP5,1530,76500.0,129.0,710,2026-04-21,90,Snacks & Beverages Hub,3,0.91
+P108,Chocolates,Snacks,20,40,150,20,SUP5,803,32120.0,61.0,383,2026-04-21,145,Snacks & Beverages Hub,3,0.91
+P109,Curd,Dairy,30,50,5,15,SUP1,799,39950.0,64.0,371,2026-04-21,73,Fresh Dairy Suppliers,2,0.95
+P110,Butter,Dairy,80,120,20,20,SUP1,781,93720.0,62.0,378,2026-04-21,115,Fresh Dairy Suppliers,2,0.95
+P111,Cheese,Dairy,150,250,30,20,SUP1,754,188500.0,67.0,371,2026-04-21,110,Fresh Dairy Suppliers,2,0.95
+P112,Bananas,Fruits,20,40,4,10,SUP4,771,30840.0,67.0,367,2026-04-21,55,Farm Fresh Produce,2,0.88
+P113,Apples,Fruits,60,120,10,15,SUP4,773,92760.0,67.0,365,2026-04-21,81,Farm Fresh Produce,2,0.88
+P114,Tomatoes,Vegetables,15,30,3,10,SUP4,38,1140.0,3.0,18,2026-04-20,34,Farm Fresh Produce,2,0.88
+P115,Potatoes,Vegetables,20,35,15,25,SUP4,783,27405.0,62.0,376,2026-04-21,155,Farm Fresh Produce,2,0.88
+P116,Noodles Pack,Snacks,20,40,180,30,SUP5,331,13240.0,26.0,150,2026-04-21,205,Snacks & Beverages Hub,3,0.91
+P117,Chips,Snacks,10,20,90,25,SUP5,233,4660.0,18.0,101,2026-04-21,185,Snacks & Beverages Hub,3,0.91
+P118,Ice Cream,Frozen,100,180,30,10,SUP6,761,136980.0,55.0,345,2026-04-21,46,Frozen Foods Distributor,5,0.86
+P119,Tea Powder,Grocery,200,300,365,20,SUP3,794,238200.0,63.0,371,2026-04-21,255,Grain & Grocery Wholesale,4,0.9
+P120,Coffee Powder,Grocery,250,400,365,15,SUP3,757,302800.0,63.0,343,2026-04-21,235,Grain & Grocery Wholesale,4,0.9

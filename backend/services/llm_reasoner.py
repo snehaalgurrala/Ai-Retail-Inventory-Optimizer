@@ -65,14 +65,23 @@ def get_llm_settings() -> dict[str, Any]:
     if not provider:
         provider = "gemini" if gemini_api_key else "openai"
 
-    return {
-        "provider": provider,
-        "api_key": gemini_api_key or os.getenv("LLM_API_KEY", "").strip(),
-        "model": gemini_model or os.getenv("LLM_MODEL", "").strip(),
-        "embedding_model": (
+    if provider == "gemini":
+        api_key = gemini_api_key or os.getenv("LLM_API_KEY", "").strip()
+        model = gemini_model or os.getenv("LLM_MODEL", "").strip()
+        embedding_model = (
             os.getenv("GEMINI_EMBEDDING_MODEL", "").strip()
             or os.getenv("EMBEDDING_MODEL", "").strip()
-        ),
+        )
+    else:
+        api_key = os.getenv("LLM_API_KEY", "").strip()
+        model = os.getenv("LLM_MODEL", "").strip()
+        embedding_model = os.getenv("EMBEDDING_MODEL", "").strip()
+
+    return {
+        "provider": provider,
+        "api_key": api_key,
+        "model": model,
+        "embedding_model": embedding_model,
         "base_url": os.getenv("LLM_BASE_URL", "").strip(),
         "timeout": int(
             os.getenv("LLM_TIMEOUT_SECONDS", DEFAULT_LLM_TIMEOUT_SECONDS)
