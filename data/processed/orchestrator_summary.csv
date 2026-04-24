@@ -1,2 +1,2 @@
 run_time,database_health,total_recommendations,high_priority_alerts,last_agent_run_time,summary
-2026-04-24T10:44:25,Healthy (12/12),101,31,2026-04-24T10:44:25,11 low stock items. 26 stockout risks. 26 overstock rows. 15 high demand items. 101 active recommendations.
+2026-04-24T12:14:54,Healthy (12/12),96,33,2026-04-24T12:14:54,11 low stock items. 15 stockout risks. 24 overstock rows. 16 high demand items. 96 active recommendations.
