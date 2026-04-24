@@ -20,12 +20,12 @@ from frontend.utils.page_helpers import apply_page_style, render_page_header  # 
 
 MAX_CHAT_MEMORY_MESSAGES = 6
 SAMPLE_QUESTIONS = [
-    "Which items are low in stock?",
-    "What are the dead stock items?",
-    "Which store has excess stock?",
+    "Which products are low in stock?",
+    "What should we reorder?",
+    "Which supplier is risky?",
     "Which store needs transfer?",
     "Which products are high demand?",
-    "Which supplier is risky?",
+    "Which store has excess stock?",
     "What changed after the latest order?",
     "Which agent found the highest risk?",
     "What should we reorder now?",
@@ -40,14 +40,10 @@ SAMPLE_QUESTIONS = [
 def _welcome_payload() -> dict:
     """Return the first-time greeting for new chat sessions."""
     return {
-        "answer": "Hello! I can help you with inventory, sales, supplier risk, and recommendations.",
-        "explanation": "Ask naturally and I’ll keep the answer short, grounded, and practical.",
-        "suggestions": [
-            "Which products are low in stock?",
-            "What should we reorder now?",
-            "Which store needs transfer?",
-        ],
-        "follow_up_question": "Do you want store-wise analysis or supplier risks too?",
+        "answer": "Hi there. I can help with inventory, sales, supplier risk, and recommendations.",
+        "explanation": "Ask naturally and I'll keep it short, practical, and grounded in the data.",
+        "suggestions": [],
+        "follow_up_question": "Want store-wise detail or supplier risk first?",
         "confidence": "high",
         "supporting_points": [],
         "cannot_answer": False,
@@ -112,10 +108,9 @@ def _reset_chat() -> None:
 def _display_supporting_data(df: pd.DataFrame) -> None:
     """Render supporting records beneath the answer."""
     if df.empty:
-        st.caption("No supporting records were retrieved for this answer.")
         return
 
-    st.caption("Supporting project data")
+    st.caption("Supporting data")
     st.dataframe(df, use_container_width=True, hide_index=True)
 
 
@@ -125,6 +120,52 @@ def _stream_text(text: str):
     for word in words:
         yield word + " "
         time.sleep(0.01)
+
+
+def _assistant_memory_text(
+    payload: dict,
+    supporting_records: list[dict] | None = None,
+) -> str:
+    """Create a compact assistant memory entry for follow-up questions."""
+    parts = []
+
+    answer = str(payload.get("answer", "") or "").strip()
+    if answer:
+        parts.append(f"answer: {answer}")
+
+    explanation = str(payload.get("explanation", "") or "").strip()
+    if explanation:
+        parts.append(f"explanation: {explanation}")
+
+    supporting_points = [
+        str(point).strip()
+        for point in payload.get("supporting_points", [])
+        if str(point).strip()
+    ]
+    if supporting_points:
+        parts.append("evidence: " + " | ".join(supporting_points[:2]))
+
+    records = supporting_records or []
+    if records:
+        first_record = records[0]
+        summary_bits = []
+        for column in [
+            "product_name",
+            "store_name",
+            "store_id",
+            "recommendation_type",
+            "reason",
+            "evidence",
+            "source_agent",
+            "agent_name",
+        ]:
+            value = str(first_record.get(column, "") or "").strip()
+            if value:
+                summary_bits.append(f"{column}: {value}")
+        if summary_bits:
+            parts.append("top_record: " + ", ".join(summary_bits[:4]))
+
+    return "\n".join(parts).strip() or answer
 
 
 def _render_assistant_message(
@@ -143,14 +184,14 @@ def _render_assistant_message(
 
     explanation = str(payload.get("explanation", "") or "").strip()
     if explanation:
-        st.caption(explanation)
+        st.write(explanation)
 
     supporting_points = [
         point for point in payload.get("supporting_points", []) if str(point).strip()
     ]
     if supporting_points:
-        st.markdown("**Insights**")
-        for point in supporting_points:
+        st.caption("Key evidence")
+        for point in supporting_points[:2]:
             st.write(f"- {point}")
 
     suggestions = [
@@ -159,14 +200,11 @@ def _render_assistant_message(
         if str(suggestion).strip()
     ]
     if suggestions:
-        st.markdown("**Recommendations**")
-        for suggestion in suggestions:
-            st.write(f"- {suggestion}")
+        st.caption(f"Suggestion: {suggestions[0]}")
 
     follow_up_question = str(payload.get("follow_up_question", "") or "").strip()
     if follow_up_question:
-        st.markdown("**Next step**")
-        st.write(follow_up_question)
+        st.caption(follow_up_question)
 
     _display_supporting_data(supporting_df)
 
@@ -186,12 +224,12 @@ def _render_assistant_message(
             unique_sources.append(source)
 
         if unique_sources:
-            st.caption("Retrieved sources")
-            st.dataframe(
-                pd.DataFrame(unique_sources),
-                use_container_width=True,
-                hide_index=True,
-            )
+            with st.expander("Sources", expanded=False):
+                st.dataframe(
+                    pd.DataFrame(unique_sources),
+                    use_container_width=True,
+                    hide_index=True,
+                )
 
 
 st.set_page_config(
@@ -204,7 +242,7 @@ apply_page_style()
 
 render_page_header(
     "Chatbot",
-    "Grounded project assistant using the latest inventory, sales, orders, recommendations, agent outputs, and orchestrator summary data.",
+    "A grounded retail assistant for inventory, sales, recommendations, and agent insights.",
 )
 
 with st.container(border=True):
@@ -212,8 +250,7 @@ with st.container(border=True):
     with left_col:
         st.markdown("**Retail Decision Assistant**")
         st.caption(
-            "Ask questions naturally, follow up naturally, and review grounded evidence before acting. "
-            "This assistant uses retrieved project data to explain risks, recommendations, and next steps."
+            "Ask naturally and I'll keep the answer short, practical, and grounded in your latest data."
         )
     with right_col:
         if st.button("Clear Chat", use_container_width=True):
@@ -222,19 +259,17 @@ with st.container(border=True):
 config_status = _chatbot_config_status()
 if not config_status["configured"]:
     st.warning(
-        "Chatbot RAG is not configured yet. "
+        "The chatbot is not configured yet. "
         + str(config_status["missing_message"])
         + ". Add these values in your .env file and restart Streamlit."
     )
 elif not _rag_is_configured():
     st.info(
-        "Embeddings are not configured, so the chatbot is using a simple local retrieval layer over the latest project files."
+        "I'm using the latest project files directly right now, so answers may be a bit more limited."
     )
 else:
     st.caption(
-        f"Using provider `{config_status['provider']}` with chat model "
-        f"`{config_status['chat_model']}` and embedding model "
-        f"`{config_status['embedding_model']}`."
+        f"Ready with `{config_status['chat_model']}` and `{config_status['embedding_model']}`."
     )
 
 with st.sidebar:
@@ -246,7 +281,7 @@ with st.sidebar:
             st.session_state["chatbot_question"] = sample_question
 
 question = st.chat_input(
-    "Ask about products, inventory, sales trends, recommendations, or why an item is not selling"
+    "Ask me anything about inventory, sales, or recommendations..."
 )
 
 if "chatbot_question" not in st.session_state:
@@ -273,11 +308,7 @@ if not st.session_state["chatbot_question"] and not transcript:
     with st.chat_message("assistant"):
         _render_assistant_message(_welcome_payload())
 
-    st.subheader("Start a Conversation")
-    st.write(
-        "You can ask about stock, demand, supplier risk, agent recommendations, dead stock, transfers, "
-        "or follow up with short questions like `why?` and `what about this store?`."
-    )
+    st.caption("Here are a few good places to start.")
     prompt_cols = st.columns(2)
     for index, sample_question in enumerate(SAMPLE_QUESTIONS[:6]):
         with prompt_cols[index % 2]:
@@ -297,11 +328,6 @@ elif st.session_state["chatbot_question"]:
     supporting_records = supporting_df.to_dict(orient="records")
 
     with st.chat_message("assistant"):
-        with st.status("Analyzing latest project data...", expanded=False):
-            if intent == "business_query":
-                st.write("Checking retrieved records, agent outputs, and recommendations.")
-            else:
-                st.write("Understanding your question and choosing the best response.")
         _render_assistant_message(
             answer_payload,
             supporting_records,
@@ -318,10 +344,14 @@ elif st.session_state["chatbot_question"]:
         }
     )
     memory.add_message(HumanMessage(content=user_question))
-    memory.add_message(AIMessage(content=answer_payload.get("answer", "")))
+    memory.add_message(
+        AIMessage(
+            content=_assistant_memory_text(
+                answer_payload,
+                supporting_records,
+            )
+        )
+    )
     _trim_chat_memory(memory)
     st.session_state["chatbot_question"] = ""
 
-st.caption(
-    'Tip: after placing a new order, go to Home and click "Run / Refresh Agents" so the latest recommendations and agent outputs are reflected here.'
-)

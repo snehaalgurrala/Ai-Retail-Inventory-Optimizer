@@ -22,6 +22,7 @@ from backend.memory.learning_loop import (
     get_system_learning_summary,
 )
 from backend.services.data_processor import build_processed_datasets
+from backend.services.agent_summary_service import generate_agent_card_summaries
 from backend.services.inventory_analyzer import build_inventory_analysis
 from backend.services.llm_reasoner import summarize_orchestration
 from backend.services.recommendation_engine import (
@@ -539,6 +540,12 @@ def _save_outputs_node(state: AgentGraphState) -> AgentGraphState:
         agent_outputs_path = str(save_agent_outputs(agent_outputs_df))
         orchestrator_summary_path = str(
             save_orchestrator_summary(orchestrator_summary_df)
+        )
+        generate_agent_card_summaries(
+            agent_outputs_df=agent_outputs_df,
+            recommendations_df=recommendations_df,
+            orchestrator_summary_df=orchestrator_summary_df,
+            save_output=True,
         )
         save_recommendation_batch(recommendations_df)
 

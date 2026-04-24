@@ -476,9 +476,7 @@ def _documents_to_supporting_table(documents: list[Document], limit: int = 8) ->
 def _fallback_answer(question: str, documents: list[Document]) -> str:
     """Build a deterministic fallback answer when the LLM cannot be used."""
     if not documents:
-        return (
-            "I could not find enough relevant project data to answer that question."
-        )
+        return "I couldn't find anything significant in the current data. Want me to check another area?"
 
     dataset_counts = {}
     for document in documents:
@@ -489,9 +487,8 @@ def _fallback_answer(question: str, documents: list[Document]) -> str:
         f"{name} ({count})" for name, count in dataset_counts.items()
     )
     return (
-        "I found a few relevant signals in the current data and listed the supporting records below. "
-        f"The strongest context came from: {dataset_summary}. "
-        "I’m keeping this answer grounded in those records while the richer explanation layer is unavailable."
+        "I found a few useful signals in the latest data. "
+        f"The strongest evidence came from {dataset_summary}."
     )
 
 
@@ -503,26 +500,18 @@ def _fallback_payload(question: str, documents: list[Document]) -> dict:
         dataset_name = document.metadata.get("dataset", "unknown")
         dataset_counts[dataset_name] = dataset_counts.get(dataset_name, 0) + 1
 
-    explanation = (
-        "This response is grounded in the retrieved project records shown below. "
-        "I used them directly instead of free-form reasoning because the live LLM "
-        "response path was unavailable."
-    )
+    explanation = "This is based only on the latest records I could retrieve."
     suggestions = []
     if any(name in dataset_counts for name in {"recommendations", "agent_outputs"}):
-        suggestions.append(
-            "Review the latest recommendation and agent output tables for the next action."
-        )
+        suggestions.append("It may help to review the latest recommendations next.")
     if any(name in dataset_counts for name in {"customer_orders", "inventory"}):
-        suggestions.append(
-            'If you recently placed an order, refresh the Home dashboard so agent outputs stay current.'
-        )
+        suggestions.append("If you placed a new order, refresh the agents before acting on it.")
 
     return {
         "answer": answer_text,
         "explanation": explanation,
-        "suggestions": suggestions[:3],
-        "follow_up_question": "Would you like me to narrow this down by product, store, or recommendation type?",
+        "suggestions": suggestions[:1],
+        "follow_up_question": "Want me to narrow it down by product, store, or supplier?",
         "confidence": "medium",
         "supporting_points": [],
         "cannot_answer": False,
@@ -532,14 +521,10 @@ def _fallback_payload(question: str, documents: list[Document]) -> dict:
 def _no_data_payload() -> dict:
     """Return the standard response when no relevant evidence is available."""
     return {
-        "answer": "I couldn't find enough data to answer that confidently.",
-        "explanation": "Try asking about stock levels, sales trends, recommendations, a specific product, or a specific store.",
-        "suggestions": [
-            "Ask about stock levels for a product or store.",
-            "Ask about sales trends or underperforming stores.",
-            "Ask what should be reordered or transferred.",
-        ],
-        "follow_up_question": "Do you want me to dig deeper into a product, store, or supplier?",
+        "answer": "I couldn't find anything significant in the current data. Want me to check another area?",
+        "explanation": "",
+        "suggestions": [],
+        "follow_up_question": "I can check stock levels, sales trends, or recommendations next.",
         "confidence": "low",
         "supporting_points": [],
         "cannot_answer": True,
@@ -549,13 +534,9 @@ def _no_data_payload() -> dict:
 def _clarification_payload(question: str) -> dict:
     """Return a safe clarification prompt when the question is too vague."""
     return {
-        "answer": "I need a bit more detail to answer that reliably.",
-        "explanation": "Please clarify the product, store, supplier, recommendation type, or time period you want me to check.",
-        "suggestions": [
-            f"Clarify the question: {question}",
-            "Mention a product name or ID.",
-            "Mention a store name or store ID.",
-        ],
+        "answer": "I want to make sure I'm looking at the right thing.",
+        "explanation": "Please mention the product, store, supplier, or time period you want me to check.",
+        "suggestions": [],
         "follow_up_question": "Do you want inventory, sales, supplier risk, or recommendations?",
         "confidence": "low",
         "supporting_points": [],
@@ -577,14 +558,14 @@ def _validate_answer_payload(
             str(item).strip()
             for item in payload.get("suggestions", [])
             if str(item).strip()
-        ][:3],
+        ][:1],
         "follow_up_question": str(payload.get("follow_up_question", "") or "").strip(),
         "confidence": str(payload.get("confidence", "low") or "low").strip().lower(),
         "supporting_points": [
             str(item).strip()
             for item in payload.get("supporting_points", [])
             if str(item).strip()
-        ][:4],
+        ][:2],
         "cannot_answer": bool(payload.get("cannot_answer", False)),
     }
 
@@ -595,7 +576,11 @@ def _validate_answer_payload(
         return _no_data_payload()
 
     question_tokens = set(_tokenize(question))
-    if len(question_tokens) <= 2 and not validated["supporting_points"]:
+    if (
+        len(question_tokens) <= 2
+        and not validated["supporting_points"]
+        and not _looks_like_follow_up(question)
+    ):
         return _clarification_payload(question)
 
     source_text = " ".join(
@@ -608,7 +593,7 @@ def _validate_answer_payload(
     support_text = " ".join(str(value) for value in supporting_df.fillna("").astype(str).values.flatten()).lower()
     evidence_text = f"{source_text} {support_text}"
 
-    if len(question_tokens) > 2:
+    if len(question_tokens) > 2 and not _looks_like_follow_up(question):
         overlap = len(question_tokens & set(_tokenize(evidence_text)))
         if overlap == 0:
             return _no_data_payload()
@@ -617,7 +602,7 @@ def _validate_answer_payload(
         return _no_data_payload()
 
     if not validated["explanation"]:
-        validated["explanation"] = "This answer is based only on the retrieved project records shown below."
+        validated["explanation"] = "This is based on the latest retrieved project records."
 
     if not validated["supporting_points"]:
         evidence_columns = [
@@ -632,15 +617,15 @@ def _validate_answer_payload(
                 value = str(first_row.get(column, "")).strip()
                 if value:
                     auto_points.append(f"{column.replace('_', ' ').title()}: {value}")
-        validated["supporting_points"] = auto_points[:3]
+        validated["supporting_points"] = auto_points[:2]
 
     if not validated["follow_up_question"]:
         if "store_id" in supporting_df.columns and supporting_df["store_id"].astype(str).str.strip().any():
-            validated["follow_up_question"] = "Do you want store-wise analysis?"
+            validated["follow_up_question"] = "Want store-wise detail too?"
         elif "product_name" in supporting_df.columns and supporting_df["product_name"].astype(str).str.strip().any():
-            validated["follow_up_question"] = "Should I check a specific product in more detail?"
+            validated["follow_up_question"] = "Want me to go deeper on a specific product?"
         elif "source_agent" in supporting_df.columns or "agent_name" in supporting_df.columns:
-            validated["follow_up_question"] = "Should I check supplier risks or recommendations too?"
+            validated["follow_up_question"] = "Should I also check supplier risk or recommendations?"
 
     return validated
 
@@ -703,6 +688,7 @@ def _looks_like_follow_up(question: str) -> bool:
         "which one",
         "tell me more",
         "explain",
+        "explain more",
     )
     return len(_tokenize(cleaned_question)) <= 6 or cleaned_question.startswith(follow_up_starts)
 
@@ -1089,19 +1075,22 @@ def answer_question_with_rag(
 
     prompt = (
         "You are a retail business analyst assistant.\n"
-        "Be friendly, natural, professional, and commercially practical.\n"
-        "Keep responses short but insightful.\n"
+        "Speak naturally, like a sharp but calm business analyst.\n"
+        "Keep responses concise: 3 to 6 lines unless the user asks for more detail.\n"
+        "Use this structure when possible: one direct answer line, one or two short explanation lines, one practical suggestion if needed, and an optional short follow-up question.\n"
+        "Do not use headings, labels, or system-style phrases.\n"
         "Do not over-explain.\n"
         "Use recent conversation only to resolve follow-up references like 'why' or 'what about this store'.\n"
         "Use only the retrieved project data as factual evidence.\n"
         "Do not invent facts, products, stores, or metrics.\n"
-        "If the context is not enough, say so clearly.\n"
+        "If the context is not enough, say: 'I couldn't find anything significant in the current data. Want me to check another area?'\n"
         "Answer custom business questions dynamically instead of relying on fixed question patterns.\n"
         "Reason like a business analyst about trends, underperformance, comparisons, risks, and next actions, but only from retrieved evidence.\n"
         "When relevant, explicitly name the responsible agent or source_agent from the retrieved data.\n"
         "When relevant, explain the recommendation reasoning using the retrieved reason and evidence fields.\n"
         "When relevant, suggest one of the grounded actions already supported by the data, such as reorder, transfer, discount, or clearance.\n"
-        "Occasionally include a short natural follow-up question like 'Do you want store-wise analysis?' or 'Should I check supplier risks too?'\n"
+        "Use at most one suggestion and one follow-up question.\n"
+        "Occasionally include a short natural follow-up question like 'Want store-wise detail too?' or 'Should I also check supplier risk?'\n"
         "Return valid JSON only with fields: answer, explanation, suggestions, follow_up_question, confidence, supporting_points, cannot_answer.\n"
         "Keep suggestions practical and grounded in the retrieved data.\n"
         f"Retrieval mode: {retrieval_mode}.\n\n"
@@ -1175,3 +1164,4 @@ def answer_question_with_rag(
         sources,
     )
     return answer_payload, supporting_df, sources
+

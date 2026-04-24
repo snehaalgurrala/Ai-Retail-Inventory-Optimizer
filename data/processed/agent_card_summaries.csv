@@ -1,0 +1,6 @@
+run_time,agent_name,display_name,role_label,accent,finding_count,priority_level,summary,recommended_action,summary_source
+2026-04-24T16:48:08,inventory_agent,Inventory,Stock & demand,blue,67,High,67 findings were flagged. 16 high demand items. 11 low stock items. 16 stockout risks.,Review the latest items and act on the highest priority rows first.,llm
+2026-04-24T16:48:08,pricing_agent,Pricing,Discount strategy,purple,32,High,32 findings were flagged. Inventory coverage is high compared with recent sales velocity.,Consider a discount to improve sell-through.,llm
+2026-04-24T16:48:08,transfer_agent,Transfer / Supply,Store balancing,teal,6,Medium,6 findings were flagged. One store is below reorder point while another store has surplus stock.,Transfer 2 units from S1 to S3.,llm
+2026-04-24T16:48:08,risk_agent,Risk,Risk monitoring,orange,49,High,49 findings were flagged. Supplier reliability or delivery time crosses the configured risk threshold.,Review supplier performance before placing the next replenishment order.,llm
+2026-04-24T16:48:08,procurement_agent,Procurement,Reorder planning,green,11,High,11 findings were flagged. Stock is below the reorder point after recent demand is considered.,Reorder 38 units.,llm

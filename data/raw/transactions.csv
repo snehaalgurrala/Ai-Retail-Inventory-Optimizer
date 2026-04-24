@@ -3304,3 +3304,5 @@ TXN0003302,2026-04-22,transfer_out,P103,S1,20,simulation_seed,Transferred stock 
 TXN0003303,2026-04-22,transfer_in,P103,S3,20,simulation_seed,Received stock from S1
 TXN0003304,2026-04-24,sale,P108,S1,1,customer_order,Customer order ORD000001
 TXN0003305,2026-04-24,sale,P102,S2,5,customer_order,Customer order ORD000002
+TXN0003306,2026-04-24,sale,P107,S1,15,customer_order,Customer order ORD000003
+TXN0003307,2026-04-24,sale,P102,S3,4,customer_order,Customer order ORD000004
