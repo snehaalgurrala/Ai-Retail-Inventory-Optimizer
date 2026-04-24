@@ -1,0 +1,6 @@
+run_time,agent_name,finding_count,priority_level,latest_insight
+2026-04-24T10:32:36,inventory_agent,78,high,15 high demand items. 11 low stock items. 26 stockout risks.
+2026-04-24T10:32:36,pricing_agent,24,high,Inventory coverage is high compared with recent sales velocity.
+2026-04-24T10:32:36,transfer_agent,5,medium,One store is below reorder point while another store has surplus stock.
+2026-04-24T10:32:36,risk_agent,61,high,Supplier reliability or delivery time crosses the configured risk threshold.
+2026-04-24T10:32:36,procurement_agent,11,high,Stock is below the reorder point after recent demand is considered.

@@ -1,4 +1,5 @@
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -11,8 +12,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 from backend.utils.data_loader import load_all_data  # noqa: E402
+from backend.agents.orchestrator_agent import run_agent_graph  # noqa: E402
 from frontend.components.ui_components import (  # noqa: E402
+    render_agent_status_card,
     render_kpi_card,
+    render_orchestrator_summary_card,
     render_recommendation_summary,
 )
 from frontend.utils.page_helpers import (  # noqa: E402
@@ -65,6 +69,10 @@ def load_processed_output(filename: str) -> pd.DataFrame:
         return pd.read_csv(file_path)
     except Exception:
         return pd.DataFrame()
+
+
+def processed_file_path(filename: str) -> Path:
+    return PROJECT_ROOT / "data" / "processed" / filename
 
 
 def get_current_inventory_quantity(
@@ -202,6 +210,178 @@ def first_action(df: pd.DataFrame) -> str:
     return actions.iloc[0]
 
 
+def highest_priority_label(df: pd.DataFrame) -> str:
+    if df.empty or "priority" not in df.columns:
+        return "Info"
+
+    priorities = df["priority"].fillna("").astype(str).str.lower()
+    if priorities.eq("high").any():
+        return "High"
+    if priorities.eq("medium").any():
+        return "Medium"
+    if priorities.eq("low").any():
+        return "Low"
+    return "Info"
+
+
+def top_reason(df: pd.DataFrame) -> str:
+    if df.empty or "reason" not in df.columns:
+        return ""
+
+    reasons = df["reason"].fillna("").astype(str)
+    reasons = reasons[reasons != ""]
+    if reasons.empty:
+        return ""
+    return reasons.iloc[0]
+
+
+def latest_timestamp_from_files(filenames: list[str]) -> str:
+    latest_time = None
+    for filename in filenames:
+        file_path = processed_file_path(filename)
+        if file_path.exists():
+            modified_time = datetime.fromtimestamp(file_path.stat().st_mtime)
+            if latest_time is None or modified_time > latest_time:
+                latest_time = modified_time
+
+    if latest_time is None:
+        return "No agent run recorded yet"
+    return latest_time.strftime("%d %b %Y, %I:%M %p")
+
+
+def database_health_summary() -> str:
+    required_files = [
+        PROJECT_ROOT / "data" / "raw" / "inventory.csv",
+        PROJECT_ROOT / "data" / "raw" / "products.csv",
+        PROJECT_ROOT / "data" / "raw" / "sales.csv",
+        PROJECT_ROOT / "data" / "raw" / "stores.csv",
+        PROJECT_ROOT / "data" / "raw" / "suppliers.csv",
+        PROJECT_ROOT / "data" / "raw" / "transactions.csv",
+        processed_file_path("recommendations.csv"),
+        processed_file_path("low_stock_items.csv"),
+        processed_file_path("stockout_risk_items.csv"),
+        processed_file_path("overstock_items.csv"),
+        processed_file_path("dead_stock_candidates.csv"),
+    ]
+    available_count = sum(path.exists() for path in required_files)
+    total_count = len(required_files)
+    if available_count == total_count:
+        return f"Healthy ({available_count}/{total_count})"
+    if available_count >= total_count - 2:
+        return f"Watch ({available_count}/{total_count})"
+    return f"Needs Attention ({available_count}/{total_count})"
+
+
+def build_orchestrator_summary(
+    recommendations: pd.DataFrame,
+    low_stock_df: pd.DataFrame,
+    stockout_risk_df: pd.DataFrame,
+    overstock_df: pd.DataFrame,
+    dead_stock_df: pd.DataFrame,
+) -> str:
+    if (
+        recommendations.empty
+        and low_stock_df.empty
+        and stockout_risk_df.empty
+        and overstock_df.empty
+        and dead_stock_df.empty
+    ):
+        return "Run agents to generate latest analysis."
+
+    summary_parts = []
+    if not low_stock_df.empty:
+        summary_parts.append(f"{len(low_stock_df):,} low stock items")
+    if not stockout_risk_df.empty:
+        summary_parts.append(f"{len(stockout_risk_df):,} stockout risks")
+    if not overstock_df.empty:
+        summary_parts.append(f"{len(overstock_df):,} overstock rows")
+    if not dead_stock_df.empty:
+        summary_parts.append(f"{len(dead_stock_df):,} dead stock candidates")
+    if not recommendations.empty:
+        summary_parts.append(f"{len(recommendations):,} active recommendations")
+
+    return ". ".join(summary_parts) + "."
+
+
+def agent_rows(recommendations: pd.DataFrame, source_agent: str) -> pd.DataFrame:
+    if recommendations.empty or "source_agent" not in recommendations.columns:
+        return pd.DataFrame()
+
+    return recommendations[
+        recommendations["source_agent"].fillna("").astype(str).eq(source_agent)
+    ].copy()
+
+
+def build_inventory_agent_card(
+    low_stock_df: pd.DataFrame,
+    high_demand_df: pd.DataFrame,
+    slow_moving_df: pd.DataFrame,
+    stockout_risk_df: pd.DataFrame,
+) -> dict[str, str | int]:
+    finding_count = (
+        len(low_stock_df)
+        + len(high_demand_df)
+        + len(slow_moving_df)
+        + len(stockout_risk_df)
+    )
+
+    if finding_count == 0:
+        return {
+            "agent_name": "Inventory Analysis Agent",
+            "description": (
+                "Analyzes demand trends, slow and fast movers, stock movement, "
+                "and root causes."
+            ),
+            "latest_finding_count": 0,
+            "priority_level": "Info",
+            "latest_insight": "Run agents to generate latest analysis.",
+        }
+
+    insight_parts = []
+    if not high_demand_df.empty:
+        insight_parts.append(f"{len(high_demand_df):,} high demand items")
+    if not slow_moving_df.empty:
+        insight_parts.append(f"{len(slow_moving_df):,} slow moving items")
+    if not low_stock_df.empty:
+        insight_parts.append(f"{len(low_stock_df):,} low stock items")
+
+    priority = "High" if not stockout_risk_df.empty or not low_stock_df.empty else "Medium"
+    return {
+        "agent_name": "Inventory Analysis Agent",
+        "description": (
+            "Analyzes demand trends, slow and fast movers, stock movement, "
+            "and root causes."
+        ),
+        "latest_finding_count": finding_count,
+        "priority_level": priority,
+        "latest_insight": ". ".join(insight_parts[:3]) + ".",
+    }
+
+
+def build_recommendation_agent_card(
+    agent_name: str,
+    description: str,
+    recommendations: pd.DataFrame,
+) -> dict[str, str | int]:
+    if recommendations.empty:
+        return {
+            "agent_name": agent_name,
+            "description": description,
+            "latest_finding_count": 0,
+            "priority_level": "Info",
+            "latest_insight": "Run agents to generate latest analysis.",
+        }
+
+    insight = top_reason(recommendations) or first_action(recommendations)
+    return {
+        "agent_name": agent_name,
+        "description": description,
+        "latest_finding_count": len(recommendations),
+        "priority_level": highest_priority_label(recommendations),
+        "latest_insight": insight or "Latest recommendations are ready for review.",
+    }
+
+
 def build_recommendation_summary_cards(recommendations: pd.DataFrame) -> list[dict]:
     pricing_rows = recommendation_type_rows(recommendations, ["discount", "clearance"])
     transfer_rows = recommendation_type_rows(recommendations, ["stock_transfer"])
@@ -265,12 +445,17 @@ def build_recommendation_summary_cards(recommendations: pd.DataFrame) -> list[di
 
 apply_page_style()
 
+refresh_message = st.session_state.pop("dashboard_refresh_message", "")
+
 with st.container():
     st.title("AI Retail Inventory Optimizer")
     st.caption(
         "A data-grounded inventory command center for sales movement, current "
         "stock health, and explainable recommendation workflows."
     )
+
+if refresh_message:
+    st.success(refresh_message)
 
 try:
     data = load_dashboard_data()
@@ -303,6 +488,127 @@ if {"stock_level", "reorder_threshold"}.issubset(inventory.columns):
     )
 dead_stock_count = processed_row_count("dead_stock_candidates.csv")
 recommendations = load_processed_output("recommendations.csv")
+low_stock_items = load_processed_output("low_stock_items.csv")
+stockout_risk_items = load_processed_output("stockout_risk_items.csv")
+overstock_items = load_processed_output("overstock_items.csv")
+dead_stock_items = load_processed_output("dead_stock_candidates.csv")
+high_demand_items = load_processed_output("high_demand_items.csv")
+slow_moving_items = load_processed_output("slow_moving_items.csv")
+
+pricing_agent_rows = agent_rows(recommendations, "pricing_agent")
+transfer_agent_rows = agent_rows(recommendations, "transfer_agent")
+risk_agent_rows = agent_rows(recommendations, "risk_agent")
+procurement_agent_rows = agent_rows(recommendations, "procurement_agent")
+
+agent_related_files = [
+    "recommendations.csv",
+    "low_stock_items.csv",
+    "stockout_risk_items.csv",
+    "overstock_items.csv",
+    "dead_stock_candidates.csv",
+    "high_demand_items.csv",
+    "slow_moving_items.csv",
+]
+last_agent_run_time = latest_timestamp_from_files(agent_related_files)
+orchestrator_summary = build_orchestrator_summary(
+    recommendations,
+    low_stock_items,
+    stockout_risk_items,
+    overstock_items,
+    dead_stock_items,
+)
+
+st.subheader("Agent Command Center")
+st.caption(
+    "A shared view of orchestrator health and the most recent findings from each "
+    "specialist agent."
+)
+
+render_orchestrator_summary_card(
+    title="Orchestrator Agent",
+    database_health=database_health_summary(),
+    total_recommendations=len(recommendations),
+    high_priority_alerts=high_priority_count(recommendations),
+    last_run_time=last_agent_run_time,
+    summary=orchestrator_summary,
+)
+
+refresh_left, refresh_right = st.columns([1, 5], gap="large")
+with refresh_left:
+    if st.button("Run / Refresh Agents", use_container_width=True):
+        try:
+            with st.spinner("Running orchestrator and refreshing all agent outputs..."):
+                final_state = run_agent_graph(save_output=True)
+                load_dashboard_data.clear()
+                st.cache_data.clear()
+            refreshed_count = len(final_state.get("unified_recommendations", []))
+            refreshed_time = final_state.get("combined_output", {}).get(
+                "run_time",
+                "just now",
+            )
+            st.session_state["dashboard_refresh_message"] = (
+                f"Agents refreshed successfully. {refreshed_count:,} recommendations "
+                f"generated at {refreshed_time}."
+            )
+            st.rerun()
+        except Exception as error:
+            st.error("Could not refresh agents.")
+            st.exception(error)
+with refresh_right:
+    st.caption(
+        "This runs the orchestrator across inventory, pricing, transfer, risk, "
+        "and procurement agents using the latest CSV data, then rewrites the "
+        "dashboard output files."
+    )
+
+inventory_agent_card = build_inventory_agent_card(
+    low_stock_items,
+    high_demand_items,
+    slow_moving_items,
+    stockout_risk_items,
+)
+pricing_agent_card = build_recommendation_agent_card(
+    "Pricing Agent",
+    "Analyzes discount opportunities, markdowns, bundling, and pricing strategy.",
+    pricing_agent_rows,
+)
+transfer_agent_card = build_recommendation_agent_card(
+    "Transfer / Supply Agent",
+    "Analyzes stock imbalance, transfer versus reorder, and source and target stores.",
+    transfer_agent_rows,
+)
+risk_agent_card = build_recommendation_agent_card(
+    "Risk Agent",
+    "Analyzes stockout risk, overstock risk, and supplier delay risk.",
+    risk_agent_rows,
+)
+procurement_agent_card = build_recommendation_agent_card(
+    "Procurement Agent",
+    "Analyzes purchase quantity, reorder timing, and vendor suggestions.",
+    procurement_agent_rows,
+)
+
+agent_cards = [
+    inventory_agent_card,
+    pricing_agent_card,
+    transfer_agent_card,
+    risk_agent_card,
+    procurement_agent_card,
+]
+
+for row_start in range(0, len(agent_cards), 3):
+    card_columns = st.columns(3, gap="large")
+    for index, agent_card in enumerate(agent_cards[row_start:row_start + 3]):
+        with card_columns[index]:
+            render_agent_status_card(
+                agent_name=str(agent_card["agent_name"]),
+                description=str(agent_card["description"]),
+                latest_finding_count=agent_card["latest_finding_count"],
+                priority_level=str(agent_card["priority_level"]),
+                latest_insight=str(agent_card["latest_insight"]),
+            )
+
+st.divider()
 
 st.subheader("Business Overview")
 st.caption("Core performance indicators from inventory, sales, and analyzer outputs.")

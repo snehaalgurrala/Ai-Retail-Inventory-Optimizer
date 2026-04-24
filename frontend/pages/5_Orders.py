@@ -10,6 +10,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
+from backend.services.order_service import (  # noqa: E402
+    get_available_products_by_store,
+    validate_order,
+)
 from frontend.utils.page_helpers import apply_page_style, render_page_header  # noqa: E402
 
 
@@ -74,35 +78,6 @@ def load_orders() -> pd.DataFrame:
             orders[column] = ""
 
     return orders[ORDER_COLUMNS].copy()
-
-
-def build_store_inventory_view(
-    inventory: pd.DataFrame,
-    products: pd.DataFrame,
-    store_id: str,
-) -> pd.DataFrame:
-    """Return the selected store inventory with product details."""
-    store_inventory = inventory[inventory["store_id"].astype(str) == str(store_id)].copy()
-    if store_inventory.empty:
-        return pd.DataFrame()
-
-    store_inventory["stock_level"] = pd.to_numeric(
-        store_inventory.get("stock_level", 0),
-        errors="coerce",
-    ).fillna(0)
-
-    view = store_inventory.merge(products, on="product_id", how="left")
-    view["selling_price"] = pd.to_numeric(
-        view.get("selling_price", 0),
-        errors="coerce",
-    ).fillna(0)
-    view["product_label"] = (
-        view["product_name"].fillna(view["product_id"]).astype(str)
-        + " ("
-        + view["category"].fillna("Unknown").astype(str)
-        + ")"
-    )
-    return view.sort_values(["product_name", "product_id"])
 
 
 def _next_prefixed_id(existing_df: pd.DataFrame, column: str, prefix: str) -> str:
@@ -340,7 +315,15 @@ with store_left:
         if "capacity" in selected_store.index:
             st.caption(f"Store Capacity: {selected_store.get('capacity', '')}")
 
-store_inventory_view = build_store_inventory_view(inventory, products, selected_store_id)
+store_inventory_view = get_available_products_by_store(selected_store_id)
+if not store_inventory_view.empty:
+    store_inventory_view = store_inventory_view.copy()
+    store_inventory_view["product_label"] = (
+        store_inventory_view["product_name"].fillna(store_inventory_view["product_id"]).astype(str)
+        + " ("
+        + store_inventory_view["category"].fillna("Unknown").astype(str)
+        + ")"
+    )
 
 with store_right:
     with st.container(border=True):
@@ -407,9 +390,14 @@ with order_col:
         step=1,
         value=1,
     )
-    can_add_to_order = quantity_ordered <= available_quantity
+    validation = validate_order(
+        selected_store_id,
+        selected_product_id,
+        int(quantity_ordered),
+    )
+    can_add_to_order = validation["success"]
     if not can_add_to_order:
-        st.warning("Insufficient stock available")
+        st.warning(validation["message"])
 
     if st.button(
         "Add to Order",

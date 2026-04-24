@@ -67,6 +67,48 @@ def render_recommendation_summary(
         return st.button(button_label, key=button_key, use_container_width=True)
 
 
+def render_orchestrator_summary_card(
+    title: str,
+    database_health: str,
+    total_recommendations: int,
+    high_priority_alerts: int,
+    last_run_time: str,
+    summary: str,
+) -> None:
+    """Render the main orchestrator summary card with native Streamlit blocks."""
+    with st.container(border=True):
+        st.subheader(str(title))
+        metric_columns = st.columns(3, gap="medium")
+        metric_columns[0].metric("Database Health", str(database_health))
+        metric_columns[1].metric(
+            "Total Recommendations",
+            f"{int(total_recommendations):,}",
+        )
+        metric_columns[2].metric(
+            "High Priority Alerts",
+            f"{int(high_priority_alerts):,}",
+        )
+        st.caption(f"Last agent run: {last_run_time}")
+        st.markdown(f"**Overall Analysis**  \n{summary}")
+
+
+def render_agent_status_card(
+    agent_name: str,
+    description: str,
+    latest_finding_count: int | str,
+    priority_level: str,
+    latest_insight: str,
+) -> None:
+    """Render a compact, theme-safe agent KPI card."""
+    with st.container(border=True):
+        st.markdown(f"**{agent_name}**")
+        st.caption(str(description))
+        metric_columns = st.columns(2, gap="small")
+        metric_columns[0].metric("Latest Findings", str(latest_finding_count))
+        metric_columns[1].metric("Priority", str(priority_level))
+        st.caption(str(latest_insight))
+
+
 def render_page_header(title: str, subtitle: str = "") -> None:
     """Compatibility helper for page-level headings."""
     st.title(str(title))
