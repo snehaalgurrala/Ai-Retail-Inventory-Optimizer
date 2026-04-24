@@ -152,6 +152,19 @@ def analyze_risks(
     config: dict | None = None,
 ) -> list[dict]:
     """Identify stockout, overstock, and supplier risks through tools."""
+    supplier_risk_tool = invoke_agent_tool(
+        "get_supplier_risk_summary",
+        {"limit": 5},
+    )
+    low_stock_tool = invoke_agent_tool(
+        "get_low_stock_items",
+        {"limit": 5},
+    )
+    dead_stock_tool = invoke_agent_tool(
+        "get_dead_stock_candidates",
+        {"limit": 5},
+    )
+
     selected_tools = select_tools_for_agent(
         agent_name=SOURCE_AGENT,
         agent_goal=(
@@ -167,6 +180,9 @@ def analyze_risks(
             "stockout_risk_count": len(
                 inputs.get("stockout_risk_items", pd.DataFrame())
             ),
+            "supplier_risk_summary": supplier_risk_tool.get("summary", {}),
+            "low_stock_summary": low_stock_tool.get("summary", {}),
+            "dead_stock_summary": dead_stock_tool.get("summary", {}),
         },
         default_tools=["analyze_risk"],
     )
@@ -201,6 +217,9 @@ def analyze_risks(
             "supplier_risk_inputs": len(inputs.get("product_performance", pd.DataFrame())),
             "overstock_count": len(inputs.get("overstock_items", pd.DataFrame())),
             "stockout_risk_count": len(inputs.get("stockout_risk_items", pd.DataFrame())),
+            "supplier_risk_tool_context": supplier_risk_tool,
+            "low_stock_tool_context": low_stock_tool,
+            "dead_stock_tool_context": dead_stock_tool,
             "system_memory": inputs.get("memory_context", {}),
             "system_learning": inputs.get("learning_context", {}),
         },

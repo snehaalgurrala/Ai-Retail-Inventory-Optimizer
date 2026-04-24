@@ -149,6 +149,19 @@ def analyze_pricing_opportunities(
     config: dict | None = None,
 ) -> list[dict]:
     """Identify pricing opportunities through LangChain tool calls."""
+    inventory_summary_tool = invoke_agent_tool(
+        "get_current_inventory_summary",
+        {"limit": 5},
+    )
+    sales_summary_tool = invoke_agent_tool(
+        "get_sales_summary",
+        {"limit": 5},
+    )
+    dead_stock_tool = invoke_agent_tool(
+        "get_dead_stock_candidates",
+        {"limit": 5},
+    )
+
     selected_tools = select_tools_for_agent(
         agent_name=SOURCE_AGENT,
         agent_goal=(
@@ -162,6 +175,9 @@ def analyze_pricing_opportunities(
             "dead_stock_count": len(
                 inputs.get("dead_stock_candidates", pd.DataFrame())
             ),
+            "inventory_summary": inventory_summary_tool.get("summary", {}),
+            "sales_summary": sales_summary_tool.get("summary", {}),
+            "dead_stock_summary": dead_stock_tool.get("summary", {}),
         },
         default_tools=["recommend_discount"],
     )
@@ -193,6 +209,9 @@ def analyze_pricing_opportunities(
             "dead_stock_count": len(
                 inputs.get("dead_stock_candidates", pd.DataFrame())
             ),
+            "inventory_tool_context": inventory_summary_tool,
+            "sales_tool_context": sales_summary_tool,
+            "dead_stock_tool_context": dead_stock_tool,
             "system_memory": inputs.get("memory_context", {}),
             "system_learning": inputs.get("learning_context", {}),
         },

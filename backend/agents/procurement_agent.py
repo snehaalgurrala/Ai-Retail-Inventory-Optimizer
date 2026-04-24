@@ -81,6 +81,19 @@ def analyze_procurement(
 ) -> list[dict]:
     """Create procurement-focused recommendations through LangChain tools."""
     config = get_config(config)
+    procurement_tool = invoke_agent_tool(
+        "get_procurement_candidates",
+        {"config": config, "limit": 5},
+    )
+    supplier_risk_tool = invoke_agent_tool(
+        "get_supplier_risk_summary",
+        {"limit": 5},
+    )
+    low_stock_tool = invoke_agent_tool(
+        "get_low_stock_items",
+        {"limit": 5},
+    )
+
     selected_tools = select_tools_for_agent(
         agent_name=SOURCE_AGENT,
         agent_goal=(
@@ -91,6 +104,9 @@ def analyze_procurement(
         context={
             "low_stock_count": len(inputs.get("low_stock_items", pd.DataFrame())),
             "supplier_count": len(inputs.get("suppliers", pd.DataFrame())),
+            "procurement_summary": procurement_tool.get("summary", {}),
+            "supplier_risk_summary": supplier_risk_tool.get("summary", {}),
+            "low_stock_summary": low_stock_tool.get("summary", {}),
         },
         default_tools=["recommend_procurement", "get_product_performance"],
     )
@@ -99,6 +115,9 @@ def analyze_procurement(
 
     recommendations = []
     for tool_name in selected_tools:
+        if tool_name == "get_procurement_candidates":
+            recommendations = procurement_tool.get("records", [])
+            break
         if tool_name == "recommend_procurement":
             tool_output = invoke_agent_tool(
                 tool_name,
@@ -165,6 +184,13 @@ def analyze_procurement(
             )
             recommendation["action"] = (
                 f"{recommendation['action']} Review supplier timing before placing the order."
+            )
+
+        supplier_summary = supplier_risk_tool.get("summary", {})
+        if supplier_summary.get("row_count", 0):
+            recommendation["evidence"] = (
+                f"{recommendation['evidence']}, supplier_risk_rows="
+                f"{supplier_summary.get('row_count', 0)}"
             )
 
     return _tag_source_agent(recommendations)

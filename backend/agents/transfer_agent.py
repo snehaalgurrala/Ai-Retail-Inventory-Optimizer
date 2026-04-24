@@ -122,6 +122,19 @@ def analyze_transfer_opportunities(
     config: dict | None = None,
 ) -> list[dict]:
     """Identify transfer opportunities through LangChain tool calls."""
+    inventory_summary_tool = invoke_agent_tool(
+        "get_current_inventory_summary",
+        {"limit": 5},
+    )
+    imbalance_tool = invoke_agent_tool(
+        "get_store_stock_imbalance",
+        {"limit": 5},
+    )
+    low_stock_tool = invoke_agent_tool(
+        "get_low_stock_items",
+        {"limit": 5},
+    )
+
     selected_tools = select_tools_for_agent(
         agent_name=SOURCE_AGENT,
         agent_goal=(
@@ -132,6 +145,9 @@ def analyze_transfer_opportunities(
         context={
             "inventory_rows": len(inputs.get("current_inventory", pd.DataFrame())),
             "low_stock_count": len(inputs.get("low_stock_items", pd.DataFrame())),
+            "inventory_summary": inventory_summary_tool.get("summary", {}),
+            "imbalance_summary": imbalance_tool.get("summary", {}),
+            "low_stock_summary": low_stock_tool.get("summary", {}),
         },
         default_tools=["recommend_transfer"],
     )
@@ -160,6 +176,9 @@ def analyze_transfer_opportunities(
         shared_context={
             "inventory_rows": len(inputs.get("current_inventory", pd.DataFrame())),
             "low_stock_count": len(inputs.get("low_stock_items", pd.DataFrame())),
+            "inventory_tool_context": inventory_summary_tool,
+            "imbalance_tool_context": imbalance_tool,
+            "low_stock_tool_context": low_stock_tool,
             "system_memory": inputs.get("memory_context", {}),
             "system_learning": inputs.get("learning_context", {}),
         },

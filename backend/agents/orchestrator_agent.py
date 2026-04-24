@@ -12,6 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.agents import pricing_agent, risk_agent, transfer_agent
 from backend.agents.procurement_agent import run as run_procurement_agent
+from backend.agents.tools import invoke_agent_tool
 from backend.memory.memory_store import (
     get_system_memory_summary,
     save_recommendation_batch,
@@ -331,6 +332,22 @@ def _inventory_agent_node(state: AgentGraphState) -> AgentGraphState:
     stockout_risk_items = inputs.get("stockout_risk_items", pd.DataFrame())
     overstock_items = inputs.get("overstock_items", pd.DataFrame())
     high_demand_items = inputs.get("high_demand_items", pd.DataFrame())
+    inventory_summary_tool = invoke_agent_tool(
+        "get_current_inventory_summary",
+        {"limit": 5},
+    )
+    low_stock_tool = invoke_agent_tool(
+        "get_low_stock_items",
+        {"limit": 5},
+    )
+    dead_stock_tool = invoke_agent_tool(
+        "get_dead_stock_candidates",
+        {"limit": 5},
+    )
+    imbalance_tool = invoke_agent_tool(
+        "get_store_stock_imbalance",
+        {"limit": 5},
+    )
 
     finding_count = (
         int(len(low_stock_items))
@@ -346,6 +363,12 @@ def _inventory_agent_node(state: AgentGraphState) -> AgentGraphState:
         "stockout_risk_count": int(len(stockout_risk_items)),
         "overstock_count": int(len(overstock_items)),
         "high_demand_count": int(len(high_demand_items)),
+        "tool_context": {
+            "inventory_summary": inventory_summary_tool,
+            "low_stock_summary": low_stock_tool,
+            "dead_stock_summary": dead_stock_tool,
+            "imbalance_summary": imbalance_tool,
+        },
         "focus_product_ids": sorted(
             {
                 str(product_id)

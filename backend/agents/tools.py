@@ -23,6 +23,17 @@ from backend.services.recommendation_engine import (
     get_config,
     load_recommendation_inputs,
 )
+from backend.tools.inventory_tools import (
+    get_current_inventory_summary,
+    get_dead_stock_candidates,
+    get_low_stock_items,
+    get_store_stock_imbalance,
+)
+from backend.tools.recommendation_tools import (
+    get_procurement_candidates,
+    get_supplier_risk_summary,
+)
+from backend.tools.sales_tools import get_sales_summary
 
 
 DEFAULT_LIMIT = 100
@@ -370,6 +381,13 @@ TOOL_REGISTRY = {
     "get_inventory_data": get_inventory_data,
     "get_sales_trend": get_sales_trend,
     "get_product_performance": get_product_performance,
+    "get_current_inventory_summary": get_current_inventory_summary,
+    "get_sales_summary": get_sales_summary,
+    "get_low_stock_items": get_low_stock_items,
+    "get_dead_stock_candidates": get_dead_stock_candidates,
+    "get_store_stock_imbalance": get_store_stock_imbalance,
+    "get_supplier_risk_summary": get_supplier_risk_summary,
+    "get_procurement_candidates": get_procurement_candidates,
     "analyze_risk": analyze_risk,
     "recommend_discount": recommend_discount,
     "recommend_transfer": recommend_transfer,
@@ -379,21 +397,32 @@ TOOL_REGISTRY = {
 
 AGENT_TOOLBOX = {
     "pricing_agent": [
+        "get_sales_summary",
+        "get_dead_stock_candidates",
         "get_inventory_data",
         "get_sales_trend",
         "recommend_discount",
     ],
     "transfer_agent": [
+        "get_current_inventory_summary",
+        "get_store_stock_imbalance",
+        "get_low_stock_items",
         "get_inventory_data",
         "get_sales_trend",
         "recommend_transfer",
     ],
     "risk_agent": [
+        "get_supplier_risk_summary",
+        "get_low_stock_items",
+        "get_dead_stock_candidates",
         "get_product_performance",
         "get_inventory_data",
         "analyze_risk",
     ],
     "procurement_agent": [
+        "get_procurement_candidates",
+        "get_supplier_risk_summary",
+        "get_low_stock_items",
         "get_inventory_data",
         "get_product_performance",
         "recommend_procurement",
