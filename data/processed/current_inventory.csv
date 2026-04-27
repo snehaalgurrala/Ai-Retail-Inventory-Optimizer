@@ -1,14 +1,14 @@
 product_id,store_id,stock_level,inventory_reorder_threshold,last_updated,product_name,category,cost_price,selling_price,shelf_life_days,reorder_threshold,supplier_id,store_name,city,capacity
 P101,S1,55,20,2026-04-22,Milk,Dairy,40,60,7,20,SUP1,Hyderabad Central,Hyderabad,1200
 P101,S2,22,20,2026-04-22,Milk,Dairy,40,60,7,20,SUP1,Vijayawada Branch,Vijayawada,900
-P101,S3,18,20,2026-04-22,Milk,Dairy,40,60,7,20,SUP1,Guntur Branch,Guntur,850
-P102,S1,5,15,2026-04-22,Bread,Bakery,20,35,3,15,SUP2,Hyderabad Central,Hyderabad,1200
-P102,S2,5,15,2026-04-24,Bread,Bakery,20,35,3,15,SUP2,Vijayawada Branch,Vijayawada,900
-P102,S3,4,15,2026-04-24,Bread,Bakery,20,35,3,15,SUP2,Guntur Branch,Guntur,850
+P101,S3,37,20,2026-04-27,Milk,Dairy,40,60,7,20,SUP1,Guntur Branch,Guntur,850
+P102,S1,17,15,2026-04-27,Bread,Bakery,20,35,3,15,SUP2,Hyderabad Central,Hyderabad,1200
+P102,S2,30,15,2026-04-27,Bread,Bakery,20,35,3,15,SUP2,Vijayawada Branch,Vijayawada,900
+P102,S3,19,15,2026-04-27,Bread,Bakery,20,35,3,15,SUP2,Guntur Branch,Guntur,850
 P103,S1,220,30,2026-04-22,Rice 1kg,Grains,50,80,180,30,SUP3,Hyderabad Central,Hyderabad,1200
 P103,S2,90,30,2026-04-22,Rice 1kg,Grains,50,80,180,30,SUP3,Vijayawada Branch,Vijayawada,900
 P103,S3,70,30,2026-04-22,Rice 1kg,Grains,50,80,180,30,SUP3,Guntur Branch,Guntur,850
-P104,S1,10,10,2026-04-27,Cooking Oil 1L,Grocery,120,180,365,10,SUP3,Hyderabad Central,Hyderabad,1200
+P104,S1,12,10,2026-04-22,Cooking Oil 1L,Grocery,120,180,365,10,SUP3,Hyderabad Central,Hyderabad,1200
 P104,S2,35,10,2026-04-22,Cooking Oil 1L,Grocery,120,180,365,10,SUP3,Vijayawada Branch,Vijayawada,900
 P104,S3,28,10,2026-04-22,Cooking Oil 1L,Grocery,120,180,365,10,SUP3,Guntur Branch,Guntur,850
 P105,S1,150,25,2026-04-22,Eggs (12 pack),Dairy,60,90,10,25,SUP1,Hyderabad Central,Hyderabad,1200
@@ -17,7 +17,7 @@ P105,S3,60,25,2026-04-22,Eggs (12 pack),Dairy,60,90,10,25,SUP1,Guntur Branch,Gun
 P106,S1,300,40,2026-04-22,Biscuits Pack,Snacks,10,20,120,40,SUP5,Hyderabad Central,Hyderabad,1200
 P106,S2,120,40,2026-04-22,Biscuits Pack,Snacks,10,20,120,40,SUP5,Vijayawada Branch,Vijayawada,900
 P106,S3,100,40,2026-04-22,Biscuits Pack,Snacks,10,20,120,40,SUP5,Guntur Branch,Guntur,850
-P107,S1,5,20,2026-04-24,Soft Drink 1L,Beverages,30,50,180,20,SUP5,Hyderabad Central,Hyderabad,1200
+P107,S1,55,20,2026-04-27,Soft Drink 1L,Beverages,30,50,180,20,SUP5,Hyderabad Central,Hyderabad,1200
 P107,S2,45,20,2026-04-22,Soft Drink 1L,Beverages,30,50,180,20,SUP5,Vijayawada Branch,Vijayawada,900
 P107,S3,25,20,2026-04-22,Soft Drink 1L,Beverages,30,50,180,20,SUP5,Guntur Branch,Guntur,850
 P108,S1,79,20,2026-04-24,Chocolates,Snacks,20,40,150,20,SUP5,Hyderabad Central,Hyderabad,1200
@@ -25,17 +25,17 @@ P108,S2,35,20,2026-04-22,Chocolates,Snacks,20,40,150,20,SUP5,Vijayawada Branch,V
 P108,S3,30,20,2026-04-22,Chocolates,Snacks,20,40,150,20,SUP5,Guntur Branch,Guntur,850
 P109,S1,40,15,2026-04-22,Curd,Dairy,30,50,5,15,SUP1,Hyderabad Central,Hyderabad,1200
 P109,S2,18,15,2026-04-22,Curd,Dairy,30,50,5,15,SUP1,Vijayawada Branch,Vijayawada,900
-P109,S3,15,15,2026-04-22,Curd,Dairy,30,50,5,15,SUP1,Guntur Branch,Guntur,850
+P109,S3,24,15,2026-04-27,Curd,Dairy,30,50,5,15,SUP1,Guntur Branch,Guntur,850
 P110,S1,60,20,2026-04-22,Butter,Dairy,80,120,20,20,SUP1,Hyderabad Central,Hyderabad,1200
 P110,S2,30,20,2026-04-22,Butter,Dairy,80,120,20,20,SUP1,Vijayawada Branch,Vijayawada,900
 P110,S3,25,20,2026-04-22,Butter,Dairy,80,120,20,20,SUP1,Guntur Branch,Guntur,850
 P111,S1,70,20,2026-04-22,Cheese,Dairy,150,250,30,20,SUP1,Hyderabad Central,Hyderabad,1200
 P111,S2,22,20,2026-04-22,Cheese,Dairy,150,250,30,20,SUP1,Vijayawada Branch,Vijayawada,900
-P111,S3,18,20,2026-04-22,Cheese,Dairy,150,250,30,20,SUP1,Guntur Branch,Guntur,850
+P111,S3,27,20,2026-04-27,Cheese,Dairy,150,250,30,20,SUP1,Guntur Branch,Guntur,850
 P112,S1,30,10,2026-04-22,Bananas,Fruits,20,40,4,10,SUP4,Hyderabad Central,Hyderabad,1200
 P112,S2,15,10,2026-04-22,Bananas,Fruits,20,40,4,10,SUP4,Vijayawada Branch,Vijayawada,900
 P112,S3,10,10,2026-04-22,Bananas,Fruits,20,40,4,10,SUP4,Guntur Branch,Guntur,850
-P113,S1,5,15,2026-04-27,Apples,Fruits,60,120,10,15,SUP4,Hyderabad Central,Hyderabad,1200
+P113,S1,2,15,2026-04-27,Apples,Fruits,60,120,10,15,SUP4,Hyderabad Central,Hyderabad,1200
 P113,S2,20,15,2026-04-22,Apples,Fruits,60,120,10,15,SUP4,Vijayawada Branch,Vijayawada,900
 P113,S3,16,15,2026-04-22,Apples,Fruits,60,120,10,15,SUP4,Guntur Branch,Guntur,850
 P114,S1,20,10,2026-04-22,Tomatoes,Vegetables,15,30,3,10,SUP4,Hyderabad Central,Hyderabad,1200

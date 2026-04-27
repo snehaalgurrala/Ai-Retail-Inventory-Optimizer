@@ -1,0 +1,8 @@
+procurement_id,recommendation_id,product_id,product_name,store_id,supplier_id,supplier_name,quantity,priority,reason,manager_note,executed_at
+PO20260427142009FE379D,REC00106,P101,Milk,S3,SUP1,Fresh Dairy Suppliers,19,low,Reorder 19 units.,,2026-04-27T14:20:09
+PO202604271420284DA109,REC00107,P102,Bread,S1,SUP2,Daily Bakery Distributors,12,low,Reorder 12 units.,,2026-04-27T14:20:28
+PO2026042714210282709F,REC00108,P102,Bread,S2,SUP2,Daily Bakery Distributors,25,medium,Reorder 25 units.,,2026-04-27T14:21:02
+PO2026042714345952DC44,REC00109,P102,Bread,S3,SUP2,Daily Bakery Distributors,15,medium,Reorder 15 units.,,2026-04-27T14:34:59
+PO202604271435108FD021,REC00110,P107,Soft Drink 1L,S1,SUP5,Snacks & Beverages Hub,50,high,Reorder 50 units.,,2026-04-27T14:35:10
+PO20260427143520B18E11,REC00111,P109,Curd,S3,SUP1,Fresh Dairy Suppliers,9,low,Reorder 9 units.,,2026-04-27T14:35:20
+PO20260427143530B86E0F,REC00112,P111,Cheese,S3,SUP1,Fresh Dairy Suppliers,9,low,Reorder 9 units.,,2026-04-27T14:35:30

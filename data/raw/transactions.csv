@@ -3307,3 +3307,11 @@ TXN0003305,2026-04-24,sale,P102,S2,5,customer_order,Customer order ORD000002
 TXN0003306,2026-04-24,sale,P107,S1,15,customer_order,Customer order ORD000003
 TXN0003307,2026-04-24,sale,P102,S3,4,customer_order,Customer order ORD000004
 TXN0003308,2026-04-27,sale,P113,S1,40,customer_order,Customer order ORD000005
+TXN0003309,2026-04-27,procurement,P101,S3,19,recommendation_execution,Approved reorder for recommendation REC00106
+TXN0003310,2026-04-27,procurement,P102,S1,12,recommendation_execution,Approved reorder for recommendation REC00107
+TXN0003311,2026-04-27,procurement,P102,S2,25,recommendation_execution,Approved reorder for recommendation REC00108
+TXN0003312,2026-04-27,procurement,P102,S3,15,recommendation_execution,Approved reorder for recommendation REC00109
+TXN0003313,2026-04-27,procurement,P107,S1,50,recommendation_execution,Approved reorder for recommendation REC00110
+TXN0003314,2026-04-27,procurement,P109,S3,9,recommendation_execution,Approved reorder for recommendation REC00111
+TXN0003315,2026-04-27,procurement,P111,S3,9,recommendation_execution,Approved reorder for recommendation REC00112
+TXN0003316,2026-04-27,sale,P113,S1,3,customer_order,Customer order ORD000006

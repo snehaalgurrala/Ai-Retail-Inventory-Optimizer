@@ -14,6 +14,12 @@ from backend.utils.data_loader import load_all_data
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
+TYPO_REPLACEMENTS = {
+    "solt": "sold",
+    "higest": "highest",
+    "lowst": "lowest",
+    "vijaywada": "vijayawada",
+}
 
 
 @dataclass
@@ -39,7 +45,11 @@ def _empty_payload() -> dict[str, Any]:
 
 def _normalize(text: Any) -> str:
     cleaned = re.sub(r"[^a-z0-9\s]", " ", str(text or "").lower())
-    return " ".join(cleaned.split())
+    normalized = " ".join(cleaned.split())
+    if not normalized:
+        return ""
+    words = [TYPO_REPLACEMENTS.get(word, word) for word in normalized.split()]
+    return " ".join(words)
 
 
 def _read_processed_csv(filename: str) -> pd.DataFrame:
@@ -98,6 +108,9 @@ ANALYTICAL_KEYWORDS = {
     "suppliers",
     "reorder",
     "performance",
+    "category",
+    "item",
+    "items",
 }
 
 
@@ -239,7 +252,70 @@ def _match_products(question: str, products: pd.DataFrame) -> pd.DataFrame:
     return products[products["product_id"].astype(str).isin(sorted(matched_product_ids))].copy()
 
 
-def _detect_analytical_intent(question: str, matched_stores: pd.DataFrame) -> str:
+def _category_alias_map(products: pd.DataFrame) -> dict[str, str]:
+    alias_map: dict[str, str] = {}
+    if products.empty or "category" not in products.columns:
+        return alias_map
+
+    categories = (
+        products["category"]
+        .dropna()
+        .astype(str)
+        .map(str.strip)
+    )
+    for category in sorted(set(category for category in categories if category)):
+        normalized = _normalize(category)
+        if not normalized:
+            continue
+        alias_map[normalized] = category
+        alias_map[f"{normalized} product"] = category
+        alias_map[f"{normalized} products"] = category
+        alias_map[f"{normalized} item"] = category
+        alias_map[f"{normalized} items"] = category
+    return alias_map
+
+
+def _available_categories(products: pd.DataFrame) -> list[str]:
+    if products.empty or "category" not in products.columns:
+        return []
+    categories = sorted(
+        {
+            str(value).strip()
+            for value in products["category"].dropna().astype(str).tolist()
+            if str(value).strip()
+        }
+    )
+    return categories
+
+
+def _match_category(question: str, products: pd.DataFrame) -> str:
+    if products.empty:
+        return ""
+
+    normalized_question = _normalize(question)
+    alias_map = _category_alias_map(products)
+    if not alias_map:
+        return ""
+
+    matches = []
+    for alias, category in alias_map.items():
+        if alias and alias in normalized_question:
+            matches.append((len(alias.split()), category))
+    if matches:
+        matches.sort(key=lambda item: item[0], reverse=True)
+        return matches[0][1]
+
+    candidate_texts = [normalized_question] + _tokenize(normalized_question)
+    close_matches: list[str] = []
+    for candidate in candidate_texts:
+        close_matches.extend(get_close_matches(candidate, list(alias_map.keys()), n=5, cutoff=0.8))
+    if close_matches:
+        return alias_map[close_matches[0]]
+
+    return ""
+
+
+def _detect_analytical_intent(question: str, matched_stores: pd.DataFrame, matched_category: str = "") -> str:
     text = _normalize(question)
 
     if any(keyword in text for keyword in ["recommendation", "recommend", "suggest", "agent", "why did"]):
@@ -247,9 +323,17 @@ def _detect_analytical_intent(question: str, matched_stores: pd.DataFrame) -> st
     if "supplier" in text or "suppliers" in text or ("risk" in text and "supplier" in text):
         return "supplier_risk"
     if any(keyword in text for keyword in ["least sold", "lowest sold", "worst selling", "least selling"]):
+        if matched_category:
+            return "least_sold_product_by_category"
         return "least_sold_product_by_store" if not matched_stores.empty else "product_performance"
     if any(keyword in text for keyword in ["top selling", "best selling", "highest sold", "most sold"]):
+        if matched_category:
+            return "top_sold_product_by_category"
         return "top_sold_product_by_store" if not matched_stores.empty else "product_performance"
+    if matched_category and any(keyword in text for keyword in ["highest sales", "top sales", "most sales"]):
+        return "top_sold_product_by_category"
+    if matched_category and any(keyword in text for keyword in ["lowest sales", "least sales"]):
+        return "least_sold_product_by_category"
     if "low stock" in text or "below reorder" in text:
         return "low_stock_by_store"
     if "compare" in text and "store" in text:
@@ -267,13 +351,15 @@ def _has_analytical_signal(
     question: str,
     matched_stores: pd.DataFrame,
     matched_products: pd.DataFrame,
+    matched_category: str,
 ) -> bool:
     text = _normalize(question)
     tokens = set(_tokenize(text))
     return bool(
-        _detect_analytical_intent(question, matched_stores)
+        _detect_analytical_intent(question, matched_stores, matched_category)
         or matched_stores.empty is False
         or matched_products.empty is False
+        or bool(matched_category)
         or tokens.intersection(ANALYTICAL_KEYWORDS)
     )
 
@@ -357,6 +443,14 @@ def _sales_with_products(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
             how="left",
         )
     return sales
+
+
+def _friendly_category_suggestion(products: pd.DataFrame) -> str:
+    categories = _available_categories(products)
+    if not categories:
+        return "I can check sales by category if products.csv includes category values."
+    preview = ", ".join(categories[:6])
+    return f"Available categories include {preview}."
 
 
 def _answer_least_or_top_sold(
@@ -445,6 +539,106 @@ def _answer_least_or_top_sold(
     )
     payload = _maybe_humanize(question, payload)
     return AnalyticsRoute(True, intent, payload, supporting_df, _build_sources(["sales", "products", "stores"]))
+
+
+def _answer_least_or_top_sold_by_category(
+    frames: dict[str, pd.DataFrame],
+    question: str,
+    intent: str,
+    matched_category: str,
+) -> AnalyticsRoute:
+    products = frames["products"].copy()
+    if not matched_category:
+        return AnalyticsRoute(
+            True,
+            intent,
+            _friendly_no_data(
+                "I couldn't clearly match that category yet.",
+                _friendly_category_suggestion(products),
+            ),
+            pd.DataFrame(),
+            _build_sources(["products"]),
+        )
+
+    sales = _sales_with_products(frames)
+    if sales.empty:
+        return AnalyticsRoute(
+            True,
+            intent,
+            _friendly_no_data(
+                "I couldn't find sales data in sales.csv yet.",
+                "Want me to check a store, product, or supplier instead?",
+            ),
+            pd.DataFrame(),
+            _build_sources(["sales"]),
+        )
+
+    sales["category"] = sales.get("category", "").fillna("").astype(str)
+    category_sales = sales[
+        sales["category"].str.strip().str.lower().eq(matched_category.strip().lower())
+    ].copy()
+    if category_sales.empty:
+        return AnalyticsRoute(
+            True,
+            intent,
+            _friendly_no_data(
+                f"I found sales data, but not for the {matched_category} category.",
+                _friendly_category_suggestion(products),
+            ),
+            pd.DataFrame(),
+            _build_sources(["sales", "products"]),
+        )
+
+    grouped = (
+        category_sales.groupby(["product_id", "product_name", "category"], as_index=False)["quantity_sold"]
+        .sum()
+        .sort_values(["quantity_sold", "product_name"], ascending=[True, True])
+    )
+    if grouped.empty:
+        return AnalyticsRoute(
+            True,
+            intent,
+            _friendly_no_data(
+                f"I found sales data, but couldn't compute a ranking for the {matched_category} category.",
+                _friendly_category_suggestion(products),
+            ),
+            pd.DataFrame(),
+            _build_sources(["sales", "products"]),
+        )
+
+    result_row = grouped.iloc[0] if intent == "least_sold_product_by_category" else grouped.sort_values(
+        ["quantity_sold", "product_name"],
+        ascending=[False, True],
+    ).iloc[0]
+    category_name = str(result_row.get("category", matched_category)).strip() or matched_category
+    product_name = str(result_row.get("product_name", result_row.get("product_id", "Unknown product"))).strip()
+    quantity = int(result_row.get("quantity_sold", 0))
+
+    if intent == "least_sold_product_by_category":
+        answer = f"The least sold {category_name} product is {product_name}, with {quantity} units sold."
+        explanation = f"It is currently the weakest performer in the {category_name} category based on summed sales quantity."
+        follow_up = f"Want me to show the most sold {category_name} product too?"
+    else:
+        answer = f"The most sold {category_name} product is {product_name}, with {quantity} units sold."
+        explanation = f"It is currently the strongest performer in the {category_name} category."
+        follow_up = f"Want me to show the least sold {category_name} product too?"
+
+    payload = _empty_payload()
+    payload.update(
+        {
+            "answer": answer,
+            "explanation": explanation,
+            "suggestions": ["I can also rank the full category list or break it down store by store."],
+            "follow_up_question": follow_up,
+            "confidence": "high",
+            "supporting_points": [
+                f"Matched category: {category_name}",
+                "Computed from sales.csv merged with products.csv, then grouped by product and category.",
+            ],
+        }
+    )
+    payload = _maybe_humanize(question, payload)
+    return AnalyticsRoute(True, intent, payload, grouped.head(8), _build_sources(["sales", "products"]))
 
 
 def _answer_sales_summary_by_store(
@@ -759,9 +953,14 @@ def try_answer_analytical_question(
     products = frames["products"].copy()
     matched_stores = _match_stores(user_input, stores)
     matched_products = _match_products(user_input, products)
-    intent = _detect_analytical_intent(user_input, matched_stores)
+    matched_category = _match_category(user_input, products)
+    intent = _detect_analytical_intent(user_input, matched_stores, matched_category)
 
-    if _has_analytical_signal(user_input, matched_stores, matched_products) and intent:
+    if _has_analytical_signal(user_input, matched_stores, matched_products, matched_category) and intent:
+        if intent == "least_sold_product_by_category":
+            return _answer_least_or_top_sold_by_category(frames, user_input, intent, matched_category)
+        if intent == "top_sold_product_by_category":
+            return _answer_least_or_top_sold_by_category(frames, user_input, intent, matched_category)
         if intent == "least_sold_product_by_store":
             return _answer_least_or_top_sold(frames, user_input, intent, matched_stores)
         if intent == "top_sold_product_by_store":

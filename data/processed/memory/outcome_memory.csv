@@ -1,0 +1,8 @@
+memory_id,recorded_at,recommendation_id,recommendation_type,product_id,product_name,store_id,action_taken,outcome_status,outcome_note
+MEMOUT000001,2026-04-27T14:20:10,REC00106,reorder,P101,Milk,S3,Added 19 units to store S3 through procurement.,executed,
+MEMOUT000002,2026-04-27T14:20:29,REC00107,reorder,P102,Bread,S1,Added 12 units to store S1 through procurement.,executed,
+MEMOUT000003,2026-04-27T14:21:02,REC00108,reorder,P102,Bread,S2,Added 25 units to store S2 through procurement.,executed,
+MEMOUT000004,2026-04-27T14:34:59,REC00109,reorder,P102,Bread,S3,Added 15 units to store S3 through procurement.,executed,
+MEMOUT000005,2026-04-27T14:35:10,REC00110,reorder,P107,Soft Drink 1L,S1,Added 50 units to store S1 through procurement.,executed,
+MEMOUT000006,2026-04-27T14:35:21,REC00111,reorder,P109,Curd,S3,Added 9 units to store S3 through procurement.,executed,
+MEMOUT000007,2026-04-27T14:35:30,REC00112,reorder,P111,Cheese,S3,Added 9 units to store S3 through procurement.,executed,

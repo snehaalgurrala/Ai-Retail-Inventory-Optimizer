@@ -1,35 +1,74 @@
 insight_id,recorded_at,recommendation_type,product_id,product_name,store_id,action_taken,outcome_status,learning_label,insight,recommended_adjustment,source
-LEARN000001,2026-04-27T10:02:56,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000002,2026-04-27T10:02:56,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000003,2026-04-27T10:02:56,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000004,2026-04-27T10:02:56,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000005,2026-04-27T10:02:56,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000006,2026-04-27T10:02:56,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000007,2026-04-27T10:02:56,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000008,2026-04-27T10:02:56,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000009,2026-04-27T10:02:56,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000010,2026-04-27T10:02:56,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000011,2026-04-27T10:02:56,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000012,2026-04-27T10:02:56,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000013,2026-04-27T10:02:56,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000014,2026-04-27T10:02:56,discount,P117,Chips,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000015,2026-04-27T10:02:56,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000016,2026-04-27T10:02:56,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000017,2026-04-27T10:02:56,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000018,2026-04-27T10:02:56,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000019,2026-04-27T10:02:56,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000020,2026-04-27T10:02:56,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000021,2026-04-27T10:02:56,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000022,2026-04-27T10:02:56,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000023,2026-04-27T10:02:56,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000024,2026-04-27T10:02:56,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000025,2026-04-27T10:02:56,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000026,2026-04-27T10:02:56,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000027,2026-04-27T10:02:56,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000028,2026-04-27T10:02:56,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000029,2026-04-27T10:02:56,discount,P103,Rice 1kg,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000030,2026-04-27T10:02:56,discount,P114,Tomatoes,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000031,2026-04-27T10:02:56,discount,P103,Rice 1kg,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000032,2026-04-27T10:02:56,discount,P114,Tomatoes,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000033,2026-04-27T10:02:56,discount,P103,Rice 1kg,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
-LEARN000034,2026-04-27T10:02:56,discount,P114,Tomatoes,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000001,2026-04-27T16:12:48,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000002,2026-04-27T16:12:48,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000003,2026-04-27T16:12:48,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000004,2026-04-27T16:12:48,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000005,2026-04-27T16:12:48,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000006,2026-04-27T16:12:48,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000007,2026-04-27T16:12:48,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000008,2026-04-27T16:12:48,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000009,2026-04-27T16:12:48,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000010,2026-04-27T16:12:48,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000011,2026-04-27T16:12:48,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000012,2026-04-27T16:12:48,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000013,2026-04-27T16:12:48,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000014,2026-04-27T16:12:48,discount,P117,Chips,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000015,2026-04-27T16:12:48,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000016,2026-04-27T16:12:48,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000017,2026-04-27T16:12:48,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000018,2026-04-27T16:12:48,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000019,2026-04-27T16:12:48,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000020,2026-04-27T16:12:48,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000021,2026-04-27T16:12:48,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000022,2026-04-27T16:12:48,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000023,2026-04-27T16:12:48,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000024,2026-04-27T16:12:48,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000025,2026-04-27T16:12:48,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000026,2026-04-27T16:12:48,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000027,2026-04-27T16:12:48,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000028,2026-04-27T16:12:48,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000029,2026-04-27T16:12:48,discount,P103,Rice 1kg,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000030,2026-04-27T16:12:48,discount,P114,Tomatoes,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000031,2026-04-27T16:12:48,reorder,P101,Milk,S3,Added 19 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000032,2026-04-27T16:12:48,reorder,P102,Bread,S1,Added 12 units to store S1 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000033,2026-04-27T16:12:48,reorder,P102,Bread,S2,Added 25 units to store S2 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000034,2026-04-27T16:12:48,reorder,P102,Bread,S3,Added 15 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000035,2026-04-27T16:12:48,reorder,P107,Soft Drink 1L,S1,Added 50 units to store S1 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000036,2026-04-27T16:12:48,reorder,P109,Curd,S3,Added 9 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000037,2026-04-27T16:12:48,reorder,P111,Cheese,S3,Added 9 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000038,2026-04-27T16:12:48,discount,P103,Rice 1kg,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000039,2026-04-27T16:12:48,discount,P114,Tomatoes,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000040,2026-04-27T16:12:48,reorder,P101,Milk,S3,Added 19 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000041,2026-04-27T16:12:48,reorder,P102,Bread,S1,Added 12 units to store S1 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000042,2026-04-27T16:12:48,reorder,P102,Bread,S2,Added 25 units to store S2 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000043,2026-04-27T16:12:48,reorder,P102,Bread,S3,Added 15 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000044,2026-04-27T16:12:48,reorder,P107,Soft Drink 1L,S1,Added 50 units to store S1 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000045,2026-04-27T16:12:48,reorder,P109,Curd,S3,Added 9 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000046,2026-04-27T16:12:48,reorder,P111,Cheese,S3,Added 9 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000047,2026-04-27T16:12:48,discount,P103,Rice 1kg,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000048,2026-04-27T16:12:48,discount,P114,Tomatoes,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000049,2026-04-27T16:12:48,reorder,P101,Milk,S3,Added 19 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000050,2026-04-27T16:12:48,reorder,P102,Bread,S1,Added 12 units to store S1 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000051,2026-04-27T16:12:48,reorder,P102,Bread,S2,Added 25 units to store S2 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000052,2026-04-27T16:12:48,reorder,P102,Bread,S3,Added 15 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000053,2026-04-27T16:12:48,reorder,P107,Soft Drink 1L,S1,Added 50 units to store S1 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000054,2026-04-27T16:12:48,reorder,P109,Curd,S3,Added 9 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000055,2026-04-27T16:12:48,reorder,P111,Cheese,S3,Added 9 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000056,2026-04-27T16:12:48,discount,P103,Rice 1kg,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000057,2026-04-27T16:12:48,discount,P114,Tomatoes,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000058,2026-04-27T16:12:48,reorder,P101,Milk,S3,Added 19 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000059,2026-04-27T16:12:48,reorder,P102,Bread,S1,Added 12 units to store S1 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000060,2026-04-27T16:12:48,reorder,P102,Bread,S2,Added 25 units to store S2 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000061,2026-04-27T16:12:48,reorder,P102,Bread,S3,Added 15 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000062,2026-04-27T16:12:48,reorder,P104,Cooking Oil 1L,S1,Added 50 units to store S1 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000063,2026-04-27T16:12:48,reorder,P107,Soft Drink 1L,S1,Added 9 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000064,2026-04-27T16:12:48,reorder,P109,Curd,S3,Added 9 units to store S3 through procurement.,executed,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000065,2026-04-27T16:12:48,discount,P102,Bread,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000066,2026-04-27T16:12:48,discount,P106,Biscuits Pack,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000067,2026-04-27T16:12:48,discount,P102,Bread,S3,,,neutral,Multiple discount recommendations for Bread at S3 remain pending with no execution recorded.,Implement the approved discount promptly and capture outcome metrics to evaluate effectiveness.,llm
+LEARN000068,2026-04-27T16:12:48,discount,P114,Tomatoes,S2,,,neutral,Tomatoes discount suggestions for S2 have been approved repeatedly but no action or result is logged.,Apply the discount as approved and monitor sell‑through to close the feedback loop.,llm
+LEARN000069,2026-04-27T16:12:48,discount,P103,Rice 1kg,S2,,,neutral,Rice discount recommendations for S2 are approved yet still pending execution and outcome capture.,"Execute the discount, then record sales velocity changes to assess impact.",llm
+LEARN000070,2026-04-27T16:12:48,discount,P117,Chips,S1,,,neutral,Chips discount at S1 has been approved but no implementation or result data exists.,Roll out the discount and track inventory coverage to verify improvement.,llm
+LEARN000071,2026-04-27T16:12:48,discount,P116,Noodles Pack,S1,,,neutral,Repeated discount recommendations for Noodles Pack at S1 remain unexecuted.,Activate the discount and capture post‑discount sales to determine success.,llm
+LEARN000072,2026-04-27T16:12:48,discount,P103,Rice 1kg,S1,,,neutral,A new discount suggestion for Rice at S1 is approved but still pending action.,Implement the discount promptly and log outcome to close the feedback cycle.,llm
+LEARN000073,2026-04-27T16:12:48,discount,P114,Tomatoes,S1,,,neutral,Tomatoes discount for S1 was approved on 2026‑04‑27 but no follow‑up action recorded.,Execute the discount and monitor inventory levels to validate the recommendation.,llm
