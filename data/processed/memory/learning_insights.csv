@@ -1,1 +1,35 @@
 insight_id,recorded_at,recommendation_type,product_id,product_name,store_id,action_taken,outcome_status,learning_label,insight,recommended_adjustment,source
+LEARN000001,2026-04-27T10:02:56,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000002,2026-04-27T10:02:56,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000003,2026-04-27T10:02:56,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000004,2026-04-27T10:02:56,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000005,2026-04-27T10:02:56,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000006,2026-04-27T10:02:56,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000007,2026-04-27T10:02:56,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000008,2026-04-27T10:02:56,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000009,2026-04-27T10:02:56,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000010,2026-04-27T10:02:56,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000011,2026-04-27T10:02:56,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000012,2026-04-27T10:02:56,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000013,2026-04-27T10:02:56,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000014,2026-04-27T10:02:56,discount,P117,Chips,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000015,2026-04-27T10:02:56,discount,P102,Bread,S3,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000016,2026-04-27T10:02:56,discount,P114,Tomatoes,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000017,2026-04-27T10:02:56,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000018,2026-04-27T10:02:56,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000019,2026-04-27T10:02:56,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000020,2026-04-27T10:02:56,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000021,2026-04-27T10:02:56,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000022,2026-04-27T10:02:56,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000023,2026-04-27T10:02:56,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000024,2026-04-27T10:02:56,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000025,2026-04-27T10:02:56,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000026,2026-04-27T10:02:56,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000027,2026-04-27T10:02:56,discount,P103,Rice 1kg,S2,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000028,2026-04-27T10:02:56,discount,P116,Noodles Pack,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000029,2026-04-27T10:02:56,discount,P103,Rice 1kg,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000030,2026-04-27T10:02:56,discount,P114,Tomatoes,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000031,2026-04-27T10:02:56,discount,P103,Rice 1kg,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000032,2026-04-27T10:02:56,discount,P114,Tomatoes,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000033,2026-04-27T10:02:56,discount,P103,Rice 1kg,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic
+LEARN000034,2026-04-27T10:02:56,discount,P114,Tomatoes,S1,approved,,neutral,No strong learning signal is available yet.,monitor future results before changing strategy,heuristic

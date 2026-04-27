@@ -337,6 +337,7 @@ last_agent_run_time = latest_timestamp_from_files(agent_output_files)
 last_updated_timestamp = latest_timestamp_iso_from_files(agent_output_files)
 
 low_stock_count = int(len(low_stock_alerts))
+current_low_stock_alert_text = build_low_stock_alert_text(low_stock_alerts)
 
 header_left, header_right = st.columns([4.8, 1.2], gap="large")
 with header_left:
@@ -409,12 +410,7 @@ if has_agent_run and not orchestrator_summary_df.empty:
         last_run_time=str(
             orchestrator_row.get("last_agent_run_time", last_agent_run_time)
         ),
-        low_stock_alert=str(
-            orchestrator_row.get(
-                "low_stock_alert",
-                build_low_stock_alert_text(low_stock_alerts),
-            )
-        ),
+        low_stock_alert=current_low_stock_alert_text,
         top_risk=str(
             orchestrator_row.get(
                 "top_risk",
@@ -503,7 +499,7 @@ st.subheader("🚨 Low Stock Alerts")
 if low_stock_alerts.empty:
     st.success("No critical low-stock alerts right now.")
 else:
-    render_low_stock_alert_card(build_low_stock_alert_text(low_stock_alerts))
+    render_low_stock_alert_card(current_low_stock_alert_text)
     with st.container(border=True):
         preview_df = low_stock_alerts[
             [

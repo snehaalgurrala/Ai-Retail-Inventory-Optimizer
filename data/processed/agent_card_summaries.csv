@@ -1,6 +1,6 @@
 run_time,agent_name,display_name,role_label,accent,finding_count,priority_level,summary,recommended_action,summary_source
-2026-04-27T09:31:35,inventory_agent,Inventory,Stock & demand,blue,60,High,60 findings were flagged. 15 high demand items. 12 low stock items. 6 stockout risks.,Review the latest items and act on the highest priority rows first.,llm
-2026-04-27T09:31:35,pricing_agent,Pricing,Discount strategy,purple,57,High,57 findings were flagged. Inventory coverage is high compared with recent sales velocity.,Consider a discount to improve sell-through.,llm
-2026-04-27T09:31:35,transfer_agent,Transfer / Supply,Store balancing,teal,6,Medium,6 findings were flagged. One store is below reorder point while another store has surplus stock.,Transfer 2 units from S1 to S3.,llm
-2026-04-27T09:31:35,risk_agent,Risk,Risk monitoring,orange,42,High,42 findings were flagged. Supplier reliability or delivery time crosses the configured risk threshold.,Review supplier performance before placing the next replenishment order.,llm
-2026-04-27T09:31:35,procurement_agent,Procurement,Reorder planning,green,12,High,12 findings were flagged. Stock is below the reorder point after recent demand is considered.,Reorder 19 units.,llm
+2026-04-27T10:04:32,inventory_agent,Inventory,Stock & demand,blue,61,High,61 findings were flagged. 15 high demand items. 13 low stock items. 6 stockout risks.,Review the latest items and act on the highest priority rows first.,llm
+2026-04-27T10:04:32,pricing_agent,Pricing,Discount strategy,purple,57,High,57 findings were flagged. Inventory coverage is high compared with recent sales velocity.,Consider a discount to improve sell-through.,llm
+2026-04-27T10:04:32,transfer_agent,Transfer / Supply,Store balancing,teal,6,Medium,6 findings were flagged. One store is below reorder point while another store has surplus stock.,Transfer 2 units from S1 to S3.,llm
+2026-04-27T10:04:32,risk_agent,Risk,Risk monitoring,orange,42,High,42 findings were flagged. Supplier reliability or delivery time crosses the configured risk threshold.,Review supplier performance before placing the next replenishment order.,llm
+2026-04-27T10:04:32,procurement_agent,Procurement,Reorder planning,green,13,High,13 findings were flagged. Stock is below the reorder point after recent demand is considered.,Reorder 19 units.,llm

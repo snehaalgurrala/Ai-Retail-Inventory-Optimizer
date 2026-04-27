@@ -35,5 +35,3 @@ timestamp,product_id,store_id,current_quantity,suggested_reorder_quantity,priori
 2026-04-27T09:31:48,P118,S3,9,43,Medium,True
 2026-04-27T09:31:48,P112,S3,10,42,Low,True
 2026-04-27T09:31:48,P109,S3,15,39,Low,True
-2026-04-27T10:05:45,P107,S1,5,138,High,False
-2026-04-27T10:05:45,P102,S3,4,26,High,False

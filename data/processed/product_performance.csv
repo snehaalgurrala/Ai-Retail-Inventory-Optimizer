@@ -2,7 +2,7 @@ product_id,product_name,category,cost_price,selling_price,shelf_life_days,reorde
 P101,Milk,Dairy,40,60,7,20,SUP1,1523,91380.0,55.0,656,2026-04-21,95,Fresh Dairy Suppliers,2,0.95
 P102,Bread,Bakery,20,35,3,15,SUP2,65,2275.0,11.0,28,2026-04-24,14,Daily Bakery Distributors,1,0.92
 P103,Rice 1kg,Grains,50,80,180,30,SUP3,318,25440.0,6.0,120,2026-04-21,380,Grain & Grocery Wholesale,4,0.9
-P104,Cooking Oil 1L,Grocery,120,180,365,10,SUP3,1029,185220.0,33.0,423,2026-04-21,75,Grain & Grocery Wholesale,4,0.9
+P104,Cooking Oil 1L,Grocery,120,180,365,10,SUP3,1031,185580.0,35.0,425,2026-04-27,73,Grain & Grocery Wholesale,4,0.9
 P105,Eggs (12 pack),Dairy,60,90,10,25,SUP1,959,86310.0,38.0,405,2026-04-21,290,Fresh Dairy Suppliers,2,0.95
 P106,Biscuits Pack,Snacks,10,20,120,40,SUP5,247,4940.0,9.0,103,2026-04-21,520,Snacks & Beverages Hub,3,0.91
 P107,Soft Drink 1L,Beverages,30,50,180,20,SUP5,1545,77250.0,67.0,649,2026-04-24,75,Snacks & Beverages Hub,3,0.91

@@ -1,2 +1,3 @@
 memory_id,recorded_at,recommendation_id,recommendation_type,product_id,product_name,store_id,decision,source_agent
 MEMDEC000001,2026-04-27T09:33:03,REC00001,discount,P103,Rice 1kg,S1,approved,pricing_agent
+MEMDEC000002,2026-04-27T09:41:13,REC00007,discount,P114,Tomatoes,S1,approved,pricing_agent

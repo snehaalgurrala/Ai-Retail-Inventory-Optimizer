@@ -1,0 +1,13 @@
+product_id,product_name,category,store_id,store_name,city,supplier_id,supplier_name,current_quantity,reorder_threshold,shortage_quantity,suggested_reorder_quantity,recent_daily_sales_velocity,priority
+P107,Soft Drink 1L,Beverages,S1,Hyderabad Central,Hyderabad,SUP5,Snacks & Beverages Hub,5,20,15,138,8.733333333333333,High
+P102,Bread,Bakery,S3,Guntur Branch,Guntur,SUP2,Daily Bakery Distributors,4,15,11,26,0.3,High
+P102,Bread,Bakery,S1,Hyderabad Central,Hyderabad,SUP2,Daily Bakery Distributors,5,15,10,25,0.26666666666666666,High
+P102,Bread,Bakery,S2,Vijayawada Branch,Vijayawada,SUP2,Daily Bakery Distributors,5,15,10,25,0.36666666666666664,High
+P113,Apples,Fruits,S1,Hyderabad Central,Hyderabad,SUP4,Farm Fresh Produce,5,15,10,87,5.433333333333334,High
+P114,Tomatoes,Vegetables,S3,Guntur Branch,Guntur,SUP4,Farm Fresh Produce,6,10,4,14,0.2,Medium
+P114,Tomatoes,Vegetables,S2,Vijayawada Branch,Vijayawada,SUP4,Farm Fresh Produce,8,10,2,12,0.2,Medium
+P101,Milk,Dairy,S3,Guntur Branch,Guntur,SUP1,Fresh Dairy Suppliers,18,20,2,88,6.1,Medium
+P111,Cheese,Dairy,S3,Guntur Branch,Guntur,SUP1,Fresh Dairy Suppliers,18,20,2,40,2.6666666666666665,Medium
+P118,Ice Cream,Frozen,S3,Guntur Branch,Guntur,SUP6,Frozen Foods Distributor,9,10,1,43,2.966666666666667,Medium
+P112,Bananas,Fruits,S3,Guntur Branch,Guntur,SUP4,Farm Fresh Produce,10,10,0,42,3.0,Low
+P109,Curd,Dairy,S3,Guntur Branch,Guntur,SUP1,Fresh Dairy Suppliers,15,15,0,39,2.7666666666666666,Low
