@@ -1,2 +1,3 @@
 recommendation_id,decision,decided_at,recommendation_type,product_id,product_name,store_id
 REC00019,approved,2026-04-23T12:43:55,discount,P106,Biscuits Pack,S1
+REC00001,approved,2026-04-27T09:33:03,discount,P103,Rice 1kg,S1

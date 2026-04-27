@@ -3306,3 +3306,4 @@ TXN0003304,2026-04-24,sale,P108,S1,1,customer_order,Customer order ORD000001
 TXN0003305,2026-04-24,sale,P102,S2,5,customer_order,Customer order ORD000002
 TXN0003306,2026-04-24,sale,P107,S1,15,customer_order,Customer order ORD000003
 TXN0003307,2026-04-24,sale,P102,S3,4,customer_order,Customer order ORD000004
+TXN0003308,2026-04-27,sale,P113,S1,40,customer_order,Customer order ORD000005
