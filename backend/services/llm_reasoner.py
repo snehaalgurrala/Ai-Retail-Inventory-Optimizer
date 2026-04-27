@@ -14,6 +14,9 @@ load_dotenv()
 
 DEFAULT_LLM_TIMEOUT_SECONDS = 45
 DEFAULT_LLM_BATCH_SIZE = 20
+DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_OPENROUTER_MODEL = "openrouter/free"
+DEFAULT_LOCAL_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 class LLMDecision(BaseModel):
@@ -58,31 +61,54 @@ class LLMLearningInsightBatch(BaseModel):
 
 
 def get_llm_settings() -> dict[str, Any]:
-    """Load provider settings for Gemini or an OpenAI-compatible chat model."""
+    """Load shared provider settings for Gemini or OpenRouter/OpenAI-compatible chat."""
     gemini_api_key = os.getenv("GEMINI_API_KEY", "").strip()
     gemini_model = os.getenv("GEMINI_MODEL", "").strip()
     provider = os.getenv("LLM_PROVIDER", "").strip().lower()
     if not provider:
-        provider = "gemini" if gemini_api_key else "openai"
+        provider = "gemini" if gemini_api_key else "openrouter"
 
     if provider == "gemini":
-        api_key = gemini_api_key or os.getenv("LLM_API_KEY", "").strip()
+        api_key = (
+            gemini_api_key
+            or os.getenv("LLM_API_KEY", "").strip()
+            or os.getenv("OPENROUTER_API_KEY", "").strip()
+        )
         model = gemini_model or os.getenv("LLM_MODEL", "").strip()
         embedding_model = (
             os.getenv("GEMINI_EMBEDDING_MODEL", "").strip()
             or os.getenv("EMBEDDING_MODEL", "").strip()
+            or DEFAULT_LOCAL_EMBEDDING_MODEL
         )
+        base_url = os.getenv("LLM_BASE_URL", "").strip()
     else:
-        api_key = os.getenv("LLM_API_KEY", "").strip()
-        model = os.getenv("LLM_MODEL", "").strip()
-        embedding_model = os.getenv("EMBEDDING_MODEL", "").strip()
+        provider = "openrouter"
+        api_key = (
+            os.getenv("OPENROUTER_API_KEY", "").strip()
+            or os.getenv("LLM_API_KEY", "").strip()
+        )
+        model = (
+            os.getenv("OPENROUTER_MODEL", "").strip()
+            or os.getenv("LLM_MODEL", "").strip()
+            or DEFAULT_OPENROUTER_MODEL
+        )
+        embedding_model = (
+            os.getenv("OPENROUTER_EMBEDDING_MODEL", "").strip()
+            or os.getenv("EMBEDDING_MODEL", "").strip()
+            or DEFAULT_LOCAL_EMBEDDING_MODEL
+        )
+        base_url = (
+            os.getenv("OPENROUTER_BASE_URL", "").strip()
+            or os.getenv("LLM_BASE_URL", "").strip()
+            or DEFAULT_OPENROUTER_BASE_URL
+        )
 
     return {
         "provider": provider,
         "api_key": api_key,
         "model": model,
         "embedding_model": embedding_model,
-        "base_url": os.getenv("LLM_BASE_URL", "").strip(),
+        "base_url": base_url,
         "timeout": int(
             os.getenv("LLM_TIMEOUT_SECONDS", DEFAULT_LLM_TIMEOUT_SECONDS)
         ),
@@ -91,13 +117,25 @@ def get_llm_settings() -> dict[str, Any]:
 
 
 def llm_is_configured() -> bool:
-    """Return True when the app has enough settings to call the LLM."""
+    """Return True when the app has enough shared settings to call the chat LLM."""
     settings = get_llm_settings()
     return bool(settings["api_key"] and settings["model"])
 
 
+def llm_status_message() -> str:
+    """Return a short debug-friendly status message for UI surfaces."""
+    settings = get_llm_settings()
+    if not settings["api_key"]:
+        return "LLM is not configured. Add OPENROUTER_API_KEY in .env."
+    if settings["provider"] == "openrouter":
+        return "LLM: OpenRouter active"
+    if settings["provider"] == "gemini":
+        return "LLM: Gemini active"
+    return f"LLM: {settings['provider']} active"
+
+
 def _build_client() -> OpenAI:
-    """Create an OpenAI-compatible client from environment settings."""
+    """Create an OpenAI-compatible client from shared environment settings."""
     settings = get_llm_settings()
     client_kwargs: dict[str, Any] = {
         "api_key": settings["api_key"],
@@ -163,6 +201,99 @@ def _chat_json(system_prompt: str, user_prompt: str) -> str:
         ],
     )
     return response.choices[0].message.content or ""
+
+
+def humanize_analytics_payload(
+    question: str,
+    payload: dict[str, Any],
+    supporting_points: list[str] | None = None,
+) -> dict[str, Any]:
+    """Use the shared chat LLM to make analytical answers sound more human."""
+    if not llm_is_configured():
+        return payload
+
+    system_prompt = (
+        "You are a retail business analyst assistant. "
+        "Rewrite the given structured answer so it sounds natural, concise, and helpful. "
+        "Keep it factual and grounded in the supplied answer content only. "
+        "Do not invent new numbers, stores, products, or conclusions. "
+        "Avoid robotic template wording. "
+        "Return valid JSON only with keys: answer, explanation, suggestions, follow_up_question, confidence, supporting_points, cannot_answer."
+    )
+    user_prompt = json.dumps(
+        {
+            "question": question,
+            "current_payload": payload,
+            "supporting_points": supporting_points or payload.get("supporting_points", []),
+            "style_rules": [
+                "Direct answer first",
+                "One short explanation",
+                "At most one practical suggestion",
+                "Optional short follow-up question",
+            ],
+        },
+        ensure_ascii=True,
+    )
+
+    try:
+        raw_content = _chat_json(system_prompt, user_prompt)
+        parsed = json.loads(_extract_json_text(raw_content))
+        if isinstance(parsed, dict):
+            merged = dict(payload)
+            merged.update(parsed)
+            return merged
+    except Exception:
+        return payload
+    return payload
+
+
+def humanize_chatbot_payload(
+    question: str,
+    payload: dict[str, Any],
+    supporting_points: list[str] | None = None,
+    answer_style: str = "chatbot",
+) -> dict[str, Any]:
+    """Make structured chatbot answers sound more natural without changing facts."""
+    if not llm_is_configured():
+        return payload
+
+    system_prompt = (
+        "You are a retail business analyst assistant. "
+        "Rewrite the supplied structured answer so it sounds friendly, direct, and human. "
+        "Keep every fact grounded in the supplied payload only. "
+        "Do not add new numbers, products, stores, or conclusions. "
+        "Do not use robotic phrases, retrieval language, or system/debug wording. "
+        "Avoid phrases like 'retrieved records', 'strongest evidence came from', "
+        "'No supporting records were retrieved', or 'based only on latest records'. "
+        "Return valid JSON only with keys: answer, explanation, suggestions, "
+        "follow_up_question, confidence, supporting_points, cannot_answer."
+    )
+    user_prompt = json.dumps(
+        {
+            "question": question,
+            "current_payload": payload,
+            "supporting_points": supporting_points or payload.get("supporting_points", []),
+            "style_rules": [
+                "Direct answer first",
+                "One short reason from the data",
+                "At most one practical suggestion",
+                "Optional short follow-up question",
+                f"Answer style: {answer_style}",
+            ],
+        },
+        ensure_ascii=True,
+    )
+
+    try:
+        raw_content = _chat_json(system_prompt, user_prompt)
+        parsed = json.loads(_extract_json_text(raw_content))
+        if isinstance(parsed, dict):
+            merged = dict(payload)
+            merged.update(parsed)
+            return merged
+    except Exception:
+        return payload
+    return payload
 
 
 def reason_over_recommendations(

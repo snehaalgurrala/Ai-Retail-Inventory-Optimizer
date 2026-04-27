@@ -5,9 +5,12 @@ numpy
 streamlit
 plotly
 langchain
+langchain-community
 langgraph
 langchain-openai
 chromadb
+sentence-transformers
+faiss-cpu
 google-genai
 openai
 python-dotenv

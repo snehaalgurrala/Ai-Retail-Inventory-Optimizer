@@ -128,9 +128,12 @@ Backend order handling lives in [backend/services/order_service.py](/abs/path/c:
 
 ### 6. Chatbot with RAG
 The Chatbot page in [frontend/pages/4_Chatbot.py](/abs/path/c:/Users/TS6206_SNEHAAL/Desktop/Ai-Retail-Inventory-Optimizer/frontend/pages/4_Chatbot.py) supports:
+- analytics-first answers for store, product, stock, sales, and supplier questions
+- local vector RAG with HuggingFace embeddings and FAISS
 - grounded question answering over current retail data
-- retrieval from raw, processed, recommendation, agent, and memory datasets
-- short answer format with evidence and supporting rows
+- retrieval from raw, processed, recommendation, and agent datasets
+- automatic knowledge-index build plus manual rebuild from the chatbot sidebar
+- direct answer style with optional supporting table
 - follow-up chat memory
 - sample question prompts
 
@@ -194,8 +197,11 @@ From `requirements.txt`, the current app uses:
 - `plotly`
 - `langchain`
 - `langgraph`
+- `langchain-community`
 - `langchain-openai`
 - `chromadb`
+- `sentence-transformers`
+- `faiss-cpu`
 - `google-genai`
 - `openai`
 - `python-dotenv`
@@ -208,16 +214,19 @@ Create a `.env` file with the values you want to use.
 Current code supports:
 
 ### LLM / RAG
-- `LLM_PROVIDER`
-- `LLM_API_KEY`
-- `LLM_MODEL`
-- `LLM_BASE_URL`
-- `EMBEDDING_MODEL`
+- `LLM_PROVIDER=openrouter`
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_MODEL=openrouter/free`
+- `OPENROUTER_BASE_URL=https://openrouter.ai/api/v1`
+- `EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2`
+- `OPENROUTER_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2` (optional compatibility alias)
 - `GEMINI_API_KEY`
 - `GEMINI_MODEL`
 - `GEMINI_EMBEDDING_MODEL`
 - `LLM_TIMEOUT_SECONDS`
 - `LLM_BATCH_SIZE`
+
+The chatbot stores its local FAISS knowledge index in `data/processed/vector_store/` and rebuilds it automatically when source CSV files change.
 
 ### Email
 - `SMTP_EMAIL`

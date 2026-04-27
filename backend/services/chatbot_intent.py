@@ -8,7 +8,14 @@ from pydantic import BaseModel
 from backend.services.llm_reasoner import get_llm_settings, llm_is_configured
 
 
-ALLOWED_INTENTS = {"greeting", "business_query", "irrelevant", "unclear"}
+ALLOWED_INTENTS = {
+    "greeting",
+    "analytical_query",
+    "business_query",
+    "follow_up",
+    "irrelevant",
+    "unclear",
+}
 
 
 class IntentClassification(BaseModel):
@@ -22,6 +29,23 @@ def _fallback_intent(user_input: str) -> dict[str, str]:
         return {"intent": "unclear"}
 
     greeting_words = {"hi", "hello", "hai", "hey", "hii", "good morning", "good evening"}
+    follow_up_words = {"why", "how", "explain", "what about", "and", "then"}
+    analytical_words = {
+        "least",
+        "lowest",
+        "worst",
+        "most",
+        "highest",
+        "best",
+        "top",
+        "low stock",
+        "sales",
+        "sold",
+        "product",
+        "store",
+        "city",
+        "inventory",
+    }
     business_words = {
         "inventory",
         "stock",
@@ -53,6 +77,10 @@ def _fallback_intent(user_input: str) -> dict[str, str]:
 
     if text in greeting_words or any(text.startswith(word) for word in greeting_words):
         return {"intent": "greeting"}
+    if len(text.split()) <= 3 and any(text == word or text.startswith(f"{word} ") for word in follow_up_words):
+        return {"intent": "follow_up"}
+    if any(word in text for word in analytical_words):
+        return {"intent": "analytical_query"}
     if any(word in text for word in business_words):
         return {"intent": "business_query"}
     if any(word in text for word in irrelevant_words):
@@ -69,7 +97,7 @@ def _normalize_intent(intent: str) -> dict[str, str]:
 
 
 def classify_user_intent(user_input: str) -> dict[str, str]:
-    """Classify user input into greeting, business_query, irrelevant, or unclear."""
+    """Classify user input into greeting, analytical_query, business_query, follow_up, irrelevant, or unclear."""
     text = str(user_input or "").strip()
     if not text:
         return {"intent": "unclear"}
@@ -80,8 +108,10 @@ def classify_user_intent(user_input: str) -> dict[str, str]:
     settings = get_llm_settings()
     system_prompt = (
         "Classify the user message into exactly one intent label. "
-        "Allowed labels: greeting, business_query, irrelevant, unclear. "
+        "Allowed labels: greeting, analytical_query, business_query, follow_up, irrelevant, unclear. "
+        "Use analytical_query for structured retail questions about stores, cities, products, low stock, least sold, most sold, or sales comparisons. "
         "Use business_query for retail inventory, stock, sales, suppliers, stores, products, or recommendations. "
+        "Use follow_up only for very short contextual prompts like why, how, explain, what about, and, or then. "
         "Use irrelevant for unrelated topics like entertainment, weather, or random chat. "
         "Use unclear when the message is too ambiguous to classify confidently. "
         "Return valid JSON only."
@@ -90,7 +120,7 @@ def classify_user_intent(user_input: str) -> dict[str, str]:
         {
             "message": text,
             "required_output_schema": {
-                "intent": "greeting | business_query | irrelevant | unclear"
+                "intent": "greeting | analytical_query | business_query | follow_up | irrelevant | unclear"
             },
         },
         ensure_ascii=True,

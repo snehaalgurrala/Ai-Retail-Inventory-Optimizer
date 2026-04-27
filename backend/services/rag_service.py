@@ -1,21 +1,24 @@
 import hashlib
 import json
 import os
+from functools import lru_cache
 from pathlib import Path
+import shutil
+import sys
+from typing import Any
 
+import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 from google.genai import Client
 from google.genai import types as genai_types
-from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
-from backend.memory.memory_store import get_system_memory_summary
-from backend.services.llm_reasoner import get_llm_settings, llm_is_configured
+from backend.services import llm_reasoner
 
 
 load_dotenv(override=True)
@@ -24,31 +27,31 @@ load_dotenv(override=True)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
 PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
-RAG_DIR = PROCESSED_DATA_DIR / "rag"
-CHROMA_DIR = RAG_DIR / "chroma"
-MANIFEST_FILE = RAG_DIR / "manifest.json"
-COLLECTION_NAME = "retail_inventory_rag"
+VECTOR_STORE_DIR = PROCESSED_DATA_DIR / "vector_store"
+MANIFEST_FILE = VECTOR_STORE_DIR / "manifest.json"
 
 SOURCE_FILES = {
     "inventory": RAW_DATA_DIR / "inventory.csv",
     "products": RAW_DATA_DIR / "products.csv",
     "sales": RAW_DATA_DIR / "sales.csv",
+    "stores": RAW_DATA_DIR / "stores.csv",
     "suppliers": RAW_DATA_DIR / "suppliers.csv",
     "transactions": RAW_DATA_DIR / "transactions.csv",
-    "current_inventory": PROCESSED_DATA_DIR / "current_inventory.csv",
-    "sales_summary": PROCESSED_DATA_DIR / "sales_summary.csv",
-    "product_performance": PROCESSED_DATA_DIR / "product_performance.csv",
-    "store_inventory_summary": PROCESSED_DATA_DIR / "store_inventory_summary.csv",
-    "low_stock_items": PROCESSED_DATA_DIR / "low_stock_items.csv",
-    "dead_stock_candidates": PROCESSED_DATA_DIR / "dead_stock_candidates.csv",
-    "overstock_items": PROCESSED_DATA_DIR / "overstock_items.csv",
-    "high_demand_items": PROCESSED_DATA_DIR / "high_demand_items.csv",
-    "slow_moving_items": PROCESSED_DATA_DIR / "slow_moving_items.csv",
-    "stockout_risk_items": PROCESSED_DATA_DIR / "stockout_risk_items.csv",
     "recommendations": PROCESSED_DATA_DIR / "recommendations.csv",
     "agent_outputs": PROCESSED_DATA_DIR / "agent_outputs.csv",
     "orchestrator_summary": PROCESSED_DATA_DIR / "orchestrator_summary.csv",
     "customer_orders": PROCESSED_DATA_DIR / "customer_orders.csv",
+}
+
+INDEX_FILE = VECTOR_STORE_DIR / "index.faiss"
+STORE_FILE = VECTOR_STORE_DIR / "index.pkl"
+
+LAST_RETRIEVAL_STATUS: dict[str, Any] = {
+    "answer_path": "idle",
+    "retrieval_mode": "fallback",
+    "last_error": "",
+    "embedding_backend": "",
+    "embedding_backend_error": "",
 }
 
 
@@ -141,6 +144,110 @@ class GeminiEmbeddings(Embeddings):
         return self._extract_values(response)
 
 
+class LocalHashEmbeddings(Embeddings):
+    """Deterministic offline embeddings when external model loading is unavailable."""
+
+    dimension = 384
+
+    @staticmethod
+    def _hash_token(token: str) -> tuple[int, float]:
+        digest = hashlib.md5(token.encode("utf-8")).digest()
+        index = int.from_bytes(digest[:2], "little") % LocalHashEmbeddings.dimension
+        sign = 1.0 if digest[2] % 2 == 0 else -1.0
+        return index, sign
+
+    def _embed(self, text: str) -> list[float]:
+        vector = np.zeros(self.dimension, dtype=np.float32)
+        for token in _tokenize(text):
+            index, sign = self._hash_token(token)
+            vector[index] += sign
+        norm = float(np.linalg.norm(vector))
+        if norm > 0:
+            vector /= norm
+        return vector.astype(float).tolist()
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self._embed(text) for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._embed(text)
+
+
+def _vector_dependency_details() -> dict[str, Any]:
+    """Return dependency-level details for local vector retrieval."""
+    details = {
+        "faiss_available": False,
+        "sentence_transformers_available": False,
+        "langchain_embeddings_available": False,
+        "langchain_faiss_available": False,
+        "errors": [],
+    }
+
+    try:
+        import faiss  # noqa: F401
+        details["faiss_available"] = True
+    except Exception as error:
+        details["errors"].append(f"faiss import failed: {error}")
+
+    try:
+        import sentence_transformers  # noqa: F401
+        details["sentence_transformers_available"] = True
+    except Exception as error:
+        details["errors"].append(f"sentence_transformers import failed: {error}")
+
+    try:
+        from langchain_community.embeddings import HuggingFaceEmbeddings  # noqa: F401
+        details["langchain_embeddings_available"] = True
+    except Exception as error:
+        details["errors"].append(f"HuggingFaceEmbeddings import failed: {error}")
+
+    try:
+        from langchain_community.vectorstores import FAISS  # noqa: F401
+        details["langchain_faiss_available"] = True
+    except Exception as error:
+        details["errors"].append(f"LangChain FAISS import failed: {error}")
+
+    details["ready"] = all(
+        [
+            details["faiss_available"],
+            details["sentence_transformers_available"],
+            details["langchain_embeddings_available"],
+            details["langchain_faiss_available"],
+        ]
+    )
+    return details
+
+
+def _vector_dependency_status() -> tuple[bool, str]:
+    """Check whether local vector embedding dependencies are available."""
+    details = _vector_dependency_details()
+    if details["ready"]:
+        return True, ""
+    if details["errors"]:
+        return False, details["errors"][0]
+    return False, "Vector RAG dependencies are not available in the current Python runtime."
+
+
+def _vector_imports():
+    """Import FAISS and HuggingFace embedding classes lazily."""
+    dependency_ready, message = _vector_dependency_status()
+    if not dependency_ready:
+        raise RuntimeError(message)
+
+    from langchain_community.vectorstores import FAISS
+
+    return FAISS
+
+
+def _embedding_imports():
+    """Import HuggingFace embeddings lazily without requiring FAISS."""
+    try:
+        from langchain_community.embeddings import HuggingFaceEmbeddings
+        return HuggingFaceEmbeddings
+    except Exception as error:
+        raise RuntimeError(f"HuggingFaceEmbeddings import failed: {error}") from error
+
+
 def _safe_text(value) -> str:
     """Convert values to readable strings for document building."""
     if pd.isna(value):
@@ -150,8 +257,13 @@ def _safe_text(value) -> str:
     return str(value)
 
 
+def _index_files_exist() -> bool:
+    """Return True when the persisted FAISS files are present."""
+    return INDEX_FILE.exists() and STORE_FILE.exists()
+
+
 def _source_fingerprint() -> str:
-    """Create a hash of source files and memory summary to know when to rebuild."""
+    """Create a hash of source files to know when to rebuild the FAISS index."""
     fingerprint_parts = []
     for name, file_path in SOURCE_FILES.items():
         if not file_path.exists():
@@ -160,8 +272,6 @@ def _source_fingerprint() -> str:
         stat = file_path.stat()
         fingerprint_parts.append(f"{name}:{stat.st_mtime_ns}:{stat.st_size}")
 
-    memory_summary = get_system_memory_summary(limit=5)
-    fingerprint_parts.append(json.dumps(memory_summary, sort_keys=True))
     fingerprint_text = "|".join(fingerprint_parts)
     return hashlib.sha256(fingerprint_text.encode("utf-8")).hexdigest()
 
@@ -207,68 +317,21 @@ def _row_to_document(dataset_name: str, row_index: int, row: pd.Series) -> Docum
     )
 
 
-def _memory_documents() -> list[Document]:
-    """Create a compact document from system memory history."""
-    memory_summary = get_system_memory_summary(limit=10)
-    content_lines = [
-        "dataset: memory_summary",
-        f"recommendation_history_count: {memory_summary.get('recommendation_history_count', 0)}",
-        f"decision_history_count: {memory_summary.get('decision_history_count', 0)}",
-        f"outcome_history_count: {memory_summary.get('outcome_history_count', 0)}",
-    ]
-
-    for record in memory_summary.get("recent_decisions", [])[:5]:
-        content_lines.append(
-            "recent_decision: "
-            + ", ".join(
-                f"{key}={value}"
-                for key, value in record.items()
-                if value not in ("", None)
-            )
-        )
-    for record in memory_summary.get("recent_outcomes", [])[:5]:
-        content_lines.append(
-            "recent_outcome: "
-            + ", ".join(
-                f"{key}={value}"
-                for key, value in record.items()
-                if value not in ("", None)
-            )
-        )
-
-    return [
-        Document(
-            page_content="\n".join(content_lines),
-            metadata={
-                "dataset": "memory_summary",
-                "row_index": 0,
-                "product_id": "",
-                "product_name": "",
-                "store_id": "",
-                "recommendation_type": "",
-                "row_json": json.dumps(memory_summary, ensure_ascii=True),
-            },
-        )
-    ]
-
-
 def build_rag_documents() -> list[Document]:
-    """Create retrievable documents from products, processed outputs, and recommendations."""
+    """Create retrievable documents from the latest project CSV files."""
     documents: list[Document] = []
     for dataset_name, df in _load_source_frames().items():
         if df.empty:
             continue
         for row_index, (_, row) in enumerate(df.iterrows()):
             documents.append(_row_to_document(dataset_name, row_index, row))
-
-    documents.extend(_memory_documents())
     return documents
 
 
 def _embedding_settings() -> dict[str, str]:
     """Load embedding-specific settings."""
-    llm_settings = get_llm_settings()
-    provider = str(llm_settings.get("provider", "openai") or "openai").strip().lower()
+    llm_settings = llm_reasoner.get_llm_settings()
+    provider = str(llm_settings.get("provider", "openrouter") or "openrouter").strip().lower()
     api_key = str(llm_settings.get("api_key", "") or "").strip()
     base_url = str(llm_settings.get("base_url", "") or "").strip()
     model = str(llm_settings.get("model", "") or "").strip()
@@ -278,20 +341,89 @@ def _embedding_settings() -> dict[str, str]:
         "provider": provider,
         "api_key": api_key,
         "base_url": base_url,
-        "embedding_model": embedding_model
-        or (
-            "gemini-embedding-001"
-            if provider == "gemini"
-            else "text-embedding-3-small"
-        ),
+        "embedding_model": embedding_model,
         "chat_model": model,
     }
 
 
 def rag_is_configured() -> bool:
-    """Return True when embeddings and chat config are available."""
+    """Return True when the chat LLM is configured, even if embeddings are optional."""
     settings = _embedding_settings()
-    return bool(settings["api_key"] and settings["chat_model"] and settings["embedding_model"])
+    return bool(settings["api_key"] and settings["chat_model"])
+
+
+def vector_rag_is_configured() -> bool:
+    """Return True when embeddings are configured for vector retrieval."""
+    settings = _embedding_settings()
+    dependency_ready, _ = _vector_dependency_status()
+    return bool(settings["embedding_model"] and dependency_ready)
+
+
+@lru_cache(maxsize=4)
+def _probe_embedding_model(embedding_model: str) -> tuple[bool, str]:
+    """Probe whether local embedding dependencies are ready for the configured model."""
+    try:
+        _, backend_name, backend_error = _build_embeddings()
+        if backend_name == "local_hash" and backend_error:
+            return True, f"Using offline local hash embeddings because the HuggingFace model is unavailable: {backend_error}"
+        return True, ""
+    except Exception as error:
+        return False, str(error)
+
+
+def _embedding_model_runtime_status() -> tuple[bool, str]:
+    """Check whether the configured embedding model can be initialized."""
+    settings = _embedding_settings()
+    embedding_model = str(settings.get("embedding_model", "") or "").strip()
+    return _probe_embedding_model(embedding_model)
+
+
+def _vector_manifest_summary() -> dict[str, Any]:
+    """Return a small summary from the vector-store manifest."""
+    manifest = _load_manifest()
+    return {
+        "document_count": int(manifest.get("document_count", 0) or 0),
+        "embedding_model": str(manifest.get("embedding_model", "") or ""),
+        "embedding_backend": str(manifest.get("embedding_backend", "") or ""),
+        "fingerprint": str(manifest.get("fingerprint", "") or ""),
+    }
+
+
+def get_vector_debug_status() -> dict[str, Any]:
+    """Return detailed runtime status for the chatbot sidebar."""
+    settings = _embedding_settings()
+    dependency_details = _vector_dependency_details()
+    embedding_ready, embedding_error = _embedding_model_runtime_status()
+    manifest_summary = _vector_manifest_summary()
+    last_error = str(LAST_RETRIEVAL_STATUS.get("last_error", "") or "")
+    embedding_backend = str(
+        LAST_RETRIEVAL_STATUS.get("embedding_backend", "")
+        or manifest_summary.get("embedding_backend", "")
+        or ("huggingface" if embedding_ready else "")
+    ).strip()
+    embedding_backend_error = str(LAST_RETRIEVAL_STATUS.get("embedding_backend_error", "") or "").strip()
+    dependency_error = "; ".join(dependency_details["errors"][:2])
+    retrieval_mode = str(LAST_RETRIEVAL_STATUS.get("retrieval_mode", "") or "").strip()
+    answer_path = str(LAST_RETRIEVAL_STATUS.get("answer_path", "idle") or "idle")
+    if (not retrieval_mode or retrieval_mode == "fallback") and answer_path == "idle":
+        retrieval_mode = "vector_rag" if vector_rag_is_configured() and _index_files_exist() else "fallback"
+
+    return {
+        "llm_active": rag_is_configured(),
+        "embedding_model": settings["embedding_model"] or "",
+        "embedding_model_loaded": embedding_ready,
+        "embedding_model_error": embedding_error,
+        "embedding_backend": embedding_backend,
+        "embedding_backend_error": embedding_backend_error,
+        "faiss_available": bool(dependency_details["faiss_available"]),
+        "faiss_index_exists": _index_files_exist(),
+        "indexed_documents": manifest_summary["document_count"],
+        "retrieval_mode": retrieval_mode,
+        "answer_path": answer_path,
+        "python_executable": sys.executable,
+        "dependency_error": dependency_error,
+        "last_error": last_error,
+    }
 
 
 def chatbot_config_status() -> dict[str, str | bool]:
@@ -299,11 +431,37 @@ def chatbot_config_status() -> dict[str, str | bool]:
     settings = _embedding_settings()
     missing_fields = []
     if not settings["api_key"]:
-        missing_fields.append("LLM_API_KEY")
+        missing_fields.append("OPENROUTER_API_KEY")
     if not settings["chat_model"]:
-        missing_fields.append("LLM_MODEL")
-    if not settings["embedding_model"]:
-        missing_fields.append("EMBEDDING_MODEL")
+        missing_fields.append("OPENROUTER_MODEL")
+
+    status_message_fn = getattr(llm_reasoner, "llm_status_message", None)
+    status_message = (
+        status_message_fn()
+        if callable(status_message_fn)
+        else "LLM is not configured. Add OPENROUTER_API_KEY in .env."
+    )
+    dependency_ready, dependency_message = _vector_dependency_status()
+    embedding_ready, embedding_error = _embedding_model_runtime_status()
+    debug_status = get_vector_debug_status()
+    vector_rag_message = ""
+    if not dependency_ready:
+        vector_rag_message = (
+            f"Vector RAG is disabled in this runtime: {dependency_message}"
+        )
+    elif not settings["embedding_model"]:
+        vector_rag_message = "Set EMBEDDING_MODEL in .env to enable local vector RAG."
+    elif MANIFEST_FILE.exists():
+        backend_name = str(debug_status.get("embedding_backend", "") or "").strip()
+        if backend_name == "local_hash":
+            vector_rag_message = "Knowledge index is ready with the offline local embedding fallback."
+        else:
+            vector_rag_message = "Knowledge index is ready."
+    else:
+        if embedding_ready and not embedding_error:
+            vector_rag_message = "Knowledge index will be built automatically on first retrieval."
+        else:
+            vector_rag_message = "Knowledge index will be built automatically with the offline local embedding fallback."
 
     return {
         "configured": len(missing_fields) == 0,
@@ -311,6 +469,12 @@ def chatbot_config_status() -> dict[str, str | bool]:
         "chat_model": settings["chat_model"] or "",
         "embedding_model": settings["embedding_model"] or "",
         "base_url": settings["base_url"] or "",
+        "status_message": status_message,
+        "vector_rag_configured": vector_rag_is_configured(),
+        "vector_rag_message": vector_rag_message,
+        "faiss_index_exists": bool(debug_status["faiss_index_exists"]),
+        "indexed_documents": int(debug_status["indexed_documents"]),
+        "retrieval_mode": str(debug_status["retrieval_mode"]),
         "missing_message": (
             "Missing environment variables: " + ", ".join(missing_fields)
             if missing_fields
@@ -319,27 +483,37 @@ def chatbot_config_status() -> dict[str, str | bool]:
     }
 
 
-def _build_embeddings() -> OpenAIEmbeddings:
-    """Create embeddings client for the vector store."""
+@lru_cache(maxsize=2)
+def _build_embeddings():
+    """Create embeddings for the FAISS store, with an offline-safe fallback."""
     settings = _embedding_settings()
-    if settings["provider"] == "gemini":
-        return GeminiEmbeddings(
-            api_key=settings["api_key"],
-            model=settings["embedding_model"],
+    if not settings["embedding_model"]:
+        raise RuntimeError(
+            "Set EMBEDDING_MODEL in .env to enable local vector RAG."
         )
 
-    kwargs = {
-        "api_key": settings["api_key"],
-        "model": settings["embedding_model"],
-    }
-    if settings["base_url"]:
-        kwargs["base_url"] = settings["base_url"]
-    return OpenAIEmbeddings(**kwargs)
+    huggingface_error = ""
+    try:
+        HuggingFaceEmbeddings = _embedding_imports()
+        embeddings = HuggingFaceEmbeddings(
+            model_name=settings["embedding_model"],
+            model_kwargs={
+                "device": "cpu",
+                "local_files_only": True,
+            },
+            encode_kwargs={"normalize_embeddings": True},
+        )
+        embeddings.embed_query("inventory health check")
+        return embeddings, "huggingface", ""
+    except Exception as error:
+        huggingface_error = str(error)
+
+    return LocalHashEmbeddings(), "local_hash", huggingface_error
 
 
 def _build_chat_model() -> ChatOpenAI | Client:
     """Create the chat model used for grounded answer generation."""
-    settings = get_llm_settings()
+    settings = llm_reasoner.get_llm_settings()
     if settings["provider"] == "gemini":
         return Client(api_key=settings["api_key"])
 
@@ -363,53 +537,119 @@ def _load_manifest() -> dict:
 
 
 def _save_manifest(data: dict) -> None:
-    RAG_DIR.mkdir(parents=True, exist_ok=True)
+    VECTOR_STORE_DIR.mkdir(parents=True, exist_ok=True)
     MANIFEST_FILE.write_text(
         json.dumps(data, indent=2, ensure_ascii=True),
         encoding="utf-8",
     )
 
 
-def ensure_vector_store(force_rebuild: bool = False) -> Chroma:
-    """Build or load the persistent Chroma vector store."""
-    if not rag_is_configured():
+def ensure_vector_store(force_rebuild: bool = False):
+    """Build or load the persistent FAISS vector store."""
+    if not vector_rag_is_configured():
+        LAST_RETRIEVAL_STATUS["last_error"] = chatbot_config_status().get(
+            "vector_rag_message",
+            "Vector RAG is not configured.",
+        )
         raise RuntimeError(
-            "RAG is not configured. Set LLM_API_KEY, LLM_MODEL, and EMBEDDING_MODEL."
+            LAST_RETRIEVAL_STATUS["last_error"]
         )
 
-    RAG_DIR.mkdir(parents=True, exist_ok=True)
-    embeddings = _build_embeddings()
-    vector_store = Chroma(
-        collection_name=COLLECTION_NAME,
-        embedding_function=embeddings,
-        persist_directory=str(CHROMA_DIR),
-    )
-
+    FAISS = _vector_imports()
+    VECTOR_STORE_DIR.mkdir(parents=True, exist_ok=True)
     current_fingerprint = _source_fingerprint()
     manifest = _load_manifest()
     stored_fingerprint = manifest.get("fingerprint", "")
+    stored_backend = str(manifest.get("embedding_backend", "") or "").strip()
+    index_exists = _index_files_exist()
+    embeddings, embedding_backend, embedding_backend_error = _build_embeddings()
+    LAST_RETRIEVAL_STATUS["embedding_backend"] = embedding_backend
+    LAST_RETRIEVAL_STATUS["embedding_backend_error"] = embedding_backend_error
+
+    if index_exists and stored_backend and stored_backend != embedding_backend:
+        force_rebuild = True
+
+    if not force_rebuild and index_exists and current_fingerprint == stored_fingerprint:
+        return FAISS.load_local(
+            str(VECTOR_STORE_DIR),
+            embeddings,
+            allow_dangerous_deserialization=True,
+        )
+
+    if not index_exists and not force_rebuild:
+        force_rebuild = True
 
     if force_rebuild or current_fingerprint != stored_fingerprint:
-        try:
-            existing_ids = vector_store.get().get("ids", [])
-            if existing_ids:
-                vector_store.delete(ids=existing_ids)
-        except Exception:
-            pass
-
         documents = build_rag_documents()
         if documents:
-            ids = [f"doc_{index}" for index in range(len(documents))]
-            vector_store.add_documents(documents, ids=ids)
-
+            vector_store = FAISS.from_documents(documents, embeddings)
+        else:
+            vector_store = FAISS.from_texts(["empty knowledge base"], embeddings)
+        vector_store.save_local(str(VECTOR_STORE_DIR))
         _save_manifest(
             {
                 "fingerprint": current_fingerprint,
                 "document_count": len(documents),
+                "embedding_model": _embedding_settings().get("embedding_model", ""),
+                "embedding_backend": embedding_backend,
             }
         )
+        return vector_store
 
-    return vector_store
+    return FAISS.load_local(
+        str(VECTOR_STORE_DIR),
+        embeddings,
+        allow_dangerous_deserialization=True,
+    )
+
+
+def clear_vector_store() -> None:
+    """Remove the persisted vector store safely inside the project workspace."""
+    if VECTOR_STORE_DIR.exists():
+        shutil.rmtree(VECTOR_STORE_DIR)
+
+
+def rebuild_knowledge_index() -> dict[str, Any]:
+    """Force a rebuild of the local FAISS knowledge index."""
+    try:
+        clear_vector_store()
+        vector_store = ensure_vector_store(force_rebuild=True)
+        manifest = _load_manifest()
+        LAST_RETRIEVAL_STATUS.update(
+            {
+                "answer_path": "rag",
+                "retrieval_mode": "vector_rag",
+                "last_error": "",
+            }
+        )
+        return {
+            "success": True,
+            "message": (
+                f"Knowledge index rebuilt successfully with "
+                f"{manifest.get('document_count', 0)} document chunks."
+            ),
+            "document_count": int(manifest.get("document_count", 0) or 0),
+            "embedding_model": str(manifest.get("embedding_model", "")),
+            "embedding_backend": str(manifest.get("embedding_backend", "")),
+            "vector_store_path": str(VECTOR_STORE_DIR),
+            "vector_store_type": type(vector_store).__name__,
+        }
+    except Exception as error:
+        LAST_RETRIEVAL_STATUS.update(
+            {
+                "answer_path": "rag",
+                "retrieval_mode": "fallback",
+                "last_error": str(error),
+            }
+        )
+        return {
+            "success": False,
+            "message": str(error),
+            "document_count": 0,
+            "embedding_model": _embedding_settings().get("embedding_model", ""),
+            "embedding_backend": "",
+            "vector_store_path": str(VECTOR_STORE_DIR),
+        }
 
 
 def _documents_to_supporting_table(documents: list[Document], limit: int = 8) -> pd.DataFrame:
@@ -476,7 +716,7 @@ def _documents_to_supporting_table(documents: list[Document], limit: int = 8) ->
 def _fallback_answer(question: str, documents: list[Document]) -> str:
     """Build a deterministic fallback answer when the LLM cannot be used."""
     if not documents:
-        return "I couldn't find anything significant in the current data. Want me to check another area?"
+        return "I couldn't find a clear answer in the current data yet. Want me to check another area?"
 
     dataset_counts = {}
     for document in documents:
@@ -486,10 +726,7 @@ def _fallback_answer(question: str, documents: list[Document]) -> str:
     dataset_summary = ", ".join(
         f"{name} ({count})" for name, count in dataset_counts.items()
     )
-    return (
-        "I found a few useful signals in the latest data. "
-        f"The strongest evidence came from {dataset_summary}."
-    )
+    return f"I found relevant data in {dataset_summary}, but I need a clearer question to turn it into a stronger business answer."
 
 
 def _fallback_payload(question: str, documents: list[Document]) -> dict:
@@ -500,7 +737,7 @@ def _fallback_payload(question: str, documents: list[Document]) -> dict:
         dataset_name = document.metadata.get("dataset", "unknown")
         dataset_counts[dataset_name] = dataset_counts.get(dataset_name, 0) + 1
 
-    explanation = "This is based only on the latest records I could retrieve."
+    explanation = "This answer comes from the current project data I could match to your question."
     suggestions = []
     if any(name in dataset_counts for name in {"recommendations", "agent_outputs"}):
         suggestions.append("It may help to review the latest recommendations next.")
@@ -521,7 +758,7 @@ def _fallback_payload(question: str, documents: list[Document]) -> dict:
 def _no_data_payload() -> dict:
     """Return the standard response when no relevant evidence is available."""
     return {
-        "answer": "I couldn't find anything significant in the current data. Want me to check another area?",
+        "answer": "I couldn't find a clear answer in the current data yet. Want me to check another area?",
         "explanation": "",
         "suggestions": [],
         "follow_up_question": "I can check stock levels, sales trends, or recommendations next.",
@@ -602,7 +839,7 @@ def _validate_answer_payload(
         return _no_data_payload()
 
     if not validated["explanation"]:
-        validated["explanation"] = "This is based on the latest retrieved project records."
+        validated["explanation"] = "This is based on the current project data linked to your question."
 
     if not validated["supporting_points"]:
         evidence_columns = [
@@ -674,23 +911,16 @@ def _looks_like_follow_up(question: str) -> bool:
         "why",
         "how",
         "what about",
-        "how about",
+        "explain",
         "and",
         "then",
-        "also",
-        "this",
-        "that",
-        "these",
-        "those",
-        "it",
-        "they",
-        "them",
-        "which one",
-        "tell me more",
-        "explain",
-        "explain more",
     )
-    return len(_tokenize(cleaned_question)) <= 6 or cleaned_question.startswith(follow_up_starts)
+    if len(_tokenize(cleaned_question)) > 3:
+        return False
+    return any(
+        cleaned_question == item or cleaned_question.startswith(f"{item} ")
+        for item in follow_up_starts
+    )
 
 
 def _build_retrieval_query(
@@ -789,7 +1019,7 @@ def _infer_query_intent(
 ) -> QueryIntent:
     """Use the LLM to interpret user intent before retrieval, with a safe heuristic fallback."""
     fallback_intent = _heuristic_query_intent(question, chat_history)
-    if not llm_is_configured():
+    if not llm_reasoner.llm_is_configured():
         return fallback_intent
 
     available_datasets = list(SOURCE_FILES.keys())
@@ -819,7 +1049,7 @@ def _infer_query_intent(
     )
 
     try:
-        settings = get_llm_settings()
+        settings = llm_reasoner.get_llm_settings()
         if settings["provider"] == "gemini":
             client = Client(api_key=settings["api_key"])
             response = client.models.generate_content(
@@ -994,7 +1224,7 @@ def _quota_exhausted_message() -> str:
 def answer_question_with_rag(
     question: str,
     chat_history: list[BaseMessage] | None = None,
-    top_k: int = 6,
+    top_k: int = 8,
 ) -> tuple[dict, pd.DataFrame, list[dict]]:
     """Retrieve relevant project records and answer with grounded LLM output."""
     cleaned_question = str(question or "").strip()
@@ -1017,14 +1247,15 @@ def answer_question_with_rag(
     retrieval_query = intent.retrieval_query.strip() or _build_retrieval_query(cleaned_question, chat_history)
     history_lines = _history_to_lines(chat_history, max_messages=6)
     conversation_context = "\n".join(history_lines)
-    retrieval_mode = "simple"
-    if rag_is_configured():
+    retrieval_mode = "fallback"
+    if vector_rag_is_configured():
         try:
             vector_store = ensure_vector_store()
-            retriever = vector_store.as_retriever(search_kwargs={"k": max(top_k * 2, 8)})
+            retriever = vector_store.as_retriever(search_kwargs={"k": max(top_k * 2, 10)})
             documents = retriever.invoke(retrieval_query)
-            retrieval_mode = "embeddings"
+            retrieval_mode = "vector_rag"
         except Exception as error:
+            LAST_RETRIEVAL_STATUS["last_error"] = str(error)
             if _is_quota_exhausted_error(error):
                 return (
                     {
@@ -1041,7 +1272,15 @@ def answer_question_with_rag(
                 )
             documents = _simple_retrieve(retrieval_query, top_k=max(top_k * 2, 8))
     else:
-        documents = _simple_retrieve(retrieval_query, top_k=max(top_k * 2, 8))
+        documents = _simple_retrieve(retrieval_query, top_k=max(top_k * 2, 10))
+        LAST_RETRIEVAL_STATUS["last_error"] = chatbot_config_status().get("vector_rag_message", "")
+
+    LAST_RETRIEVAL_STATUS.update(
+        {
+            "answer_path": "rag",
+            "retrieval_mode": retrieval_mode,
+        }
+    )
 
     documents = _rerank_documents_by_intent(documents, intent, cleaned_question)[:top_k]
 
@@ -1070,7 +1309,7 @@ def answer_question_with_rag(
             [],
         )
 
-    if not llm_is_configured():
+    if not llm_reasoner.llm_is_configured():
         return _fallback_payload(cleaned_question, documents), supporting_df, sources
 
     prompt = (
@@ -1103,7 +1342,7 @@ def answer_question_with_rag(
     )
 
     try:
-        llm_settings = get_llm_settings()
+        llm_settings = llm_reasoner.get_llm_settings()
         if llm_settings["provider"] == "gemini":
             client = Client(api_key=llm_settings["api_key"])
             response = client.models.generate_content(
@@ -1163,5 +1402,13 @@ def answer_question_with_rag(
         supporting_df,
         sources,
     )
+    answer_payload = llm_reasoner.humanize_chatbot_payload(
+        cleaned_question,
+        answer_payload,
+        supporting_points=answer_payload.get("supporting_points", []),
+        answer_style="retrieval",
+    )
+    answer_payload["_debug_retrieval_mode"] = retrieval_mode
+    answer_payload["_debug_answer_path"] = "rag"
     return answer_payload, supporting_df, sources
 

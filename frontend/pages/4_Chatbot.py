@@ -51,8 +51,23 @@ def _welcome_payload() -> dict:
 
 
 def _get_rag_service():
-    """Return a fresh rag_service module for Streamlit reload safety."""
-    return importlib.reload(rag_service)
+    """Return a usable rag_service module, reloading if Streamlit holds a stale copy."""
+    service = rag_service
+    required_helpers = (
+        "chatbot_config_status",
+        "get_vector_debug_status",
+        "rebuild_knowledge_index",
+    )
+    if all(callable(getattr(service, helper, None)) for helper in required_helpers):
+        return service
+
+    try:
+        reloaded_service = importlib.reload(rag_service)
+        if all(callable(getattr(reloaded_service, helper, None)) for helper in required_helpers):
+            return reloaded_service
+    except Exception:
+        pass
+    return service
 
 
 def _chatbot_config_status() -> dict:
@@ -67,6 +82,9 @@ def _chatbot_config_status() -> dict:
         "chat_model": "",
         "embedding_model": "",
         "base_url": "",
+        "status_message": "LLM is not configured. Add OPENROUTER_API_KEY in .env.",
+        "vector_rag_configured": False,
+        "vector_rag_message": "Chatbot configuration helper is temporarily unavailable. Please refresh or restart Streamlit.",
         "missing_message": "Chatbot configuration helper is temporarily unavailable. Please refresh the app.",
     }
 
@@ -76,6 +94,36 @@ def _rag_is_configured() -> bool:
     service = _get_rag_service()
     configured_fn = getattr(service, "rag_is_configured", None)
     return bool(callable(configured_fn) and configured_fn())
+
+
+def _rebuild_knowledge_index() -> dict:
+    """Rebuild the local FAISS knowledge index safely."""
+    service = importlib.reload(rag_service)
+    rebuild_fn = getattr(service, "rebuild_knowledge_index", None)
+    if callable(rebuild_fn):
+        return rebuild_fn()
+    return {
+        "success": False,
+        "message": "Knowledge index rebuild helper is temporarily unavailable. Please refresh the app.",
+    }
+
+
+def _vector_debug_status() -> dict:
+    """Return detailed vector/RAG status for the sidebar debug panel."""
+    service = _get_rag_service()
+    debug_fn = getattr(service, "get_vector_debug_status", None)
+    if callable(debug_fn):
+        return debug_fn()
+    return {
+        "llm_active": False,
+        "embedding_model_loaded": False,
+        "faiss_index_exists": False,
+        "indexed_documents": 0,
+        "retrieval_mode": "fallback",
+        "answer_path": "idle",
+        "dependency_error": "Vector debug helper is unavailable. Refresh the page or restart Streamlit to load the latest chatbot service.",
+        "last_error": "",
+    }
 
 
 def _get_chat_memory() -> InMemoryChatMessageHistory:
@@ -152,8 +200,13 @@ def _assistant_memory_text(
         for column in [
             "product_name",
             "store_name",
+            "city",
             "store_id",
             "recommendation_type",
+            "total_units_sold",
+            "total_sales_value",
+            "quantity_sold",
+            "stock_level",
             "reason",
             "evidence",
             "source_agent",
@@ -257,23 +310,76 @@ with st.container(border=True):
             _reset_chat()
 
 config_status = _chatbot_config_status()
+debug_status = _vector_debug_status()
+last_retrieval_mode = st.session_state.get("chatbot_retrieval_mode", "")
+last_answer_path = st.session_state.get("chatbot_answer_path", "")
+if last_retrieval_mode:
+    debug_status["retrieval_mode"] = last_retrieval_mode
+if last_answer_path:
+    debug_status["answer_path"] = last_answer_path
+rebuild_message = st.session_state.pop("chatbot_rebuild_message", "")
+rebuild_success = st.session_state.pop("chatbot_rebuild_success", False)
+if rebuild_message:
+    if rebuild_success:
+        st.success(rebuild_message)
+    else:
+        st.warning(rebuild_message)
+
 if not config_status["configured"]:
-    st.warning(
-        "The chatbot is not configured yet. "
-        + str(config_status["missing_message"])
-        + ". Add these values in your .env file and restart Streamlit."
-    )
-elif not _rag_is_configured():
-    st.info(
-        "I'm using the latest project files directly right now, so answers may be a bit more limited."
-    )
+    st.warning(str(config_status.get("status_message", "LLM is not configured. Add OPENROUTER_API_KEY in .env.")))
+elif not bool(config_status.get("vector_rag_configured", False)):
+    st.info(str(config_status.get("vector_rag_message", "Vector RAG is not configured yet.")))
 else:
-    st.caption(
-        f"Ready with `{config_status['chat_model']}` and `{config_status['embedding_model']}`."
-    )
+    if str(config_status.get("embedding_model", "")).strip():
+        st.caption(
+            f"Ready with `{config_status['chat_model']}` and `{config_status['embedding_model']}`."
+        )
+    else:
+        st.caption(f"Ready with `{config_status['chat_model']}`.")
+    if str(config_status.get("vector_rag_message", "")).strip():
+        st.caption(str(config_status.get("vector_rag_message", "")))
 
 with st.sidebar:
     st.header("Sample Questions")
+    status_text = str(config_status.get("status_message", "") or "")
+    if status_text:
+        if str(config_status.get("configured", False)).lower() == "true" or config_status.get("configured", False):
+            st.caption(status_text)
+        else:
+            st.warning(status_text)
+    if st.button("Rebuild Knowledge Index", use_container_width=True):
+        with st.spinner("Rebuilding the knowledge index..."):
+            result = _rebuild_knowledge_index()
+        st.cache_data.clear()
+        st.cache_resource.clear()
+        st.session_state["chatbot_rebuild_message"] = str(result.get("message", "Knowledge index rebuild finished."))
+        st.session_state["chatbot_rebuild_success"] = bool(result.get("success", False))
+        st.rerun()
+    vector_message = str(config_status.get("vector_rag_message", "") or "").strip()
+    if vector_message:
+        st.caption(vector_message)
+    with st.expander("Chatbot Debug", expanded=False):
+        st.write(f"LLM active: {'yes' if debug_status.get('llm_active') else 'no'}")
+        st.write(f"Embedding model loaded: {'yes' if debug_status.get('embedding_model_loaded') else 'no'}")
+        st.write(f"Vector index exists: {'yes' if debug_status.get('faiss_index_exists') else 'no'}")
+        st.write(f"Number of documents indexed: {int(debug_status.get('indexed_documents', 0) or 0)}")
+        st.write(f"Retrieval mode: {debug_status.get('retrieval_mode', 'fallback')}")
+        st.write(f"Answer path: {debug_status.get('answer_path', 'idle')}")
+        embedding_model = str(config_status.get("embedding_model", "") or "").strip()
+        if embedding_model:
+            st.write(f"Embedding model: {embedding_model}")
+        embedding_backend = str(debug_status.get("embedding_backend", "") or "").strip()
+        if embedding_backend:
+            st.write(f"Embedding backend: {embedding_backend}")
+        dependency_error = str(debug_status.get("dependency_error", "") or "").strip()
+        if dependency_error:
+            st.caption(dependency_error)
+        embedding_backend_error = str(debug_status.get("embedding_backend_error", "") or "").strip()
+        if embedding_backend_error:
+            st.caption(f"Embedding fallback detail: {embedding_backend_error}")
+        last_error = str(debug_status.get("last_error", "") or "").strip()
+        if last_error:
+            st.caption(f"Last vector error: {last_error}")
     st.caption("Choose a starter prompt or ask your own question below.")
     st.divider()
     for sample_question in SAMPLE_QUESTIONS:
@@ -324,6 +430,12 @@ elif st.session_state["chatbot_question"]:
     intent, answer_payload, supporting_df, sources = route_chatbot_request(
         user_question,
         chat_history=list(memory.messages),
+    )
+    st.session_state["chatbot_retrieval_mode"] = str(
+        answer_payload.get("_debug_retrieval_mode", "fallback")
+    )
+    st.session_state["chatbot_answer_path"] = str(
+        answer_payload.get("_debug_answer_path", "idle")
     )
     supporting_records = supporting_df.to_dict(orient="records")
 

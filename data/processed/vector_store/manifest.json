@@ -1,0 +1,6 @@
+{
+  "fingerprint": "7ba09cd7592307f445882a772e5fde3c74052e9561fdcdf4d6c7f0d4999e9a15",
+  "document_count": 6769,
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "embedding_backend": "huggingface"
+}

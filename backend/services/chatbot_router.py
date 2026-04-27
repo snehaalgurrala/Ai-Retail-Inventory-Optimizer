@@ -1,5 +1,6 @@
 import pandas as pd
 
+from backend.services.chatbot_analytics import try_answer_analytical_question
 from backend.services.chatbot_intent import classify_user_intent
 from backend.services.rag_service import answer_question_with_rag
 
@@ -14,15 +15,13 @@ def _looks_like_follow_up(user_input: str) -> bool:
         "why",
         "how",
         "what about",
-        "and what about",
-        "what else",
-        "tell me more",
-        "explain more",
-        "explain this",
-        "go deeper",
-        "show me more",
+        "explain",
+        "and",
+        "then",
     )
-    return len(text.split()) <= 6 or text.startswith(follow_up_starts)
+    if len(text.split()) > 3:
+        return False
+    return any(text == item or text.startswith(f"{item} ") for item in follow_up_starts)
 
 
 def _has_assistant_context(chat_history) -> bool:
@@ -82,18 +81,87 @@ def route_chatbot_request(
     """Route a chatbot request by intent and only run RAG for business queries."""
     classified = classify_user_intent(user_input)
     intent = classified.get("intent", "unclear")
-    if (
-        intent == "unclear"
-        and _looks_like_follow_up(user_input)
-        and _has_assistant_context(chat_history)
-    ):
-        intent = "business_query"
+    analytics_route = try_answer_analytical_question(
+        user_input,
+        chat_history=chat_history,
+    )
+    has_follow_up_context = _looks_like_follow_up(user_input) and _has_assistant_context(chat_history)
 
-    if intent == "business_query":
+    if intent == "greeting":
+        routed_intent = "greeting"
+        is_follow_up = False
+        print(f"[chatbot] detected_intent={routed_intent} is_follow_up={is_follow_up}")
+        return routed_intent, _build_intent_payload(routed_intent), pd.DataFrame(), []
+
+    if analytics_route.handled and analytics_route.intent != "follow_up":
+        routed_intent = "analytical_query"
+        is_follow_up = False
+        analytics_route.payload["_debug_answer_path"] = "analytics_first"
+        analytics_route.payload["_debug_retrieval_mode"] = "fallback"
+        print(f"[chatbot] detected_intent={routed_intent} is_follow_up={is_follow_up}")
+        return (
+            routed_intent,
+            analytics_route.payload,
+            analytics_route.supporting_df,
+            analytics_route.sources,
+        )
+
+    if analytics_route.handled and analytics_route.intent == "follow_up" and intent in {"follow_up", "unclear"}:
+        routed_intent = "follow_up"
+        is_follow_up = True
+        analytics_route.payload["_debug_answer_path"] = "analytics_follow_up"
+        analytics_route.payload["_debug_retrieval_mode"] = "memory"
+        print(f"[chatbot] detected_intent={routed_intent} is_follow_up={is_follow_up}")
+        return (
+            routed_intent,
+            analytics_route.payload,
+            analytics_route.supporting_df,
+            analytics_route.sources,
+        )
+
+    if intent in {"analytical_query", "business_query", "unclear"}:
+        routed_intent = "business_query"
+        is_follow_up = False
+        print(f"[chatbot] detected_intent={routed_intent} is_follow_up={is_follow_up}")
         payload, supporting_df, sources = answer_question_with_rag(
             user_input,
             chat_history=chat_history,
         )
-        return intent, payload, supporting_df, sources
+        return routed_intent, payload, supporting_df, sources
 
-    return intent, _build_intent_payload(intent), pd.DataFrame(), []
+    if analytics_route.handled and analytics_route.intent == "follow_up":
+        routed_intent = "follow_up"
+        is_follow_up = True
+        analytics_route.payload["_debug_answer_path"] = "analytics_follow_up"
+        analytics_route.payload["_debug_retrieval_mode"] = "memory"
+        print(f"[chatbot] detected_intent={routed_intent} is_follow_up={is_follow_up}")
+        return (
+            routed_intent,
+            analytics_route.payload,
+            analytics_route.supporting_df,
+            analytics_route.sources,
+        )
+
+    if intent == "irrelevant":
+        routed_intent = "irrelevant"
+        is_follow_up = False
+        print(f"[chatbot] detected_intent={routed_intent} is_follow_up={is_follow_up}")
+        return routed_intent, _build_intent_payload(routed_intent), pd.DataFrame(), []
+
+    if has_follow_up_context and analytics_route.handled:
+        routed_intent = "follow_up"
+        is_follow_up = True
+        analytics_route.payload["_debug_answer_path"] = "analytics_follow_up"
+        analytics_route.payload["_debug_retrieval_mode"] = "memory"
+        print(f"[chatbot] detected_intent={routed_intent} is_follow_up={is_follow_up}")
+        return (
+            routed_intent,
+            analytics_route.payload,
+            analytics_route.supporting_df,
+            analytics_route.sources,
+        )
+
+    routed_intent = "unclear"
+    is_follow_up = False
+    print(f"[chatbot] detected_intent={routed_intent} is_follow_up={is_follow_up}")
+    return routed_intent, _build_intent_payload(routed_intent), pd.DataFrame(), []
