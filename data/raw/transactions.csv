@@ -3315,3 +3315,4 @@ TXN0003313,2026-04-27,procurement,P107,S1,50,recommendation_execution,Approved r
 TXN0003314,2026-04-27,procurement,P109,S3,9,recommendation_execution,Approved reorder for recommendation REC00111
 TXN0003315,2026-04-27,procurement,P111,S3,9,recommendation_execution,Approved reorder for recommendation REC00112
 TXN0003316,2026-04-27,sale,P113,S1,3,customer_order,Customer order ORD000006
+TXN0003317,2026-04-28,sale,P113,S1,1,customer_order,Customer order ORD000007

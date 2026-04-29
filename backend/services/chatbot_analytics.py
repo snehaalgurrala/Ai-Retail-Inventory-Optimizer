@@ -166,6 +166,20 @@ def _maybe_humanize(
     )
 
 
+def _extract_requested_limit(question: str, default: int = 5, maximum: int = 10) -> int:
+    normalized = _normalize(question)
+    match = re.search(r"\btop\s+(\d+)\b", normalized)
+    if not match:
+        match = re.search(r"\b(\d+)\s+(items|item|products|product)\b", normalized)
+    if not match:
+        return default
+    try:
+        requested = int(match.group(1))
+    except Exception:
+        return default
+    return max(1, min(requested, maximum))
+
+
 def _store_match_candidates(stores: pd.DataFrame) -> dict[str, set[str]]:
     alias_map: dict[str, set[str]] = {}
     if stores.empty:
@@ -317,19 +331,31 @@ def _match_category(question: str, products: pd.DataFrame) -> str:
 
 def _detect_analytical_intent(question: str, matched_stores: pd.DataFrame, matched_category: str = "") -> str:
     text = _normalize(question)
+    top_ranked_query = bool(re.search(r"\btop\s+\d+\b", text) and any(token in text for token in ["sold", "sales"]))
+    least_ranked_query = bool(re.search(r"\bleast\s+\d+\b", text) and any(token in text for token in ["sold", "sales"]))
 
     if any(keyword in text for keyword in ["recommendation", "recommend", "suggest", "agent", "why did"]):
         return "recommendation_question"
     if "supplier" in text or "suppliers" in text or ("risk" in text and "supplier" in text):
         return "supplier_risk"
+    if least_ranked_query and matched_stores.empty is False:
+        return "least_sold_products_ranked_by_store"
+    if top_ranked_query and matched_stores.empty is False:
+        return "top_sold_products_ranked_by_store"
     if any(keyword in text for keyword in ["least sold", "lowest sold", "worst selling", "least selling"]):
         if matched_category:
             return "least_sold_product_by_category"
+        if matched_stores.empty is False and any(token in text for token in ["top ", "items", "products"]):
+            return "least_sold_products_ranked_by_store"
         return "least_sold_product_by_store" if not matched_stores.empty else "product_performance"
     if any(keyword in text for keyword in ["top selling", "best selling", "highest sold", "most sold"]):
         if matched_category:
             return "top_sold_product_by_category"
+        if matched_stores.empty is False and any(token in text for token in ["top ", "items", "products"]):
+            return "top_sold_products_ranked_by_store"
         return "top_sold_product_by_store" if not matched_stores.empty else "product_performance"
+    if matched_stores.empty is False and any(keyword in text for keyword in ["highest sales", "top sales", "most sales"]):
+        return "top_sold_products_ranked_by_store"
     if matched_category and any(keyword in text for keyword in ["highest sales", "top sales", "most sales"]):
         return "top_sold_product_by_category"
     if matched_category and any(keyword in text for keyword in ["lowest sales", "least sales"]):
@@ -539,6 +565,102 @@ def _answer_least_or_top_sold(
     )
     payload = _maybe_humanize(question, payload)
     return AnalyticsRoute(True, intent, payload, supporting_df, _build_sources(["sales", "products", "stores"]))
+
+
+def _answer_ranked_sold_products_by_store(
+    frames: dict[str, pd.DataFrame],
+    question: str,
+    intent: str,
+    matched_stores: pd.DataFrame,
+) -> AnalyticsRoute:
+    if matched_stores.empty:
+        return AnalyticsRoute(
+            True,
+            intent,
+            _friendly_no_data(
+                "I couldn't match that store or city yet. Can you check whether it exists in stores.csv?",
+                "You can ask with a city name like Hyderabad or Vijayawada.",
+            ),
+            pd.DataFrame(),
+            _build_sources(["stores"]),
+        )
+
+    sales = _sales_with_products(frames)
+    if sales.empty:
+        return AnalyticsRoute(
+            True,
+            intent,
+            _friendly_no_data(
+                "I couldn't find sales data in the current dataset.",
+                "",
+            ),
+            pd.DataFrame(),
+            _build_sources(["sales"]),
+        )
+
+    sales = sales[sales["store_id"].isin(matched_stores["store_id"].astype(str))].copy()
+    if sales.empty:
+        return AnalyticsRoute(
+            True,
+            intent,
+            _friendly_no_data(
+                f"I couldn't find sales data for {_store_label(matched_stores)} in the current dataset.",
+                "",
+            ),
+            pd.DataFrame(),
+            _build_sources(["sales", "stores"]),
+        )
+
+    grouped = (
+        sales.groupby(["product_id", "product_name"], as_index=False)["quantity_sold"]
+        .sum()
+    )
+    if grouped.empty:
+        return AnalyticsRoute(
+            True,
+            intent,
+            _friendly_no_data(
+                f"I couldn't find sales data for {_store_label(matched_stores)} in the current dataset.",
+                "",
+            ),
+            pd.DataFrame(),
+            _build_sources(["sales", "products", "stores"]),
+        )
+
+    ascending = intent == "least_sold_products_ranked_by_store"
+    grouped = grouped.sort_values(["quantity_sold", "product_name"], ascending=[ascending, True]).reset_index(drop=True)
+    limit = _extract_requested_limit(question, default=5, maximum=10)
+    top_rows = grouped.head(limit).copy()
+    label = _store_label(matched_stores)
+    qualifier = "top" if not ascending else "least"
+    answer_lines = [f"The {qualifier} {len(top_rows)} selling items in {label} are:"]
+    for index, row in enumerate(top_rows.itertuples(index=False), start=1):
+        product_name = str(getattr(row, "product_name", "") or getattr(row, "product_id", "Unknown product"))
+        quantity = int(getattr(row, "quantity_sold", 0) or 0)
+        answer_lines.append(f"{index}. {product_name} - {quantity} units")
+
+    if ascending:
+        explanation = "These products are contributing the least sales in this location."
+        suggestion = "You may want to review pricing, placement, or reorder levels for these items."
+    else:
+        explanation = "These products show strong demand in this location."
+        suggestion = "You may want to ensure these items are always well-stocked."
+
+    payload = _empty_payload()
+    payload.update(
+        {
+            "answer": "\n".join(answer_lines),
+            "explanation": explanation,
+            "suggestions": [suggestion],
+            "follow_up_question": "Want the full ranked list too?",
+            "confidence": "high",
+            "supporting_points": [
+                f"Matched store scope: {label}",
+                "Computed from sales.csv merged with products.csv and grouped by product.",
+            ],
+        }
+    )
+    return AnalyticsRoute(True, intent, payload, top_rows, _build_sources(["sales", "products", "stores"]))
 
 
 def _answer_least_or_top_sold_by_category(
@@ -957,6 +1079,10 @@ def try_answer_analytical_question(
     intent = _detect_analytical_intent(user_input, matched_stores, matched_category)
 
     if _has_analytical_signal(user_input, matched_stores, matched_products, matched_category) and intent:
+        if intent == "least_sold_products_ranked_by_store":
+            return _answer_ranked_sold_products_by_store(frames, user_input, intent, matched_stores)
+        if intent == "top_sold_products_ranked_by_store":
+            return _answer_ranked_sold_products_by_store(frames, user_input, intent, matched_stores)
         if intent == "least_sold_product_by_category":
             return _answer_least_or_top_sold_by_category(frames, user_input, intent, matched_category)
         if intent == "top_sold_product_by_category":
