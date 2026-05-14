@@ -75,7 +75,7 @@ def _fallback_intent(user_input: str) -> dict[str, str]:
         "joke",
     }
 
-    if text in greeting_words or any(text.startswith(word) for word in greeting_words):
+    if text in greeting_words or any(text.startswith(f"{word} ") for word in greeting_words):
         return {"intent": "greeting"}
     if len(text.split()) <= 3 and any(text == word or text.startswith(f"{word} ") for word in follow_up_words):
         return {"intent": "follow_up"}

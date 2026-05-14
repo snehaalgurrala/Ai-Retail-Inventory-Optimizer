@@ -1,6 +1,6 @@
 run_time,agent_name,finding_count,priority_level,latest_insight
-2026-04-27T16:30:41,inventory_agent,51,high,15 high demand items. 5 low stock items. 3 stockout risks.
-2026-04-27T16:30:41,pricing_agent,54,high,"Previous discount approved per MEMDEC000001, pending implementation; sales velocity below 0.57 cutoff."
-2026-04-27T16:30:41,transfer_agent,1,high,"S3 has only 7 days of stock remaining with high sales velocity (1.286/day), indicating imminent stockout risk."
-2026-04-27T16:30:41,risk_agent,38,high,Supplier reliability or delivery time crosses threshold
-2026-04-27T16:30:41,procurement_agent,5,high,Stock is below the reorder point and supplier risk may delay replenishment.
+2026-05-14T11:05:57,inventory_agent,59,high,17 high demand items. 5 low stock items. 1 stockout risks.
+2026-05-14T11:05:57,pricing_agent,76,high,Inventory coverage is high compared with recent sales velocity.
+2026-05-14T11:05:57,transfer_agent,3,medium,One store is below reorder point while another store has surplus stock.
+2026-05-14T11:05:57,risk_agent,46,high,Supplier reliability or delivery time crosses the configured risk threshold.
+2026-05-14T11:05:57,procurement_agent,5,high,Stock is below the reorder point and supplier risk may delay replenishment.

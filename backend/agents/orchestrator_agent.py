@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys
 from datetime import datetime
+from time import perf_counter
 from typing import TypedDict
 
 import pandas as pd
@@ -12,7 +13,6 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.agents import pricing_agent, risk_agent, transfer_agent
 from backend.agents.procurement_agent import run as run_procurement_agent
-from backend.agents.tools import invoke_agent_tool
 from backend.memory.memory_store import (
     get_system_memory_summary,
     save_recommendation_batch,
@@ -24,7 +24,6 @@ from backend.memory.learning_loop import (
 from backend.services.data_processor import build_processed_datasets
 from backend.services.agent_summary_service import generate_agent_card_summaries
 from backend.services.inventory_analyzer import build_inventory_analysis
-from backend.services.llm_reasoner import summarize_orchestration
 from backend.services.recommendation_engine import (
     PROCESSED_DATA_DIR,
     RECOMMENDATION_COLUMNS,
@@ -50,6 +49,19 @@ class AgentGraphState(TypedDict, total=False):
     orchestrator_summary_df: pd.DataFrame
     combined_output: dict
     unified_recommendations: list[dict]
+    timing_log: dict[str, float]
+    agent_analysis_started: float
+    graph_started: float
+    inventory_agent_seconds: float
+    pricing_agent_seconds: float
+    transfer_agent_seconds: float
+    risk_agent_seconds: float
+    procurement_agent_seconds: float
+    inventory_agent_error: str
+    pricing_agent_error: str
+    transfer_agent_error: str
+    risk_agent_error: str
+    procurement_agent_error: str
 
 
 AGENT_OUTPUT_COLUMNS = [
@@ -67,6 +79,12 @@ ORCHESTRATOR_SUMMARY_COLUMNS = [
     "high_priority_alerts",
     "last_agent_run_time",
     "summary",
+    "inventory_agent_seconds",
+    "pricing_agent_seconds",
+    "transfer_agent_seconds",
+    "risk_agent_seconds",
+    "procurement_agent_seconds",
+    "total_graph_seconds",
 ]
 
 
@@ -211,13 +229,17 @@ def _build_agent_outputs_df(state: AgentGraphState, run_time: str) -> pd.DataFra
         procurement_output,
     ]:
         recommendations = output.get("recommendations", [])
+        error = str(output.get("error", "") or "").strip()
         agent_rows.append(
             {
                 "run_time": run_time,
                 "agent_name": output.get("agent_name", ""),
                 "finding_count": int(output.get("recommendation_count", 0)),
-                "priority_level": _highest_priority_label(recommendations),
+                "priority_level": "error" if error else _highest_priority_label(recommendations),
                 "latest_insight": (
+                    f"Agent failed: {error}"
+                    if error
+                    else
                     _first_non_empty_text(recommendations, "reason")
                     or _first_non_empty_text(recommendations, "action")
                     or "Run agents to generate latest analysis."
@@ -273,6 +295,12 @@ def _build_orchestrator_summary_df(
         "high_priority_alerts": high_priority_alerts,
         "last_agent_run_time": run_time,
         "summary": summary_text,
+        "inventory_agent_seconds": float(state.get("inventory_agent_seconds", 0)),
+        "pricing_agent_seconds": float(state.get("pricing_agent_seconds", 0)),
+        "transfer_agent_seconds": float(state.get("transfer_agent_seconds", 0)),
+        "risk_agent_seconds": float(state.get("risk_agent_seconds", 0)),
+        "procurement_agent_seconds": float(state.get("procurement_agent_seconds", 0)),
+        "total_graph_seconds": float(state.get("total_graph_seconds", 0)),
     }
     return pd.DataFrame([summary_row], columns=ORCHESTRATOR_SUMMARY_COLUMNS)
 
@@ -295,13 +323,14 @@ def save_orchestrator_summary(orchestrator_summary_df: pd.DataFrame) -> Path:
 
 def _load_latest_data_summary_node(state: AgentGraphState) -> AgentGraphState:
     """Load fresh processed data and build a shared summary for the graph run."""
+    started = perf_counter()
     config = get_config(state.get("config"))
 
     build_processed_datasets()
     build_inventory_analysis(config)
     inputs = load_recommendation_inputs()
     memory_context = get_system_memory_summary()
-    build_learning_insights(save_output=True)
+    build_learning_insights(save_output=True, use_llm=False)
     learning_context = get_system_learning_summary()
     inputs["memory_context"] = memory_context
     inputs["learning_context"] = learning_context
@@ -316,6 +345,10 @@ def _load_latest_data_summary_node(state: AgentGraphState) -> AgentGraphState:
         "slow_moving_rows": int(len(inputs.get("slow_moving_items", pd.DataFrame()))),
     }
 
+    timing_log = dict(state.get("timing_log", {}))
+    timing_log["data_analysis_seconds"] = round(perf_counter() - started, 3)
+    print(f"[agent_refresh] data analysis time: {timing_log['data_analysis_seconds']}s")
+
     return {
         "config": config,
         "save_output": state.get("save_output", True),
@@ -323,135 +356,198 @@ def _load_latest_data_summary_node(state: AgentGraphState) -> AgentGraphState:
         "data_summary": data_summary,
         "memory_context": memory_context,
         "learning_context": learning_context,
+        "timing_log": timing_log,
+        "agent_analysis_started": perf_counter(),
+        "graph_started": state.get("graph_started", perf_counter()),
     }
 
 
 def _inventory_agent_node(state: AgentGraphState) -> AgentGraphState:
     """Summarize inventory and demand signals for the graph state."""
-    inputs = state.get("inputs", {})
-    low_stock_items = inputs.get("low_stock_items", pd.DataFrame())
-    stockout_risk_items = inputs.get("stockout_risk_items", pd.DataFrame())
-    overstock_items = inputs.get("overstock_items", pd.DataFrame())
-    high_demand_items = inputs.get("high_demand_items", pd.DataFrame())
-    inventory_summary_tool = invoke_agent_tool(
-        "get_current_inventory_summary",
-        {"limit": 5},
-    )
-    low_stock_tool = invoke_agent_tool(
-        "get_low_stock_items",
-        {"limit": 5},
-    )
-    dead_stock_tool = invoke_agent_tool(
-        "get_dead_stock_candidates",
-        {"limit": 5},
-    )
-    imbalance_tool = invoke_agent_tool(
-        "get_store_stock_imbalance",
-        {"limit": 5},
-    )
+    started = perf_counter()
+    try:
+        inputs = state.get("inputs", {})
+        low_stock_items = inputs.get("low_stock_items", pd.DataFrame())
+        stockout_risk_items = inputs.get("stockout_risk_items", pd.DataFrame())
+        overstock_items = inputs.get("overstock_items", pd.DataFrame())
+        high_demand_items = inputs.get("high_demand_items", pd.DataFrame())
 
-    finding_count = (
-        int(len(low_stock_items))
-        + int(len(stockout_risk_items))
-        + int(len(overstock_items))
-        + int(len(high_demand_items))
-    )
-    inventory_output = {
-        "agent_name": "inventory_agent",
-        "recommendations": [],
-        "finding_count": finding_count,
-        "low_stock_count": int(len(low_stock_items)),
-        "stockout_risk_count": int(len(stockout_risk_items)),
-        "overstock_count": int(len(overstock_items)),
-        "high_demand_count": int(len(high_demand_items)),
-        "tool_context": {
-            "inventory_summary": inventory_summary_tool,
-            "low_stock_summary": low_stock_tool,
-            "dead_stock_summary": dead_stock_tool,
-            "imbalance_summary": imbalance_tool,
-        },
-        "focus_product_ids": sorted(
-            {
-                str(product_id)
-                for product_id in pd.concat(
-                    [
-                        low_stock_items.get("product_id", pd.Series(dtype=object)),
-                        high_demand_items.get("product_id", pd.Series(dtype=object)),
-                    ],
-                    ignore_index=True,
-                )
-                .dropna()
-                .astype(str)
-                if product_id
-            }
-        ),
+        finding_count = (
+            int(len(low_stock_items))
+            + int(len(stockout_risk_items))
+            + int(len(overstock_items))
+            + int(len(high_demand_items))
+        )
+        inventory_output = {
+            "agent_name": "inventory_agent",
+            "recommendations": [],
+            "finding_count": finding_count,
+            "low_stock_count": int(len(low_stock_items)),
+            "stockout_risk_count": int(len(stockout_risk_items)),
+            "overstock_count": int(len(overstock_items)),
+            "high_demand_count": int(len(high_demand_items)),
+            "tool_context": {
+                "inventory_rows": int(len(inputs.get("current_inventory", pd.DataFrame()))),
+                "low_stock_rows": int(len(low_stock_items)),
+                "stockout_risk_rows": int(len(stockout_risk_items)),
+                "overstock_rows": int(len(overstock_items)),
+            },
+            "focus_product_ids": sorted(
+                {
+                    str(product_id)
+                    for product_id in pd.concat(
+                        [
+                            low_stock_items.get("product_id", pd.Series(dtype=object)),
+                            high_demand_items.get("product_id", pd.Series(dtype=object)),
+                        ],
+                        ignore_index=True,
+                    )
+                    .dropna()
+                    .astype(str)
+                    if product_id
+                }
+            ),
+        }
+        error = ""
+    except Exception as exc:
+        error = str(exc)
+        inventory_output = {
+            "agent_name": "inventory_agent",
+            "recommendations": [],
+            "finding_count": 0,
+            "low_stock_count": 0,
+            "stockout_risk_count": 0,
+            "overstock_count": 0,
+            "high_demand_count": 0,
+            "error": error,
+        }
+
+    elapsed = round(perf_counter() - started, 3)
+    print(f"[agent_refresh] inventory_agent time: {elapsed}s")
+    if error:
+        print(f"[agent_refresh] inventory_agent error: {error}")
+    return {
+        "inventory_output": inventory_output,
+        "inventory_agent_seconds": elapsed,
+        "inventory_agent_error": error,
     }
-
-    return {"inventory_output": inventory_output}
 
 
 def _pricing_agent_node(state: AgentGraphState) -> AgentGraphState:
     """Run pricing recommendations from shared graph inputs."""
-    recommendations = pricing_agent.run(
-        state.get("inputs", {}),
-        state.get("config"),
-    )
+    started = perf_counter()
+    error = ""
+    try:
+        recommendations = pricing_agent.run(
+            state.get("inputs", {}),
+            state.get("config"),
+        )
+    except Exception as exc:
+        error = str(exc)
+        recommendations = []
+    elapsed = round(perf_counter() - started, 3)
+    print(f"[agent_refresh] pricing_agent time: {elapsed}s")
+    if error:
+        print(f"[agent_refresh] pricing_agent error: {error}")
     return {
         "pricing_output": {
             "agent_name": "pricing_agent",
             "recommendations": recommendations,
             "recommendation_count": len(recommendations),
-        }
+            "error": error,
+        },
+        "pricing_agent_seconds": elapsed,
+        "pricing_agent_error": error,
     }
 
 
 def _transfer_agent_node(state: AgentGraphState) -> AgentGraphState:
     """Run transfer recommendations from shared graph inputs."""
-    recommendations = transfer_agent.run(
-        state.get("inputs", {}),
-        state.get("config"),
-    )
+    started = perf_counter()
+    error = ""
+    try:
+        recommendations = transfer_agent.run(
+            state.get("inputs", {}),
+            state.get("config"),
+        )
+    except Exception as exc:
+        error = str(exc)
+        recommendations = []
+    elapsed = round(perf_counter() - started, 3)
+    print(f"[agent_refresh] transfer_agent time: {elapsed}s")
+    if error:
+        print(f"[agent_refresh] transfer_agent error: {error}")
     return {
         "transfer_output": {
             "agent_name": "transfer_agent",
             "recommendations": recommendations,
             "recommendation_count": len(recommendations),
-        }
+            "error": error,
+        },
+        "transfer_agent_seconds": elapsed,
+        "transfer_agent_error": error,
     }
 
 
 def _risk_agent_node(state: AgentGraphState) -> AgentGraphState:
     """Run risk recommendations from shared graph inputs."""
-    recommendations = risk_agent.run(
-        state.get("inputs", {}),
-        state.get("config"),
-    )
+    started = perf_counter()
+    error = ""
+    try:
+        recommendations = risk_agent.run(
+            state.get("inputs", {}),
+            state.get("config"),
+        )
+    except Exception as exc:
+        error = str(exc)
+        recommendations = []
+    elapsed = round(perf_counter() - started, 3)
+    print(f"[agent_refresh] risk_agent time: {elapsed}s")
+    if error:
+        print(f"[agent_refresh] risk_agent error: {error}")
     return {
         "risk_output": {
             "agent_name": "risk_agent",
             "recommendations": recommendations,
             "recommendation_count": len(recommendations),
-        }
+            "error": error,
+        },
+        "risk_agent_seconds": elapsed,
+        "risk_agent_error": error,
     }
 
 
 def _procurement_agent_node(state: AgentGraphState) -> AgentGraphState:
     """Run procurement recommendations from shared graph inputs."""
-    recommendations = run_procurement_agent(
-        state.get("inputs", {}),
-        state.get("config"),
-    )
+    started = perf_counter()
+    error = ""
+    try:
+        recommendations = run_procurement_agent(
+            state.get("inputs", {}),
+            state.get("config"),
+        )
+    except Exception as exc:
+        error = str(exc)
+        recommendations = []
+    elapsed = round(perf_counter() - started, 3)
+    print(f"[agent_refresh] procurement_agent time: {elapsed}s")
+    if error:
+        print(f"[agent_refresh] procurement_agent error: {error}")
     return {
         "procurement_output": {
             "agent_name": "procurement_agent",
             "recommendations": recommendations,
             "recommendation_count": len(recommendations),
-        }
+            "error": error,
+        },
+        "procurement_agent_seconds": elapsed,
+        "procurement_agent_error": error,
     }
 
 
 def _combine_results_node(state: AgentGraphState) -> AgentGraphState:
-    """Merge sequential agent outputs into one orchestrator summary."""
+    """Merge parallel agent outputs into one orchestrator summary."""
+    started = perf_counter()
     agent_output_keys = [
         "inventory_output",
         "pricing_output",
@@ -462,10 +558,14 @@ def _combine_results_node(state: AgentGraphState) -> AgentGraphState:
 
     recommendations: list[dict] = []
     agent_counts: dict[str, int] = {}
+    agent_errors: dict[str, str] = {}
     for key in agent_output_keys:
         agent_output = state.get(key, {})
         agent_name = agent_output.get("agent_name", key)
         agent_recommendations = agent_output.get("recommendations", [])
+        error = str(agent_output.get("error", "") or "").strip()
+        if error:
+            agent_errors[agent_name] = error
         if key == "inventory_output":
             agent_counts[agent_name] = int(agent_output.get("finding_count", 0))
         elif isinstance(agent_recommendations, list):
@@ -490,23 +590,22 @@ def _combine_results_node(state: AgentGraphState) -> AgentGraphState:
         "memory_context": state.get("memory_context", {}),
         "learning_context": state.get("learning_context", {}),
         "agent_counts": agent_counts,
+        "agent_errors": agent_errors,
         "total_recommendations": int(len(recommendations_df)),
         "run_time": run_time,
     }
-    llm_summary = summarize_orchestration(
-        {
-            "inventory_summary": state.get("inventory_output", {}),
-            "memory_context": state.get("memory_context", {}),
-            "learning_context": state.get("learning_context", {}),
-            "agent_counts": agent_counts,
-            "total_recommendations": int(len(recommendations_df)),
-            "sample_recommendations": recommendations_df.head(10).to_dict(
-                orient="records"
-            ),
-        }
-    )
-    if llm_summary:
-        combined_output["llm_summary"] = llm_summary
+    timing_log = dict(state.get("timing_log", {}))
+    agent_started = float(state.get("agent_analysis_started", started))
+    for timing_key in [
+        "inventory_agent_seconds",
+        "pricing_agent_seconds",
+        "transfer_agent_seconds",
+        "risk_agent_seconds",
+        "procurement_agent_seconds",
+    ]:
+        timing_log[timing_key] = float(state.get(timing_key, 0))
+    timing_log["agent_analysis_seconds"] = round(perf_counter() - agent_started, 3)
+    print(f"[agent_refresh] agent analysis time: {timing_log['agent_analysis_seconds']}s")
 
     return {
         "recommendations_df": recommendations_df,
@@ -514,11 +613,16 @@ def _combine_results_node(state: AgentGraphState) -> AgentGraphState:
         "orchestrator_summary_df": orchestrator_summary_df,
         "combined_output": combined_output,
         "unified_recommendations": recommendations_df.to_dict(orient="records"),
+        "timing_log": timing_log,
     }
 
 
 def _save_outputs_node(state: AgentGraphState) -> AgentGraphState:
     """Persist the final orchestrator outputs to processed CSV files."""
+    started = perf_counter()
+    timing_log = dict(state.get("timing_log", {}))
+    graph_started = float(state.get("graph_started", started))
+    timing_log["total_graph_seconds"] = round(perf_counter() - graph_started, 3)
     recommendations_df = state.get(
         "recommendations_df",
         pd.DataFrame(columns=RECOMMENDATION_COLUMNS),
@@ -531,6 +635,18 @@ def _save_outputs_node(state: AgentGraphState) -> AgentGraphState:
         "orchestrator_summary_df",
         pd.DataFrame(columns=ORCHESTRATOR_SUMMARY_COLUMNS),
     )
+    if not orchestrator_summary_df.empty:
+        for timing_key in [
+            "inventory_agent_seconds",
+            "pricing_agent_seconds",
+            "transfer_agent_seconds",
+            "risk_agent_seconds",
+            "procurement_agent_seconds",
+            "total_graph_seconds",
+        ]:
+            if timing_key not in orchestrator_summary_df.columns:
+                orchestrator_summary_df[timing_key] = 0.0
+            orchestrator_summary_df.loc[:, timing_key] = timing_log.get(timing_key, 0)
 
     output_path = ""
     agent_outputs_path = ""
@@ -541,24 +657,43 @@ def _save_outputs_node(state: AgentGraphState) -> AgentGraphState:
         orchestrator_summary_path = str(
             save_orchestrator_summary(orchestrator_summary_df)
         )
-        generate_agent_card_summaries(
+        summary_started = perf_counter()
+        card_summaries_df, orchestrator_summary_df = generate_agent_card_summaries(
             agent_outputs_df=agent_outputs_df,
             recommendations_df=recommendations_df,
             orchestrator_summary_df=orchestrator_summary_df,
             save_output=True,
         )
         save_recommendation_batch(recommendations_df)
+        timing_log["llm_summary_seconds"] = round(perf_counter() - summary_started, 3)
+        timing_log["llm_seconds"] = timing_log["llm_summary_seconds"]
 
     combined_output = state.get("combined_output", {}).copy()
     combined_output["output_path"] = output_path
     combined_output["agent_outputs_path"] = agent_outputs_path
     combined_output["orchestrator_summary_path"] = orchestrator_summary_path
+    timing_log["file_save_seconds"] = round(perf_counter() - started, 3)
+    timing_log["total_graph_seconds"] = round(perf_counter() - graph_started, 3)
+    if not orchestrator_summary_df.empty:
+        orchestrator_summary_df.loc[:, "total_graph_seconds"] = timing_log["total_graph_seconds"]
+        if state.get("save_output", True):
+            orchestrator_summary_path = str(
+                save_orchestrator_summary(orchestrator_summary_df)
+            )
+            combined_output["orchestrator_summary_path"] = orchestrator_summary_path
+    combined_output["timing_log"] = timing_log
+    print(f"[agent_refresh] LLM summary time: {timing_log.get('llm_summary_seconds', 0)}s")
+    print(f"[agent_refresh] file save time: {timing_log['file_save_seconds']}s")
 
-    return {"combined_output": combined_output}
+    return {
+        "combined_output": combined_output,
+        "orchestrator_summary_df": orchestrator_summary_df,
+        "timing_log": timing_log,
+    }
 
 
 def build_orchestrator_graph():
-    """Create the LangGraph workflow for agent orchestration."""
+    """Create the LangGraph workflow with parallel agent fan-out/fan-in."""
     graph = StateGraph(AgentGraphState)
 
     graph.add_node("load_latest_data_summary", _load_latest_data_summary_node)
@@ -572,11 +707,20 @@ def build_orchestrator_graph():
 
     graph.add_edge(START, "load_latest_data_summary")
     graph.add_edge("load_latest_data_summary", "inventory_agent")
-    graph.add_edge("inventory_agent", "pricing_agent")
-    graph.add_edge("pricing_agent", "transfer_agent")
-    graph.add_edge("transfer_agent", "risk_agent")
-    graph.add_edge("risk_agent", "procurement_agent")
-    graph.add_edge("procurement_agent", "combine_results")
+    graph.add_edge("load_latest_data_summary", "pricing_agent")
+    graph.add_edge("load_latest_data_summary", "transfer_agent")
+    graph.add_edge("load_latest_data_summary", "risk_agent")
+    graph.add_edge("load_latest_data_summary", "procurement_agent")
+    graph.add_edge(
+        [
+            "inventory_agent",
+            "pricing_agent",
+            "transfer_agent",
+            "risk_agent",
+            "procurement_agent",
+        ],
+        "combine_results",
+    )
     graph.add_edge("combine_results", "save_outputs")
     graph.add_edge("save_outputs", END)
 
@@ -588,12 +732,24 @@ def run_agent_graph(
     save_output: bool = True,
 ) -> AgentGraphState:
     """Run the LangGraph workflow and return the final shared state."""
+    started = perf_counter()
     orchestrator_graph = build_orchestrator_graph()
     initial_state: AgentGraphState = {
         "config": get_config(config),
         "save_output": save_output,
+        "graph_started": started,
     }
-    return orchestrator_graph.invoke(initial_state)
+    final_state = orchestrator_graph.invoke(initial_state)
+    timing_log = dict(final_state.get("timing_log", {}))
+    timing_log["total_refresh_seconds"] = round(perf_counter() - started, 3)
+    timing_log["total_graph_seconds"] = timing_log["total_refresh_seconds"]
+    timing_log["total_seconds"] = timing_log["total_refresh_seconds"]
+    combined_output = dict(final_state.get("combined_output", {}))
+    combined_output["timing_log"] = timing_log
+    final_state["combined_output"] = combined_output
+    final_state["timing_log"] = timing_log
+    print(f"[agent_refresh] total refresh time: {timing_log['total_refresh_seconds']}s")
+    return final_state
 
 
 def run_all_agents(

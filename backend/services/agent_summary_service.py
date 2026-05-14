@@ -1,5 +1,7 @@
 import json
+import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from pathlib import Path
 
 import pandas as pd
@@ -22,6 +24,8 @@ AGENT_OUTPUTS_PATH = PROCESSED_DATA_DIR / "agent_outputs.csv"
 RECOMMENDATIONS_PATH = PROCESSED_DATA_DIR / "recommendations.csv"
 ORCHESTRATOR_SUMMARY_PATH = PROCESSED_DATA_DIR / "orchestrator_summary.csv"
 AGENT_CARD_SUMMARIES_PATH = PROCESSED_DATA_DIR / "agent_card_summaries.csv"
+SUMMARY_LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_SUMMARY_TIMEOUT_SECONDS", "6"))
+SUMMARY_LLM_EXECUTOR = ThreadPoolExecutor(max_workers=2)
 
 
 AGENT_META = {
@@ -58,12 +62,66 @@ class AgentSummaryResponse(BaseModel):
     recommended_action: str = ""
 
 
+class AgentBatchSummaryItem(BaseModel):
+    agent_name: str = ""
+    summary: str = ""
+    recommended_action: str = ""
+
+
+class AgentBatchSummaryResponse(BaseModel):
+    agents: list[AgentBatchSummaryItem] = Field(default_factory=list)
+
+
 class OrchestratorSummaryResponse(BaseModel):
     executive_summary: str = ""
     executive_recommendation: str = ""
     top_risk: str = ""
     top_opportunity: str = ""
     low_stock_alert: str = ""
+
+
+class DashboardSummaryResponse(BaseModel):
+    agents: list[AgentBatchSummaryItem] = Field(default_factory=list)
+    orchestrator: OrchestratorSummaryResponse = Field(default_factory=OrchestratorSummaryResponse)
+
+
+def safe_get(record, key, fallback=""):
+    """Safely read a key from dict, Series, tuple/list, or scalar values."""
+    if record is None:
+        return fallback
+    if isinstance(record, dict):
+        return record.get(key, fallback)
+    if isinstance(record, pd.Series):
+        return record.get(key, fallback)
+    if isinstance(record, (list, tuple)):
+        if isinstance(key, int) and 0 <= key < len(record):
+            return record[key]
+        for item in record:
+            if isinstance(item, (dict, pd.Series)) and key in item:
+                return item.get(key, fallback)
+        return fallback
+    return getattr(record, str(key), fallback)
+
+
+def safe_text(value, fallback="") -> str:
+    """Return a clean, non-crashing text value for dashboard summaries."""
+    if value is None:
+        return fallback
+    if isinstance(value, pd.Series):
+        value = value.dropna().to_dict()
+    if isinstance(value, dict):
+        parts = []
+        for key, item in value.items():
+            text = safe_text(item, "")
+            if text:
+                parts.append(f"{str(key).replace('_', ' ').title()}: {text}")
+        return "; ".join(parts) or fallback
+    if isinstance(value, (list, tuple, set)):
+        parts = [safe_text(item, "") for item in value]
+        parts = [part for part in parts if part]
+        return "; ".join(parts) or fallback
+    text = " ".join(str(value or "").split()).strip()
+    return text or fallback
 
 
 def _safe_read_csv(path: Path) -> pd.DataFrame:
@@ -79,14 +137,14 @@ def _build_openai_client() -> OpenAI:
     settings = get_llm_settings()
     client_kwargs = {
         "api_key": settings["api_key"],
-        "timeout": settings["timeout"],
+        "timeout": max(1, min(int(settings.get("timeout", 45) or 45), SUMMARY_LLM_TIMEOUT_SECONDS)),
     }
     if settings["base_url"]:
         client_kwargs["base_url"] = settings["base_url"]
     return OpenAI(**client_kwargs)
 
 
-def _chat_json(system_prompt: str, user_payload: dict) -> str:
+def _chat_json_direct(system_prompt: str, user_payload: dict) -> str:
     settings = get_llm_settings()
     if settings["provider"] == "gemini":
         client = Client(api_key=settings["api_key"])
@@ -113,6 +171,18 @@ def _chat_json(system_prompt: str, user_payload: dict) -> str:
     return response.choices[0].message.content or ""
 
 
+def _chat_json(system_prompt: str, user_payload: dict) -> str:
+    """Call the LLM with a short dashboard-summary timeout."""
+    settings = get_llm_settings()
+    timeout = max(1, min(int(settings.get("timeout", 45) or 45), SUMMARY_LLM_TIMEOUT_SECONDS))
+    future = SUMMARY_LLM_EXECUTOR.submit(_chat_json_direct, system_prompt, user_payload)
+    try:
+        return future.result(timeout=timeout)
+    except TimeoutError as error:
+        future.cancel()
+        raise TimeoutError(f"LLM summary timed out after {timeout}s") from error
+
+
 def _extract_json_text(content: str) -> str:
     text = str(content or "").strip()
     if text.startswith("```"):
@@ -125,7 +195,7 @@ def _extract_json_text(content: str) -> str:
 
 
 def _clean_sentence(text: str, fallback: str) -> str:
-    cleaned = " ".join(str(text or "").split()).strip()
+    cleaned = safe_text(text, fallback)
     if not cleaned:
         return fallback
     if cleaned[-1] not in ".!?":
@@ -157,6 +227,138 @@ def _recommendation_rows_for_agent(
     return recommendations[
         recommendations["source_agent"].fillna("").astype(str).eq(agent_name)
     ].copy()
+
+
+def _priority_sorted(df: pd.DataFrame, limit: int = 3) -> pd.DataFrame:
+    if df.empty:
+        return df
+    ranked = df.copy()
+    if "priority" in ranked.columns:
+        ranked["_priority_rank"] = (
+            ranked["priority"]
+            .fillna("")
+            .astype(str)
+            .str.lower()
+            .str.title()
+            .map({"High": 0, "Medium": 1, "Low": 2})
+            .fillna(3)
+        )
+        ranked = ranked.sort_values("_priority_rank")
+    return ranked.head(limit).drop(columns=["_priority_rank"], errors="ignore")
+
+
+def _compact_records(df: pd.DataFrame, columns: list[str], limit: int) -> list[dict]:
+    if df.empty:
+        return []
+    available = [column for column in columns if column in df.columns]
+    if not available:
+        return []
+    return df[available].head(limit).fillna("").astype(str).to_dict(orient="records")
+
+
+def _supplier_risk_summary(recommendations: pd.DataFrame) -> dict:
+    if recommendations.empty or "recommendation_type" not in recommendations.columns:
+        return {"count": 0, "top_suppliers": []}
+    risk_rows = recommendations[
+        recommendations["recommendation_type"]
+        .fillna("")
+        .astype(str)
+        .eq("supplier_risk_alert")
+    ].copy()
+    if risk_rows.empty:
+        return {"count": 0, "top_suppliers": []}
+    return {
+        "count": int(len(risk_rows)),
+        "top_suppliers": _compact_records(
+            _priority_sorted(risk_rows, 5),
+            ["product_name", "priority", "action", "reason", "evidence"],
+            5,
+        ),
+    }
+
+
+def build_compact_llm_context(
+    agent_outputs_df: pd.DataFrame,
+    recommendations_df: pd.DataFrame,
+    low_stock_df: pd.DataFrame,
+) -> dict:
+    """Build the only dashboard context sent to summary LLM calls."""
+    stockout_df = _safe_read_csv(PROCESSED_DATA_DIR / "stockout_risk_items.csv")
+    overstock_df = _safe_read_csv(PROCESSED_DATA_DIR / "overstock_items.csv")
+
+    recommendation_counts = {}
+    if not recommendations_df.empty and "recommendation_type" in recommendations_df.columns:
+        recommendation_counts = (
+            recommendations_df["recommendation_type"]
+            .fillna("unknown")
+            .astype(str)
+            .value_counts()
+            .to_dict()
+        )
+
+    top_recommendations_by_agent = {}
+    for agent_name in AGENT_META:
+        agent_rows = _recommendation_rows_for_agent(recommendations_df, agent_name)
+        top_recommendations_by_agent[agent_name] = _compact_records(
+            _priority_sorted(agent_rows, 3),
+            [
+                "recommendation_type",
+                "product_name",
+                "store_id",
+                "priority",
+                "action",
+                "reason",
+            ],
+            3,
+        )
+
+    return {
+        "agent_outputs": agent_outputs_df.fillna("").astype(str).to_dict(orient="records"),
+        "low_stock_count": int(len(low_stock_df)),
+        "stockout_risk_count": int(len(stockout_df)),
+        "overstock_count": int(len(overstock_df)),
+        "top_low_stock_items": _compact_records(
+            _priority_sorted(low_stock_df, 5),
+            [
+                "product_name",
+                "store_name",
+                "store_id",
+                "current_quantity",
+                "reorder_threshold",
+                "suggested_reorder_quantity",
+                "priority",
+            ],
+            5,
+        ),
+        "top_stockout_risks": _compact_records(
+            _priority_sorted(stockout_df, 5),
+            [
+                "product_name",
+                "store_id",
+                "stock_level",
+                "days_of_stock_remaining",
+                "recent_daily_sales_velocity",
+                "reason",
+            ],
+            5,
+        ),
+        "top_overstock_rows": _compact_records(
+            _priority_sorted(overstock_df, 5),
+            [
+                "product_name",
+                "store_id",
+                "stock_level",
+                "days_of_stock_remaining",
+                "reason",
+            ],
+            5,
+        ),
+        "recommendation_counts_by_type": recommendation_counts,
+        "top_3_recommendations_per_agent": top_recommendations_by_agent,
+        "supplier_risk_summary": _supplier_risk_summary(recommendations_df),
+        "top_risk": _top_risk_text(recommendations_df),
+        "top_opportunity": _top_opportunity_text(recommendations_df),
+    }
 
 
 def _top_risk_text(recommendations: pd.DataFrame) -> str:
@@ -303,6 +505,60 @@ def _llm_agent_summary(agent_row: pd.Series, recommendations: pd.DataFrame) -> t
         return summary, action
 
 
+def _llm_agent_summaries_batch(
+    agent_outputs_df: pd.DataFrame,
+    recommendations_df: pd.DataFrame,
+    compact_context: dict,
+) -> tuple[dict[str, tuple[str, str]], bool]:
+    """Summarize all five agent cards with a single compact LLM call."""
+    fallback_by_agent = {}
+    for _, agent_row in agent_outputs_df.iterrows():
+        agent_name = str(agent_row.get("agent_name", "") or "").strip()
+        fallback_by_agent[agent_name] = _fallback_agent_summary(
+            agent_row,
+            _recommendation_rows_for_agent(recommendations_df, agent_name),
+        )
+
+    if not llm_is_configured():
+        return fallback_by_agent, False
+
+    system_prompt = (
+        "You summarize five retail inventory agent cards for a dashboard. "
+        "Use only the compact data provided. Do not invent products, counts, or trends. "
+        "Return valid JSON only."
+    )
+    payload = {
+        "compact_context": compact_context,
+        "required_output_schema": {
+            "agents": [
+                {
+                    "agent_name": "inventory_agent|pricing_agent|transfer_agent|risk_agent|procurement_agent",
+                    "summary": "one short concrete line",
+                    "recommended_action": "one short action line",
+                }
+            ]
+        },
+    }
+
+    try:
+        raw = _chat_json(system_prompt, payload)
+        parsed = AgentBatchSummaryResponse.model_validate(json.loads(_extract_json_text(raw)))
+        output = dict(fallback_by_agent)
+        for item in parsed.agents:
+            agent_name = str(item.agent_name or "").strip()
+            if agent_name not in output:
+                continue
+            fallback_summary, fallback_action = output[agent_name]
+            output[agent_name] = (
+                _clean_sentence(item.summary, fallback_summary),
+                _clean_sentence(item.recommended_action, fallback_action),
+            )
+        return output, True
+    except Exception as error:
+        print(f"[agent_refresh] LLM summary skipped, using data summary: {error}")
+        return fallback_by_agent, False
+
+
 def _fallback_orchestrator_summary(
     orchestrator_row: pd.Series,
     agent_summaries_df: pd.DataFrame,
@@ -346,7 +602,8 @@ def _llm_orchestrator_summary(
     agent_summaries_df: pd.DataFrame,
     recommendations: pd.DataFrame,
     low_stock_df: pd.DataFrame,
-) -> dict[str, str]:
+    compact_context: dict | None = None,
+) -> tuple[dict[str, str], bool]:
     fallback = _fallback_orchestrator_summary(
         orchestrator_row,
         agent_summaries_df,
@@ -354,26 +611,12 @@ def _llm_orchestrator_summary(
         low_stock_df,
     )
     if not llm_is_configured():
-        return fallback
+        return fallback, False
 
-    sample_columns = [
-        column
-        for column in [
-            "recommendation_type",
-            "product_name",
-            "store_id",
-            "priority",
-            "action",
-            "reason",
-            "source_agent",
-        ]
-        if column in recommendations.columns
-    ]
     payload = {
         "orchestrator_summary": orchestrator_row.fillna("").astype(str).to_dict(),
         "agent_summaries": agent_summaries_df.fillna("").astype(str).to_dict(orient="records"),
-        "low_stock_alert": low_stock_df.head(5).fillna("").astype(str).to_dict(orient="records"),
-        "sample_recommendations": recommendations[sample_columns].head(8).to_dict(orient="records"),
+        "compact_context": compact_context or {},
         "required_output_schema": {
             "low_stock_alert": "one short alert line",
             "top_risk": "one short line",
@@ -401,9 +644,126 @@ def _llm_orchestrator_summary(
                 parsed.executive_recommendation,
                 fallback["executive_recommendation"],
             ),
+        }, True
+    except Exception as error:
+        print(f"[agent_refresh] LLM summary skipped, using data summary: {error}")
+        return fallback, False
+
+
+def _fallback_dashboard_summaries(
+    agent_outputs_df: pd.DataFrame,
+    recommendations_df: pd.DataFrame,
+    low_stock_df: pd.DataFrame,
+    orchestrator_row: pd.Series,
+) -> tuple[dict[str, tuple[str, str]], dict[str, str]]:
+    agent_summaries = {}
+    card_rows = []
+    for _, agent_row in agent_outputs_df.iterrows():
+        agent_name = safe_text(safe_get(agent_row, "agent_name"), "")
+        summary, action = _fallback_agent_summary(
+            agent_row,
+            _recommendation_rows_for_agent(recommendations_df, agent_name),
+        )
+        agent_summaries[agent_name] = (summary, action)
+        card_rows.append(
+            {
+                "agent_name": agent_name,
+                "summary": summary,
+                "recommended_action": action,
+            }
+        )
+
+    fallback_cards_df = pd.DataFrame(card_rows)
+    orchestrator_summary = _fallback_orchestrator_summary(
+        orchestrator_row,
+        fallback_cards_df,
+        recommendations_df,
+        low_stock_df,
+    )
+    return agent_summaries, orchestrator_summary
+
+
+def _llm_dashboard_summary(
+    agent_outputs_df: pd.DataFrame,
+    recommendations_df: pd.DataFrame,
+    low_stock_df: pd.DataFrame,
+    orchestrator_row: pd.Series,
+    compact_context: dict,
+) -> tuple[dict[str, tuple[str, str]], dict[str, str], bool]:
+    """Generate all card and orchestrator text in one bounded LLM call."""
+    fallback_agents, fallback_orchestrator = _fallback_dashboard_summaries(
+        agent_outputs_df,
+        recommendations_df,
+        low_stock_df,
+        orchestrator_row,
+    )
+    if not llm_is_configured():
+        return fallback_agents, fallback_orchestrator, False
+
+    system_prompt = (
+        "You write compact dashboard summaries for a retail inventory command center. "
+        "Use only the compact context provided. Do not invent counts, products, stores, or trends. "
+        "Return valid JSON only."
+    )
+    payload = {
+        "compact_context": compact_context,
+        "orchestrator_summary": orchestrator_row.fillna("").astype(str).to_dict(),
+        "required_output_schema": {
+            "agents": [
+                {
+                    "agent_name": "inventory_agent|pricing_agent|transfer_agent|risk_agent|procurement_agent",
+                    "summary": "one short concrete line",
+                    "recommended_action": "one short action line",
+                }
+            ],
+            "orchestrator": {
+                "low_stock_alert": "one short alert line",
+                "top_risk": "one short line",
+                "top_opportunity": "one short line",
+                "executive_summary": "one compact paragraph",
+                "executive_recommendation": "one concise manager-level action line",
+            },
+        },
+    }
+
+    try:
+        raw = _chat_json(system_prompt, payload)
+        parsed = DashboardSummaryResponse.model_validate(json.loads(_extract_json_text(raw)))
+        agent_output = dict(fallback_agents)
+        for item in parsed.agents:
+            agent_name = safe_text(item.agent_name, "")
+            if agent_name not in agent_output:
+                continue
+            fallback_summary, fallback_action = agent_output[agent_name]
+            agent_output[agent_name] = (
+                _clean_sentence(item.summary, fallback_summary),
+                _clean_sentence(item.recommended_action, fallback_action),
+            )
+
+        orchestrator = parsed.orchestrator
+        orchestrator_output = {
+            "low_stock_alert": _clean_sentence(
+                orchestrator.low_stock_alert,
+                fallback_orchestrator["low_stock_alert"],
+            ),
+            "top_risk": _clean_sentence(orchestrator.top_risk, fallback_orchestrator["top_risk"]),
+            "top_opportunity": _clean_sentence(
+                orchestrator.top_opportunity,
+                fallback_orchestrator["top_opportunity"],
+            ),
+            "executive_summary": _clean_sentence(
+                orchestrator.executive_summary,
+                fallback_orchestrator["executive_summary"],
+            ),
+            "executive_recommendation": _clean_sentence(
+                orchestrator.executive_recommendation,
+                fallback_orchestrator["executive_recommendation"],
+            ),
         }
-    except Exception:
-        return fallback
+        return agent_output, orchestrator_output, True
+    except Exception as error:
+        print(f"[agent_refresh] LLM summary skipped, using data summary: {error}")
+        return fallback_agents, fallback_orchestrator, False
 
 
 def build_low_stock_alert_text(low_stock_df: pd.DataFrame) -> str:
@@ -472,39 +832,12 @@ def generate_agent_card_summaries(
         )
         return empty_cards, orchestrator_summary_df
 
-    summary_source = "llm" if llm_is_configured() else "fallback"
     low_stock_df = get_low_stock_items(save_output=True)
-    card_rows = []
-
-    for _, agent_row in agent_outputs_df.iterrows():
-        agent_name = str(agent_row.get("agent_name", "") or "").strip()
-        meta = AGENT_META.get(
-            agent_name,
-            {
-                "display_name": agent_name.replace("_", " ").title(),
-                "role_label": "Agent summary",
-                "accent": "blue",
-            },
-        )
-        agent_recommendations = _recommendation_rows_for_agent(recommendations_df, agent_name)
-        summary, recommended_action = _llm_agent_summary(agent_row, agent_recommendations)
-        card_rows.append(
-            {
-                "run_time": str(agent_row.get("run_time", "")),
-                "agent_name": agent_name,
-                "display_name": meta["display_name"],
-                "role_label": meta["role_label"],
-                "accent": meta["accent"],
-                "finding_count": int(pd.to_numeric(agent_row.get("finding_count", 0), errors="coerce") or 0),
-                "priority_level": _normalize_priority(agent_row.get("priority_level", "Info")),
-                "summary": summary,
-                "recommended_action": recommended_action,
-                "summary_source": summary_source,
-            }
-        )
-
-    agent_card_summaries_df = pd.DataFrame(card_rows)
-
+    compact_context = build_compact_llm_context(
+        agent_outputs_df,
+        recommendations_df,
+        low_stock_df,
+    )
     if orchestrator_summary_df.empty:
         orchestrator_summary_df = pd.DataFrame(
             [
@@ -518,21 +851,73 @@ def generate_agent_card_summaries(
                 }
             ]
         )
-
     orchestrator_row = orchestrator_summary_df.iloc[0].copy()
-    executive = _llm_orchestrator_summary(
-        orchestrator_row,
-        agent_card_summaries_df,
+    batch_summaries, executive, llm_used = _llm_dashboard_summary(
+        agent_outputs_df,
         recommendations_df,
         low_stock_df,
+        orchestrator_row,
+        compact_context,
     )
+    summary_source = "llm" if llm_used else "fallback"
+    card_rows = []
+
+    for _, agent_row in agent_outputs_df.iterrows():
+        agent_name = str(agent_row.get("agent_name", "") or "").strip()
+        meta = AGENT_META.get(
+            agent_name,
+            {
+                "display_name": agent_name.replace("_", " ").title(),
+                "role_label": "Agent summary",
+                "accent": "blue",
+            },
+        )
+        agent_recommendations = _recommendation_rows_for_agent(recommendations_df, agent_name)
+        summary, recommended_action = batch_summaries.get(
+            agent_name,
+            _fallback_agent_summary(agent_row, agent_recommendations),
+        )
+        card_rows.append(
+            {
+                "run_time": str(agent_row.get("run_time", "")),
+                "agent_name": agent_name,
+                "display_name": meta["display_name"],
+                "role_label": meta["role_label"],
+                "accent": meta["accent"],
+                "finding_count": int(pd.to_numeric(agent_row.get("finding_count", 0), errors="coerce") or 0),
+                "priority_level": _normalize_priority(agent_row.get("priority_level", "Info")),
+                "summary": safe_text(summary, "The latest run produced new findings."),
+                "recommended_action": safe_text(
+                    recommended_action,
+                    "Review the highest priority rows first.",
+                ),
+                "summary_source": summary_source,
+            }
+        )
+
+    agent_card_summaries_df = pd.DataFrame(card_rows)
 
     orchestrator_summary_df = orchestrator_summary_df.copy()
-    orchestrator_summary_df.loc[0, "low_stock_alert"] = executive["low_stock_alert"]
-    orchestrator_summary_df.loc[0, "top_risk"] = executive["top_risk"]
-    orchestrator_summary_df.loc[0, "top_opportunity"] = executive["top_opportunity"]
-    orchestrator_summary_df.loc[0, "executive_summary"] = executive["executive_summary"]
-    orchestrator_summary_df.loc[0, "executive_recommendation"] = executive["executive_recommendation"]
+    orchestrator_summary_df.loc[0, "low_stock_alert"] = safe_text(
+        safe_get(executive, "low_stock_alert"),
+        "No critical low-stock alerts right now.",
+    )
+    orchestrator_summary_df.loc[0, "top_risk"] = safe_text(
+        safe_get(executive, "top_risk"),
+        "No major risk stands out in the latest run.",
+    )
+    orchestrator_summary_df.loc[0, "top_opportunity"] = safe_text(
+        safe_get(executive, "top_opportunity"),
+        "No standout commercial opportunity is available yet.",
+    )
+    orchestrator_summary_df.loc[0, "executive_summary"] = safe_text(
+        safe_get(executive, "executive_summary"),
+        "The latest run is ready for review.",
+    )
+    orchestrator_summary_df.loc[0, "executive_recommendation"] = safe_text(
+        safe_get(executive, "executive_recommendation"),
+        "Review the latest recommendations and act on the highest-priority items first.",
+    )
     orchestrator_summary_df.loc[0, "summary_source"] = summary_source
 
     if save_output:

@@ -2,6 +2,7 @@ import sys
 import importlib
 from datetime import datetime
 from pathlib import Path
+from time import perf_counter
 
 import pandas as pd
 import plotly.express as px
@@ -13,9 +14,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 from backend.agents.orchestrator_agent import run_agent_graph  # noqa: E402
-from backend.services.email_service import send_low_stock_alert_email  # noqa: E402
 from backend.services.low_stock_service import get_low_stock_items  # noqa: E402
-from backend.services import agent_summary_service  # noqa: E402
+from backend.services import agent_summary_service, email_service  # noqa: E402
 from backend.utils.data_loader import load_all_data  # noqa: E402
 from frontend.components.ui_components import (  # noqa: E402
     apply_command_center_styles,
@@ -47,6 +47,11 @@ def load_dashboard_data() -> dict[str, pd.DataFrame]:
 def _get_agent_summary_service():
     """Reload the summary service safely during Streamlit hot reloads."""
     return importlib.reload(agent_summary_service)
+
+
+def _get_email_service():
+    """Reload email helpers safely during Streamlit hot reloads."""
+    return importlib.reload(email_service)
 
 
 def processed_file_path(filename: str) -> Path:
@@ -274,6 +279,7 @@ apply_command_center_styles()
 refresh_message = st.session_state.pop("dashboard_refresh_message", "")
 refresh_email_message = st.session_state.pop("dashboard_email_message", "")
 refresh_email_warning = st.session_state.pop("dashboard_email_warning", "")
+refresh_timing = st.session_state.pop("dashboard_refresh_timing", {})
 agent_output_files = [
     "agent_outputs.csv",
     "agent_card_summaries.csv",
@@ -287,6 +293,15 @@ if refresh_email_message:
     st.info(refresh_email_message)
 if refresh_email_warning:
     st.warning(refresh_email_warning)
+if refresh_timing:
+    st.caption(
+        "Refresh timing: "
+        f"data analysis {refresh_timing.get('data_analysis_seconds', 0)}s | "
+        f"LLM {refresh_timing.get('llm_seconds', refresh_timing.get('llm_summary_seconds', 0))}s | "
+        f"email {refresh_timing.get('email_seconds', 0)}s | "
+        f"file save {refresh_timing.get('file_save_seconds', 0)}s | "
+        f"total {refresh_timing.get('total_seconds', refresh_timing.get('total_refresh_seconds', 0))}s"
+    )
 
 try:
     data = load_dashboard_data()
@@ -354,26 +369,69 @@ with header_right:
         f'<div class="command-meta">Last run: {last_agent_run_time}</div>',
         unsafe_allow_html=True,
     )
+    send_email_alert = st.checkbox(
+        "Send low-stock email alert",
+        value=False,
+        help="Queues email after dashboard outputs are saved. Duplicate alerts are skipped.",
+    )
     if st.button("Run / Refresh Agents", use_container_width=True):
         try:
-            with st.spinner("Refreshing all agents on the latest data..."):
-                final_state = run_agent_graph(save_output=True)
-                generate_fn = getattr(summary_service, "generate_agent_card_summaries", None)
-                if callable(generate_fn):
-                    generate_fn(save_output=True)
-                refreshed_low_stock_df = get_low_stock_items(save_output=True)
-                email_result = send_low_stock_alert_email(refreshed_low_stock_df)
+            email_result = {
+                "warning": "",
+                "message": "Low-stock email alert was not requested.",
+            }
+            with st.status("Refreshing all agents on the latest data...", expanded=True) as status:
+                st.write("Step 1: Loading latest CSVs")
                 load_dashboard_data.clear()
                 load_agent_dashboard_outputs.clear()
                 st.cache_data.clear()
+
+                st.write("Step 2: Running analysis")
+                final_state = run_agent_graph(save_output=True)
+
+                st.write("Step 3: Generating summaries")
+                timing_log = final_state.get("timing_log", {})
+
+                st.write("Step 4: Saving outputs")
+                refreshed_low_stock_df = get_low_stock_items(save_output=True)
+
+                if send_email_alert and not refreshed_low_stock_df.empty:
+                    st.write("Step 5: Email alert queued/sent")
+                    email_started = perf_counter()
+                    email_helpers = _get_email_service()
+                    queue_email_fn = getattr(email_helpers, "queue_low_stock_alert_email", None)
+                    if callable(queue_email_fn):
+                        email_result = queue_email_fn(refreshed_low_stock_df)
+                    else:
+                        send_email_fn = getattr(email_helpers, "send_low_stock_alert_email")
+                        email_result = send_email_fn(refreshed_low_stock_df)
+                    timing_log["email_seconds"] = round(perf_counter() - email_started, 3)
+                elif refreshed_low_stock_df.empty:
+                    st.write("Step 5: Email alert skipped; no low-stock rows")
+                    timing_log["email_seconds"] = 0
+                    email_result = {
+                        "warning": "",
+                        "message": "No low-stock items found.",
+                    }
+                else:
+                    st.write("Step 5: Email alert skipped by user")
+                    timing_log["email_seconds"] = 0
+
+                load_dashboard_data.clear()
+                load_agent_dashboard_outputs.clear()
+                st.cache_data.clear()
+                status.update(label="Agent refresh complete.", state="complete")
             refreshed_count = len(final_state.get("unified_recommendations", []))
             refreshed_time = final_state.get("combined_output", {}).get(
                 "run_time",
                 "just now",
             )
+            timing_log = final_state.get("timing_log", {})
+            timing_log["email_seconds"] = timing_log.get("email_seconds", 0)
             st.session_state["dashboard_refresh_message"] = (
                 f"Agents refreshed successfully. {refreshed_count:,} recommendations generated at {refreshed_time}."
             )
+            st.session_state["dashboard_refresh_timing"] = timing_log
             if email_result.get("warning"):
                 st.session_state["dashboard_email_warning"] = str(
                     email_result.get("warning", "")

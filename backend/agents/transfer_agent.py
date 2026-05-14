@@ -1,9 +1,7 @@
 import pandas as pd
 
-from backend.agents.tools import describe_agent_tools, invoke_agent_tool
 from backend.memory.learning_loop import get_learning_context
-from backend.services.llm_reasoner import reason_over_recommendations
-from backend.services.llm_reasoner import select_tools_for_agent
+from backend.services.recommendation_engine import generate_stock_transfer_recommendations
 
 
 SOURCE_AGENT = "transfer_agent"
@@ -121,69 +119,13 @@ def analyze_transfer_opportunities(
     inputs: dict,
     config: dict | None = None,
 ) -> list[dict]:
-    """Identify transfer opportunities through LangChain tool calls."""
-    inventory_summary_tool = invoke_agent_tool(
-        "get_current_inventory_summary",
-        {"limit": 5},
-    )
-    imbalance_tool = invoke_agent_tool(
-        "get_store_stock_imbalance",
-        {"limit": 5},
-    )
-    low_stock_tool = invoke_agent_tool(
-        "get_low_stock_items",
-        {"limit": 5},
+    """Identify transfer opportunities from prepared pandas analysis outputs."""
+    recommendations = generate_stock_transfer_recommendations(
+        inputs.get("current_inventory", pd.DataFrame()),
+        inputs.get("low_stock_items", pd.DataFrame()),
+        config,
     )
 
-    selected_tools = select_tools_for_agent(
-        agent_name=SOURCE_AGENT,
-        agent_goal=(
-            "Use inventory and transfer tools to decide whether stock should move "
-            "between stores."
-        ),
-        available_tools=describe_agent_tools(SOURCE_AGENT),
-        context={
-            "inventory_rows": len(inputs.get("current_inventory", pd.DataFrame())),
-            "low_stock_count": len(inputs.get("low_stock_items", pd.DataFrame())),
-            "inventory_summary": inventory_summary_tool.get("summary", {}),
-            "imbalance_summary": imbalance_tool.get("summary", {}),
-            "low_stock_summary": low_stock_tool.get("summary", {}),
-        },
-        default_tools=["recommend_transfer"],
-    )
-    if "recommend_transfer" not in selected_tools:
-        selected_tools.append("recommend_transfer")
-
-    for tool_name in selected_tools:
-        if tool_name == "recommend_transfer":
-            tool_output = invoke_agent_tool(
-                tool_name,
-                {"config": config or {}, "limit": 0},
-            )
-            recommendations = tool_output.get("records", [])
-            break
-    else:
-        recommendations = []
-
-    llm_decisions = reason_over_recommendations(
-        agent_name=SOURCE_AGENT,
-        agent_goal=(
-            "Decide whether a transfer candidate should move stock now or be held, "
-            "and explain the decision using only the provided metrics."
-        ),
-        candidates=_build_llm_candidates(inputs, recommendations),
-        allowed_strategies=["stock_transfer", "hold"],
-        shared_context={
-            "inventory_rows": len(inputs.get("current_inventory", pd.DataFrame())),
-            "low_stock_count": len(inputs.get("low_stock_items", pd.DataFrame())),
-            "inventory_tool_context": inventory_summary_tool,
-            "imbalance_tool_context": imbalance_tool,
-            "low_stock_tool_context": low_stock_tool,
-            "system_memory": inputs.get("memory_context", {}),
-            "system_learning": inputs.get("learning_context", {}),
-        },
-    )
-    recommendations = _apply_llm_decisions(recommendations, llm_decisions)
     return _tag_source_agent(recommendations)
 
 

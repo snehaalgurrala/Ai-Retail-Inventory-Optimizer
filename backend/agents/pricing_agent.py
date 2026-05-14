@@ -1,12 +1,10 @@
 import pandas as pd
 
-from backend.agents.tools import (
-    describe_agent_tools,
-    invoke_agent_tool,
-)
 from backend.memory.learning_loop import get_learning_context
-from backend.services.llm_reasoner import reason_over_recommendations
-from backend.services.llm_reasoner import select_tools_for_agent
+from backend.services.recommendation_engine import (
+    generate_clearance_recommendations,
+    generate_discount_recommendations,
+)
 
 
 SOURCE_AGENT = "pricing_agent"
@@ -148,75 +146,22 @@ def analyze_pricing_opportunities(
     inputs: dict,
     config: dict | None = None,
 ) -> list[dict]:
-    """Identify pricing opportunities through LangChain tool calls."""
-    inventory_summary_tool = invoke_agent_tool(
-        "get_current_inventory_summary",
-        {"limit": 5},
+    """Identify pricing opportunities from prepared pandas analysis outputs."""
+    recommendations = []
+    recommendations.extend(
+        generate_discount_recommendations(
+            inputs.get("slow_moving_items", pd.DataFrame()),
+            inputs.get("overstock_items", pd.DataFrame()),
+            config,
+        )
     )
-    sales_summary_tool = invoke_agent_tool(
-        "get_sales_summary",
-        {"limit": 5},
-    )
-    dead_stock_tool = invoke_agent_tool(
-        "get_dead_stock_candidates",
-        {"limit": 5},
+    recommendations.extend(
+        generate_clearance_recommendations(
+            inputs.get("dead_stock_candidates", pd.DataFrame()),
+            config,
+        )
     )
 
-    selected_tools = select_tools_for_agent(
-        agent_name=SOURCE_AGENT,
-        agent_goal=(
-            "Use pricing-related tools to review inventory movement and create "
-            "discount or clearance candidates."
-        ),
-        available_tools=describe_agent_tools(SOURCE_AGENT),
-        context={
-            "slow_moving_count": len(inputs.get("slow_moving_items", pd.DataFrame())),
-            "overstock_count": len(inputs.get("overstock_items", pd.DataFrame())),
-            "dead_stock_count": len(
-                inputs.get("dead_stock_candidates", pd.DataFrame())
-            ),
-            "inventory_summary": inventory_summary_tool.get("summary", {}),
-            "sales_summary": sales_summary_tool.get("summary", {}),
-            "dead_stock_summary": dead_stock_tool.get("summary", {}),
-        },
-        default_tools=["recommend_discount"],
-    )
-    if "recommend_discount" not in selected_tools:
-        selected_tools.append("recommend_discount")
-
-    for tool_name in selected_tools:
-        if tool_name == "recommend_discount":
-            tool_output = invoke_agent_tool(
-                tool_name,
-                {"config": config or {}, "limit": 0},
-            )
-            recommendations = tool_output.get("records", [])
-            break
-    else:
-        recommendations = []
-
-    llm_decisions = reason_over_recommendations(
-        agent_name=SOURCE_AGENT,
-        agent_goal=(
-            "Choose whether pricing candidates should be discounted, cleared, or held, "
-            "and provide grounded explanations."
-        ),
-        candidates=_build_llm_candidates(inputs, recommendations),
-        allowed_strategies=["discount", "clearance", "hold"],
-        shared_context={
-            "slow_moving_count": len(inputs.get("slow_moving_items", pd.DataFrame())),
-            "overstock_count": len(inputs.get("overstock_items", pd.DataFrame())),
-            "dead_stock_count": len(
-                inputs.get("dead_stock_candidates", pd.DataFrame())
-            ),
-            "inventory_tool_context": inventory_summary_tool,
-            "sales_tool_context": sales_summary_tool,
-            "dead_stock_tool_context": dead_stock_tool,
-            "system_memory": inputs.get("memory_context", {}),
-            "system_learning": inputs.get("learning_context", {}),
-        },
-    )
-    recommendations = _apply_llm_decisions(recommendations, llm_decisions)
     return _tag_source_agent(recommendations)
 
 

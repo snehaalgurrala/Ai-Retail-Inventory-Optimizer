@@ -178,39 +178,57 @@ def _vector_dependency_details() -> dict[str, Any]:
     details = {
         "faiss_available": False,
         "sentence_transformers_available": False,
+        "langchain_community_available": False,
         "langchain_embeddings_available": False,
         "langchain_faiss_available": False,
         "errors": [],
+        "faiss_error": "",
+        "sentence_transformers_error": "",
+        "langchain_community_error": "",
+        "langchain_embeddings_error": "",
+        "langchain_faiss_error": "",
     }
 
     try:
         import faiss  # noqa: F401
         details["faiss_available"] = True
     except Exception as error:
+        details["faiss_error"] = str(error)
         details["errors"].append(f"faiss import failed: {error}")
 
     try:
         import sentence_transformers  # noqa: F401
         details["sentence_transformers_available"] = True
     except Exception as error:
+        details["sentence_transformers_error"] = str(error)
         details["errors"].append(f"sentence_transformers import failed: {error}")
+
+    try:
+        import langchain_community  # noqa: F401
+        details["langchain_community_available"] = True
+    except Exception as error:
+        details["langchain_community_error"] = str(error)
+        details["errors"].append(f"langchain_community import failed: {error}")
 
     try:
         from langchain_community.embeddings import HuggingFaceEmbeddings  # noqa: F401
         details["langchain_embeddings_available"] = True
     except Exception as error:
+        details["langchain_embeddings_error"] = str(error)
         details["errors"].append(f"HuggingFaceEmbeddings import failed: {error}")
 
     try:
         from langchain_community.vectorstores import FAISS  # noqa: F401
         details["langchain_faiss_available"] = True
     except Exception as error:
+        details["langchain_faiss_error"] = str(error)
         details["errors"].append(f"LangChain FAISS import failed: {error}")
 
     details["ready"] = all(
         [
             details["faiss_available"],
             details["sentence_transformers_available"],
+            details["langchain_community_available"],
             details["langchain_embeddings_available"],
             details["langchain_faiss_available"],
         ]
@@ -352,13 +370,6 @@ def rag_is_configured() -> bool:
     return bool(settings["api_key"] and settings["chat_model"])
 
 
-def vector_rag_is_configured() -> bool:
-    """Return True when embeddings are configured for vector retrieval."""
-    settings = _embedding_settings()
-    dependency_ready, _ = _vector_dependency_status()
-    return bool(settings["embedding_model"] and dependency_ready)
-
-
 @lru_cache(maxsize=4)
 def _probe_embedding_model(embedding_model: str) -> tuple[bool, str]:
     """Probe whether local embedding dependencies are ready for the configured model."""
@@ -376,6 +387,66 @@ def _embedding_model_runtime_status() -> tuple[bool, str]:
     settings = _embedding_settings()
     embedding_model = str(settings.get("embedding_model", "") or "").strip()
     return _probe_embedding_model(embedding_model)
+
+
+def vector_rag_is_configured() -> bool:
+    """Return True only when dependencies and embeddings are ready for vector retrieval."""
+    settings = _embedding_settings()
+    dependency_ready, _ = _vector_dependency_status()
+    if not settings["embedding_model"] or not dependency_ready:
+        return False
+    embedding_ready, _ = _embedding_model_runtime_status()
+    return bool(embedding_ready)
+
+
+def check_vector_rag_environment() -> dict[str, Any]:
+    """Return explicit runtime diagnostics for Streamlit vector RAG setup."""
+    dependency_details = _vector_dependency_details()
+    settings = _embedding_settings()
+    embedding_ready, embedding_error = _embedding_model_runtime_status()
+    index_exists = _index_files_exist()
+    can_build_index = bool(
+        dependency_details["ready"]
+        and embedding_ready
+        and bool(settings.get("embedding_model", ""))
+    )
+    retrieval_mode = "vector_rag" if can_build_index and index_exists else "fallback"
+    fallback_reason = ""
+    if not dependency_details["faiss_available"]:
+        fallback_reason = f"faiss import failed: {dependency_details.get('faiss_error', '')}"
+    elif not dependency_details["sentence_transformers_available"]:
+        fallback_reason = f"sentence_transformers import failed: {dependency_details.get('sentence_transformers_error', '')}"
+    elif not dependency_details["langchain_community_available"]:
+        fallback_reason = f"langchain_community import failed: {dependency_details.get('langchain_community_error', '')}"
+    elif not dependency_details["langchain_faiss_available"]:
+        fallback_reason = f"LangChain FAISS import failed: {dependency_details.get('langchain_faiss_error', '')}"
+    elif not settings.get("embedding_model", ""):
+        fallback_reason = "EMBEDDING_MODEL is not configured."
+    elif not embedding_ready:
+        fallback_reason = f"Embedding model failed to initialize: {embedding_error}"
+    elif not index_exists:
+        fallback_reason = "FAISS index does not exist yet; it can be built on first vector retrieval or by rebuilding the knowledge index."
+
+    return {
+        "python_executable": sys.executable,
+        "python_version": sys.version,
+        "current_working_directory": os.getcwd(),
+        "faiss_available": bool(dependency_details["faiss_available"]),
+        "faiss_error": str(dependency_details.get("faiss_error", "")),
+        "sentence_transformers_available": bool(dependency_details["sentence_transformers_available"]),
+        "sentence_transformers_error": str(dependency_details.get("sentence_transformers_error", "")),
+        "langchain_community_available": bool(dependency_details["langchain_community_available"]),
+        "langchain_community_error": str(dependency_details.get("langchain_community_error", "")),
+        "langchain_faiss_available": bool(dependency_details["langchain_faiss_available"]),
+        "langchain_faiss_error": str(dependency_details.get("langchain_faiss_error", "")),
+        "embedding_model": str(settings.get("embedding_model", "") or ""),
+        "embedding_model_loaded": bool(embedding_ready),
+        "embedding_model_error": str(embedding_error or ""),
+        "faiss_index_exists": bool(index_exists),
+        "can_build_index": can_build_index,
+        "retrieval_mode": retrieval_mode,
+        "fallback_reason": fallback_reason,
+    }
 
 
 def _vector_manifest_summary() -> dict[str, Any]:

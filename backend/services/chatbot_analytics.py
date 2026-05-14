@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from backend.services.llm_reasoner import humanize_analytics_payload, llm_is_configured
+from backend.services.transfer_analysis_service import analyze_transfer_opportunities
 from backend.utils.data_loader import load_all_data
 
 
@@ -16,8 +17,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
 TYPO_REPLACEMENTS = {
     "solt": "sold",
+    "seling": "selling",
     "higest": "highest",
     "lowst": "lowest",
+    "hyderabadd": "hyderabad",
     "vijaywada": "vijayawada",
 }
 
@@ -107,6 +110,13 @@ ANALYTICAL_KEYWORDS = {
     "supplier",
     "suppliers",
     "reorder",
+    "transfer",
+    "shortage",
+    "shortages",
+    "surplus",
+    "excess",
+    "redistribution",
+    "balancing",
     "performance",
     "category",
     "item",
@@ -170,6 +180,12 @@ def _extract_requested_limit(question: str, default: int = 5, maximum: int = 10)
     normalized = _normalize(question)
     match = re.search(r"\btop\s+(\d+)\b", normalized)
     if not match:
+        match = re.search(r"\bleast\s+(\d+)\b", normalized)
+    if not match:
+        match = re.search(r"\blowest\s+(\d+)\b", normalized)
+    if not match:
+        match = re.search(r"\bhighest\s+(\d+)\b", normalized)
+    if not match:
         match = re.search(r"\b(\d+)\s+(items|item|products|product)\b", normalized)
     if not match:
         return default
@@ -178,6 +194,107 @@ def _extract_requested_limit(question: str, default: int = 5, maximum: int = 10)
     except Exception:
         return default
     return max(1, min(requested, maximum))
+
+
+def _is_sales_ranking_query(question: str) -> bool:
+    text = _normalize(question)
+    ranking_phrases = [
+        "top selling",
+        "least selling",
+        "best selling",
+        "most sold",
+        "least sold",
+        "highest sales",
+        "lowest sales",
+        "highest selling",
+        "lowest selling",
+        "fastest moving",
+        "top products by revenue",
+        "top items by revenue",
+    ]
+    if any(phrase in text for phrase in ranking_phrases):
+        return True
+    if re.search(r"\btop\s+\d+\b", text) and any(
+        token in text
+        for token in ["selling", "sold", "sales", "revenue", "items", "products", "product"]
+    ):
+        return True
+    if re.search(r"\b(least|lowest)\s+\d+\b", text) and any(
+        token in text for token in ["selling", "sold", "sales", "revenue", "items", "products", "product"]
+    ):
+        return True
+    return False
+
+
+def _is_transfer_analytics_query(question: str) -> bool:
+    text = _normalize(question)
+    transfer_phrases = [
+        "transfer",
+        "stock balancing",
+        "stock balance",
+        "shortage",
+        "excess stock",
+        "surplus",
+        "redistribution",
+        "redistribute",
+        "source store",
+        "target store",
+        "low stock branch",
+        "needs transfer",
+        "need transfer",
+        "stockout risk",
+        "stock out risk",
+        "branch has excess",
+        "store has excess",
+    ]
+    return any(phrase in text for phrase in transfer_phrases)
+
+
+def _ranking_direction(question: str) -> str:
+    text = _normalize(question)
+    if any(phrase in text for phrase in ["least", "lowest", "worst selling"]):
+        return "ascending"
+    return "descending"
+
+
+def _ranking_metric(question: str) -> str:
+    text = _normalize(question)
+    if "revenue" in text or "sales value" in text or "sales amount" in text:
+        return "revenue"
+    return "quantity"
+
+
+def _ranking_entity(question: str, matched_category: str) -> str:
+    text = _normalize(question)
+    if "category" in text and not matched_category:
+        return "category"
+    return "product"
+
+
+def _apply_sales_time_filter(sales: pd.DataFrame, question: str) -> tuple[pd.DataFrame, str]:
+    text = _normalize(question)
+    if sales.empty or "date" not in sales.columns:
+        return sales, ""
+
+    dated_sales = sales.copy()
+    dated_sales["date"] = pd.to_datetime(dated_sales["date"], errors="coerce")
+    dated_sales = dated_sales[dated_sales["date"].notna()].copy()
+    if dated_sales.empty:
+        return sales, ""
+
+    latest_date = dated_sales["date"].max().normalize()
+    if "this week" in text or "last 7 days" in text or "past 7 days" in text:
+        start_date = latest_date - pd.Timedelta(days=6)
+        return (
+            dated_sales[dated_sales["date"].dt.normalize().between(start_date, latest_date)].copy(),
+            f" for the week ending {latest_date.date()}",
+        )
+    if "today" in text:
+        return (
+            dated_sales[dated_sales["date"].dt.normalize().eq(latest_date)].copy(),
+            f" on {latest_date.date()}",
+        )
+    return sales, ""
 
 
 def _store_match_candidates(stores: pd.DataFrame) -> dict[str, set[str]]:
@@ -334,10 +451,16 @@ def _detect_analytical_intent(question: str, matched_stores: pd.DataFrame, match
     top_ranked_query = bool(re.search(r"\btop\s+\d+\b", text) and any(token in text for token in ["sold", "sales"]))
     least_ranked_query = bool(re.search(r"\bleast\s+\d+\b", text) and any(token in text for token in ["sold", "sales"]))
 
+    if _is_transfer_analytics_query(question) and not any(keyword in text for keyword in ["agent", "why did"]):
+        return "transfer_analysis"
     if any(keyword in text for keyword in ["recommendation", "recommend", "suggest", "agent", "why did"]):
         return "recommendation_question"
     if "supplier" in text or "suppliers" in text or ("risk" in text and "supplier" in text):
         return "supplier_risk"
+    if _is_transfer_analytics_query(question):
+        return "transfer_analysis"
+    if _is_sales_ranking_query(question):
+        return "sales_ranking"
     if least_ranked_query and matched_stores.empty is False:
         return "least_sold_products_ranked_by_store"
     if top_ranked_query and matched_stores.empty is False:
@@ -451,6 +574,28 @@ def _store_label(store_matches: pd.DataFrame) -> str:
     return "the matched stores"
 
 
+def _store_label_for_question(question: str, store_matches: pd.DataFrame) -> str:
+    if store_matches.empty:
+        return "the matched store"
+    normalized_question = _normalize(question)
+    city_values = store_matches["city"].dropna().astype(str).unique().tolist() if "city" in store_matches.columns else []
+    for city in city_values:
+        if _normalize(city) in normalized_question:
+            return city
+    return _store_label(store_matches)
+
+
+def _has_unmatched_location_phrase(
+    question: str,
+    matched_stores: pd.DataFrame,
+    matched_category: str,
+) -> bool:
+    if not matched_stores.empty or matched_category:
+        return False
+    text = _normalize(question)
+    return bool(re.search(r"\b(in|at|for)\s+[a-z][a-z0-9\s]{2,}$", text))
+
+
 def _sales_with_products(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
     sales = frames["sales"].copy()
     products = frames["products"].copy()
@@ -477,6 +622,299 @@ def _friendly_category_suggestion(products: pd.DataFrame) -> str:
         return "I can check sales by category if products.csv includes category values."
     preview = ", ".join(categories[:6])
     return f"Available categories include {preview}."
+
+
+def _answer_sales_ranking(
+    frames: dict[str, pd.DataFrame],
+    question: str,
+    matched_stores: pd.DataFrame,
+    matched_category: str,
+) -> AnalyticsRoute:
+    if _has_unmatched_location_phrase(question, matched_stores, matched_category):
+        return AnalyticsRoute(
+            True,
+            "sales_ranking",
+            _friendly_no_data("I could not find enough sales records for that location in the current dataset."),
+            pd.DataFrame(),
+            _build_sources(["sales", "stores"]),
+        )
+
+    sales = _sales_with_products(frames)
+    stores = frames["stores"].copy()
+    if sales.empty:
+        return AnalyticsRoute(
+            True,
+            "sales_ranking",
+            _friendly_no_data("I could not find enough sales records for that location in the current dataset."),
+            pd.DataFrame(),
+            _build_sources(["sales"]),
+        )
+
+    sales = sales.copy()
+    if "product_name" not in sales.columns:
+        sales["product_name"] = sales["product_id"]
+    sales["product_name"] = sales["product_name"].fillna(sales["product_id"]).astype(str)
+    if "category" not in sales.columns:
+        sales["category"] = ""
+    sales["category"] = sales["category"].fillna("").astype(str)
+    sales["sales_value"] = sales["quantity_sold"] * sales.get("selling_price", 0)
+
+    if not stores.empty:
+        stores = stores.copy()
+        stores["store_id"] = stores["store_id"].astype(str)
+        sales = sales.merge(
+            stores[["store_id", "store_name", "city"]],
+            on="store_id",
+            how="left",
+        )
+
+    if not matched_stores.empty:
+        sales = sales[sales["store_id"].isin(matched_stores["store_id"].astype(str))].copy()
+    if matched_category:
+        sales = sales[sales["category"].str.strip().str.lower().eq(matched_category.strip().lower())].copy()
+
+    sales, time_label = _apply_sales_time_filter(sales, question)
+    if sales.empty:
+        return AnalyticsRoute(
+            True,
+            "sales_ranking",
+            _friendly_no_data("I could not find enough sales records for that location in the current dataset."),
+            pd.DataFrame(),
+            _build_sources(["sales", "products", "stores"]),
+        )
+
+    metric = _ranking_metric(question)
+    metric_column = "sales_value" if metric == "revenue" else "quantity_sold"
+    metric_label = "revenue" if metric == "revenue" else "units sold"
+    entity = _ranking_entity(question, matched_category)
+    direction = _ranking_direction(question)
+    ascending = direction == "ascending"
+    default_limit = 1 if entity == "category" and not re.search(r"\b\d+\b", _normalize(question)) else 5
+    limit = _extract_requested_limit(question, default=default_limit, maximum=10)
+
+    if entity == "category":
+        group_columns = ["category"]
+        display_column = "category"
+        sales = sales[sales["category"].str.strip().ne("")].copy()
+    else:
+        group_columns = ["product_id", "product_name"]
+        if matched_category:
+            group_columns.append("category")
+        display_column = "product_name"
+
+    if sales.empty:
+        return AnalyticsRoute(
+            True,
+            "sales_ranking",
+            _friendly_no_data("I could not find enough sales records for that location in the current dataset."),
+            pd.DataFrame(),
+            _build_sources(["sales", "products", "stores"]),
+        )
+
+    grouped = (
+        sales.groupby(group_columns, as_index=False)
+        .agg(
+            quantity_sold=("quantity_sold", "sum"),
+            sales_value=("sales_value", "sum"),
+        )
+        .sort_values([metric_column, display_column], ascending=[ascending, True])
+        .reset_index(drop=True)
+    )
+    if grouped.empty:
+        return AnalyticsRoute(
+            True,
+            "sales_ranking",
+            _friendly_no_data("I could not find enough sales records for that location in the current dataset."),
+            pd.DataFrame(),
+            _build_sources(["sales", "products", "stores"]),
+        )
+
+    ranked = grouped.head(limit).copy()
+    scope_parts = []
+    if matched_category and entity != "category":
+        scope_parts.append(f"{matched_category} products")
+    elif entity == "category":
+        scope_parts.append("categories")
+    else:
+        scope_parts.append("items")
+    if not matched_stores.empty:
+        scope_parts.append(f"in {_store_label_for_question(question, matched_stores)}")
+    if time_label:
+        scope_parts.append(time_label.strip())
+    scope = " ".join(scope_parts)
+    rank_word = "Lowest" if ascending else "Top"
+    if "fastest moving" in _normalize(question):
+        rank_word = "Fastest moving"
+    title_metric = "by revenue" if metric == "revenue" else "by units sold"
+    answer_lines = [f"{rank_word} {len(ranked)} selling {scope} {title_metric}:"]
+
+    for index, row in enumerate(ranked.itertuples(index=False), start=1):
+        name = str(getattr(row, display_column, "") or "Unknown")
+        quantity = int(getattr(row, "quantity_sold", 0) or 0)
+        value = float(getattr(row, "sales_value", 0) or 0)
+        if metric == "revenue":
+            answer_lines.append(f"{index}. **{name}** - {value:,.2f} sales value ({quantity:,} units sold)")
+        else:
+            answer_lines.append(f"{index}. **{name}** - {quantity:,} units sold")
+
+    if ascending:
+        insight = f"These {scope} currently show the weakest sales velocity in the selected data."
+        recommendation = "Review pricing, shelf placement, and reorder levels before adding more inventory."
+    else:
+        insight = f"These {scope} currently show the strongest sales velocity in the selected data."
+        recommendation = "Ensure these items maintain healthy inventory levels to avoid stockout risk."
+
+    payload = _empty_payload()
+    payload.update(
+        {
+            "answer": "\n".join(answer_lines),
+            "explanation": f"Business insight: {insight}",
+            "suggestions": [f"Recommendation: {recommendation}"],
+            "follow_up_question": "",
+            "confidence": "high",
+            "supporting_points": [
+                "Computed directly from sales.csv by grouping sales rows and summing quantity_sold.",
+                f"Sorted by {'lowest' if ascending else 'highest'} {metric_label}.",
+            ],
+        }
+    )
+    return AnalyticsRoute(True, "sales_ranking", payload, ranked, _build_sources(["sales", "products", "stores"]))
+
+
+def _answer_transfer_analysis(
+    frames: dict[str, pd.DataFrame],
+    question: str,
+) -> AnalyticsRoute:
+    text = _normalize(question)
+    limit = _extract_requested_limit(question, default=5, maximum=10)
+    result = analyze_transfer_opportunities(
+        inventory=frames.get("inventory", pd.DataFrame()),
+        sales=frames.get("sales", pd.DataFrame()),
+        stores=frames.get("stores", pd.DataFrame()),
+        products=frames.get("products", pd.DataFrame()),
+        limit=limit,
+    )
+    opportunities = result.get("opportunities", pd.DataFrame())
+    shortages = result.get("shortages", pd.DataFrame())
+    surpluses = result.get("surpluses", pd.DataFrame())
+
+    payload = _empty_payload()
+    sources = _build_sources(["inventory", "sales", "stores", "products"])
+
+    if "surplus" in text or "excess stock" in text or "highest surplus" in text:
+        if surpluses.empty:
+            payload.update(
+                {
+                    "answer": "No major transfer imbalance is currently detected across stores.",
+                    "explanation": "I did not find stores with clear surplus inventory after accounting for reorder thresholds and recent sales velocity.",
+                    "suggestions": [],
+                    "confidence": "high",
+                }
+            )
+            return AnalyticsRoute(True, "transfer_analysis", payload, pd.DataFrame(), sources)
+
+        answer_lines = [f"Highest surplus stock signals:"]
+        for index, row in enumerate(surpluses.head(limit).itertuples(index=False), start=1):
+            answer_lines.append(
+                f"{index}. **{getattr(row, 'product_name', 'Product')}** at "
+                f"{getattr(row, 'store_name', getattr(row, 'store_id', 'store'))} - "
+                f"{int(round(getattr(row, 'surplus_quantity', 0) or 0))} units available above transfer buffer"
+            )
+        payload.update(
+            {
+                "answer": "\n".join(answer_lines),
+                "explanation": "These branches have stock above reorder needs plus a velocity-based buffer, making them possible source stores.",
+                "suggestions": ["Use these as source candidates only when another branch has matching shortage for the same product."],
+                "confidence": "high",
+                "supporting_points": [
+                    "Surplus = stock level minus reorder threshold and recent sales velocity buffer.",
+                    "Recent sales velocity is computed from sales.csv over the latest 30-day window.",
+                ],
+            }
+        )
+        return AnalyticsRoute(True, "transfer_analysis", payload, surpluses.head(limit), sources)
+
+    if "shortage" in text or "stockout risk" in text or "stock out risk" in text or "low stock branch" in text:
+        if shortages.empty:
+            payload.update(
+                {
+                    "answer": "No major transfer imbalance is currently detected across stores.",
+                    "explanation": "I did not find branches below reorder threshold or near stockout based on recent sales velocity.",
+                    "suggestions": [],
+                    "confidence": "high",
+                }
+            )
+            return AnalyticsRoute(True, "transfer_analysis", payload, pd.DataFrame(), sources)
+
+        answer_lines = ["Highest shortage risk branches:"]
+        for index, row in enumerate(shortages.head(limit).itertuples(index=False), start=1):
+            answer_lines.append(
+                f"{index}. **{getattr(row, 'product_name', 'Product')}** at "
+                f"{getattr(row, 'store_name', getattr(row, 'store_id', 'store'))} - "
+                f"{int(round(getattr(row, 'stock_level', 0) or 0))} units on hand, "
+                f"threshold {int(round(getattr(row, 'reorder_threshold', 0) or 0))}, "
+                f"{float(getattr(row, 'days_of_inventory_remaining', 0) or 0):.1f} days remaining"
+            )
+        payload.update(
+            {
+                "answer": "\n".join(answer_lines),
+                "explanation": "These stores are closest to stockout risk because current stock is low relative to reorder thresholds and recent sales velocity.",
+                "suggestions": ["Check matching surplus branches for the same product before placing new procurement."],
+                "confidence": "high",
+                "supporting_points": [
+                    "Shortage risk uses current stock, reorder threshold, and days of inventory remaining.",
+                    "Days remaining = current stock divided by recent daily sales velocity.",
+                ],
+            }
+        )
+        return AnalyticsRoute(True, "transfer_analysis", payload, shortages.head(limit), sources)
+
+    if opportunities.empty:
+        payload.update(
+            {
+                "answer": "No major transfer imbalance is currently detected across stores.",
+                "explanation": "I checked inventory, reorder thresholds, and recent sales velocity, but did not find a clear source-target transfer match.",
+                "suggestions": [],
+                "confidence": "high",
+            }
+        )
+        return AnalyticsRoute(True, "transfer_analysis", payload, pd.DataFrame(), sources)
+
+    qualifier = "Top" if "top" in text or "best" in text else "Recommended"
+    answer_lines = [f"{qualifier} transfer opportunities:"]
+    for index, row in enumerate(opportunities.itertuples(index=False), start=1):
+        answer_lines.extend(
+            [
+                f"{index}. Transfer **{getattr(row, 'product_name', 'Product')}**",
+                f"   From: {getattr(row, 'source_store_name', 'source store')}",
+                f"   To: {getattr(row, 'target_store_name', 'target store')}",
+                f"   Suggested Quantity: {int(getattr(row, 'suggested_quantity', 0) or 0)} units",
+                f"   Priority: {getattr(row, 'priority', 'Medium')}",
+            ]
+        )
+
+    top = opportunities.iloc[0]
+    explanation = (
+        f"Reason: {top['source_store_name']} has surplus {top['product_name']} with "
+        f"{top['source_stock']} units on hand and slower movement "
+        f"({top['source_velocity']} units/day), while {top['target_store_name']} has "
+        f"{top['target_stock']} units against a threshold of {top['target_threshold']} and "
+        f"{top['target_days_remaining']} days of stock remaining."
+    )
+    payload.update(
+        {
+            "answer": "\n".join(answer_lines),
+            "explanation": explanation,
+            "suggestions": ["Recommendation: Review these transfers before reordering so surplus stock can cover shortage risk first."],
+            "follow_up_question": "",
+            "confidence": "high",
+            "supporting_points": [
+                "Computed directly from inventory.csv plus recent sales velocity from sales.csv.",
+                "Source stores need surplus above reorder and velocity buffer; target stores need shortage or low days remaining.",
+            ],
+        }
+    )
+    return AnalyticsRoute(True, "transfer_analysis", payload, opportunities, sources)
 
 
 def _answer_least_or_top_sold(
@@ -1079,6 +1517,10 @@ def try_answer_analytical_question(
     intent = _detect_analytical_intent(user_input, matched_stores, matched_category)
 
     if _has_analytical_signal(user_input, matched_stores, matched_products, matched_category) and intent:
+        if intent == "transfer_analysis":
+            return _answer_transfer_analysis(frames, user_input)
+        if intent == "sales_ranking":
+            return _answer_sales_ranking(frames, user_input, matched_stores, matched_category)
         if intent == "least_sold_products_ranked_by_store":
             return _answer_ranked_sold_products_by_store(frames, user_input, intent, matched_stores)
         if intent == "top_sold_products_ranked_by_store":

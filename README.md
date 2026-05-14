@@ -238,13 +238,28 @@ The chatbot stores its local FAISS knowledge index in `data/processed/vector_sto
 ### 1. Install dependencies
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ### 2. Start the Streamlit app
 
 ```bash
-streamlit run frontend/app.py
+python -m streamlit run frontend/app.py
+```
+
+IMPORTANT:
+Always run Streamlit with `python -m streamlit run frontend/app.py`.
+Do not use `streamlit run frontend/app.py`, because the bare `streamlit`
+command may point to a different Python environment than the one where
+`faiss-cpu`, `langchain-community`, and `sentence-transformers` are installed.
+
+If Vector RAG diagnostics show `faiss import failed`, install dependencies from
+the same interpreter used to run Streamlit:
+
+```bash
+python -m pip install faiss-cpu
+python -m pip install langchain-community sentence-transformers
+python -m streamlit run frontend/app.py
 ```
 
 ### 3. Start the FastAPI server

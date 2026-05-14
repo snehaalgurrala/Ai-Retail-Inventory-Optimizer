@@ -1,6 +1,6 @@
 {
-  "fingerprint": "a5a24ab2b5a1a1a93b3ca45ed72d1d842d5be4686f1b689d24430245232f39de",
-  "document_count": 6763,
+  "fingerprint": "d8d0661f8af3ed4f3712219d8635c3066ec175d58e7dc915024ee1b7f307ca2c",
+  "document_count": 6795,
   "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
   "embedding_backend": "huggingface"
 }

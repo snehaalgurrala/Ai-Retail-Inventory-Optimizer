@@ -1,9 +1,11 @@
 import pandas as pd
 
-from backend.agents.tools import describe_agent_tools, invoke_agent_tool
 from backend.memory.learning_loop import get_learning_context
-from backend.services.llm_reasoner import reason_over_recommendations
-from backend.services.llm_reasoner import select_tools_for_agent
+from backend.services.recommendation_engine import (
+    generate_overstock_alerts,
+    generate_stockout_prevention_alerts,
+    generate_supplier_risk_alerts,
+)
 
 
 SOURCE_AGENT = "risk_agent"
@@ -151,80 +153,23 @@ def analyze_risks(
     inputs: dict,
     config: dict | None = None,
 ) -> list[dict]:
-    """Identify stockout, overstock, and supplier risks through tools."""
-    supplier_risk_tool = invoke_agent_tool(
-        "get_supplier_risk_summary",
-        {"limit": 5},
+    """Identify stockout, overstock, and supplier risks from pandas outputs."""
+    recommendations = []
+    recommendations.extend(
+        generate_supplier_risk_alerts(
+            inputs.get("product_performance", pd.DataFrame()),
+            inputs.get("suppliers", pd.DataFrame()),
+            config,
+        )
     )
-    low_stock_tool = invoke_agent_tool(
-        "get_low_stock_items",
-        {"limit": 5},
-    )
-    dead_stock_tool = invoke_agent_tool(
-        "get_dead_stock_candidates",
-        {"limit": 5},
+    recommendations.extend(generate_overstock_alerts(inputs.get("overstock_items", pd.DataFrame())))
+    recommendations.extend(
+        generate_stockout_prevention_alerts(
+            inputs.get("stockout_risk_items", pd.DataFrame()),
+            config,
+        )
     )
 
-    selected_tools = select_tools_for_agent(
-        agent_name=SOURCE_AGENT,
-        agent_goal=(
-            "Use risk-related tools to identify supplier, overstock, and stockout "
-            "recommendation candidates."
-        ),
-        available_tools=describe_agent_tools(SOURCE_AGENT),
-        context={
-            "supplier_risk_inputs": len(
-                inputs.get("product_performance", pd.DataFrame())
-            ),
-            "overstock_count": len(inputs.get("overstock_items", pd.DataFrame())),
-            "stockout_risk_count": len(
-                inputs.get("stockout_risk_items", pd.DataFrame())
-            ),
-            "supplier_risk_summary": supplier_risk_tool.get("summary", {}),
-            "low_stock_summary": low_stock_tool.get("summary", {}),
-            "dead_stock_summary": dead_stock_tool.get("summary", {}),
-        },
-        default_tools=["analyze_risk"],
-    )
-    if "analyze_risk" not in selected_tools:
-        selected_tools.append("analyze_risk")
-
-    for tool_name in selected_tools:
-        if tool_name == "analyze_risk":
-            tool_output = invoke_agent_tool(
-                tool_name,
-                {"config": config or {}, "limit": 0},
-            )
-            recommendations = tool_output.get("records", [])
-            break
-    else:
-        recommendations = []
-
-    llm_decisions = reason_over_recommendations(
-        agent_name=SOURCE_AGENT,
-        agent_goal=(
-            "Prioritize risk candidates and decide whether they should remain active "
-            "alerts or move to monitor-only status."
-        ),
-        candidates=_build_llm_candidates(inputs, recommendations),
-        allowed_strategies=[
-            "supplier_risk_alert",
-            "overstock_alert",
-            "stockout_prevention_alert",
-            "monitor",
-        ],
-        shared_context={
-            "supplier_risk_inputs": len(inputs.get("product_performance", pd.DataFrame())),
-            "overstock_count": len(inputs.get("overstock_items", pd.DataFrame())),
-            "stockout_risk_count": len(inputs.get("stockout_risk_items", pd.DataFrame())),
-            "supplier_risk_tool_context": supplier_risk_tool,
-            "low_stock_tool_context": low_stock_tool,
-            "dead_stock_tool_context": dead_stock_tool,
-            "system_memory": inputs.get("memory_context", {}),
-            "system_learning": inputs.get("learning_context", {}),
-        },
-    )
-    recommendations = _apply_llm_decisions(recommendations, llm_decisions)
     return _tag_source_agent(recommendations)
 
 

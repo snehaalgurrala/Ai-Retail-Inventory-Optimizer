@@ -40,8 +40,8 @@ SAMPLE_QUESTIONS = [
 def _welcome_payload() -> dict:
     """Return the first-time greeting for new chat sessions."""
     return {
-        "answer": "Hi there. I can help with inventory, sales, supplier risk, and recommendations.",
-        "explanation": "Ask naturally and I'll keep it short, practical, and grounded in the data.",
+        "answer": "Hello mate. How can I help you with inventory insights today?",
+        "explanation": "I can help with stock movement, transfers, sales, supplier risk, and recommendations.",
         "suggestions": [],
         "follow_up_question": "Want store-wise detail or supplier risk first?",
         "confidence": "high",
@@ -124,6 +124,31 @@ def _vector_debug_status() -> dict:
         "dependency_error": "Vector debug helper is unavailable. Refresh the page or restart Streamlit to load the latest chatbot service.",
         "last_error": "",
     }
+
+
+def _vector_rag_environment() -> dict:
+    """Return explicit Python/runtime diagnostics for vector RAG."""
+    service = _get_rag_service()
+    check_fn = getattr(service, "check_vector_rag_environment", None)
+    if callable(check_fn):
+        return check_fn()
+    return {
+        "python_executable": sys.executable,
+        "python_version": sys.version,
+        "current_working_directory": str(PROJECT_ROOT),
+        "faiss_available": False,
+        "faiss_error": "Vector diagnostics helper is unavailable. Refresh the page or restart Streamlit.",
+        "sentence_transformers_available": False,
+        "langchain_community_available": False,
+        "retrieval_mode": "fallback",
+        "fallback_reason": "Vector diagnostics helper is unavailable.",
+    }
+
+
+def _is_raw_vector_error(message: str) -> bool:
+    """Return True for dependency errors that should not be shown in the UI."""
+    lowered = str(message or "").lower()
+    return "faiss import failed" in lowered or "no module named 'faiss'" in lowered
 
 
 def _get_chat_memory() -> InMemoryChatMessageHistory:
@@ -303,7 +328,7 @@ with st.container(border=True):
     with left_col:
         st.markdown("**Retail Decision Assistant**")
         st.caption(
-            "Ask naturally and I'll keep the answer short, practical, and grounded in your latest data."
+            "Hello mate. How can I help you with inventory insights today?"
         )
     with right_col:
         if st.button("Clear Chat", use_container_width=True):
@@ -311,6 +336,7 @@ with st.container(border=True):
 
 config_status = _chatbot_config_status()
 debug_status = _vector_debug_status()
+vector_env = _vector_rag_environment()
 last_retrieval_mode = st.session_state.get("chatbot_retrieval_mode", "")
 last_answer_path = st.session_state.get("chatbot_answer_path", "")
 if last_retrieval_mode:
@@ -328,7 +354,9 @@ if rebuild_message:
 if not config_status["configured"]:
     st.warning(str(config_status.get("status_message", "LLM is not configured. Add OPENROUTER_API_KEY in .env.")))
 elif not bool(config_status.get("vector_rag_configured", False)):
-    st.info(str(config_status.get("vector_rag_message", "Vector RAG is not configured yet.")))
+    vector_message = str(config_status.get("vector_rag_message", "") or "").strip()
+    if not _is_raw_vector_error(vector_message):
+        st.info(vector_message or "Knowledge search is using fallback retrieval.")
 else:
     if str(config_status.get("embedding_model", "")).strip():
         st.caption(
@@ -336,8 +364,9 @@ else:
         )
     else:
         st.caption(f"Ready with `{config_status['chat_model']}`.")
-    if str(config_status.get("vector_rag_message", "")).strip():
-        st.caption(str(config_status.get("vector_rag_message", "")))
+    vector_message = str(config_status.get("vector_rag_message", "") or "").strip()
+    if vector_message and not _is_raw_vector_error(vector_message):
+        st.caption(vector_message)
 
 with st.sidebar:
     st.header("Sample Questions")
@@ -356,7 +385,7 @@ with st.sidebar:
         st.session_state["chatbot_rebuild_success"] = bool(result.get("success", False))
         st.rerun()
     vector_message = str(config_status.get("vector_rag_message", "") or "").strip()
-    if vector_message:
+    if vector_message and not _is_raw_vector_error(vector_message):
         st.caption(vector_message)
     with st.expander("Chatbot Debug", expanded=False):
         st.write(f"LLM active: {'yes' if debug_status.get('llm_active') else 'no'}")
@@ -371,15 +400,52 @@ with st.sidebar:
         embedding_backend = str(debug_status.get("embedding_backend", "") or "").strip()
         if embedding_backend:
             st.write(f"Embedding backend: {embedding_backend}")
-        dependency_error = str(debug_status.get("dependency_error", "") or "").strip()
-        if dependency_error:
-            st.caption(dependency_error)
         embedding_backend_error = str(debug_status.get("embedding_backend_error", "") or "").strip()
         if embedding_backend_error:
             st.caption(f"Embedding fallback detail: {embedding_backend_error}")
         last_error = str(debug_status.get("last_error", "") or "").strip()
-        if last_error:
+        if last_error and not _is_raw_vector_error(last_error):
             st.caption(f"Last vector error: {last_error}")
+    with st.expander("Vector RAG Diagnostics", expanded=False):
+        st.write(f"Python executable: `{vector_env.get('python_executable', '')}`")
+        st.write(f"Python version: `{vector_env.get('python_version', '')}`")
+        st.write(f"Current working directory: `{vector_env.get('current_working_directory', '')}`")
+        st.write(
+            "sentence_transformers import works: "
+            f"{'yes' if vector_env.get('sentence_transformers_available') else 'no'}"
+        )
+        sentence_error = str(vector_env.get("sentence_transformers_error", "") or "").strip()
+        if sentence_error:
+            st.error(f"sentence_transformers import failed: {sentence_error}")
+        st.write(
+            "langchain_community import works: "
+            f"{'yes' if vector_env.get('langchain_community_available') else 'no'}"
+        )
+        langchain_error = str(vector_env.get("langchain_community_error", "") or "").strip()
+        if langchain_error:
+            st.error(f"langchain_community import failed: {langchain_error}")
+        st.write(f"Embedding model: `{vector_env.get('embedding_model', '')}`")
+        st.write(f"Embedding model loaded: {'yes' if vector_env.get('embedding_model_loaded') else 'no'}")
+        embedding_error = str(vector_env.get("embedding_model_error", "") or "").strip()
+        if embedding_error:
+            st.error(f"Embedding model failed to load: {embedding_error}")
+        st.write(f"FAISS index exists: {'yes' if vector_env.get('faiss_index_exists') else 'no'}")
+        st.write(f"Can build FAISS index: {'yes' if vector_env.get('can_build_index') else 'no'}")
+        st.write(f"Retrieval mode: `{vector_env.get('retrieval_mode', 'fallback')}`")
+        fallback_reason = str(vector_env.get("fallback_reason", "") or "").strip()
+        if fallback_reason and not _is_raw_vector_error(fallback_reason):
+            st.warning(f"Fallback reason: {fallback_reason}")
+        if not vector_env.get("faiss_available") or not vector_env.get("sentence_transformers_available") or not vector_env.get("langchain_community_available"):
+            st.code(
+                "\n".join(
+                    [
+                        "python -m pip install faiss-cpu",
+                        "python -m pip install langchain-community sentence-transformers",
+                        "python -m streamlit run frontend/app.py",
+                    ]
+                ),
+                language="powershell",
+            )
     st.caption("Choose a starter prompt or ask your own question below.")
     st.divider()
     for sample_question in SAMPLE_QUESTIONS:

@@ -170,7 +170,10 @@ def _heuristic_learning_insight(row: pd.Series) -> dict:
     }
 
 
-def build_learning_insights(save_output: bool = True) -> pd.DataFrame:
+def build_learning_insights(
+    save_output: bool = True,
+    use_llm: bool = True,
+) -> pd.DataFrame:
     """Analyze outcomes and decisions and save compact learning insights."""
     feedback = _combined_feedback_rows()
     if feedback.empty:
@@ -194,14 +197,15 @@ def build_learning_insights(save_output: bool = True) -> pd.DataFrame:
     ]
     insights_df = pd.DataFrame(heuristic_insights)
 
-    llm_insights = summarize_learning_feedback(
-        candidate_rows.head(30).to_dict(orient="records")
-    )
-    if llm_insights:
-        llm_df = pd.DataFrame(llm_insights)
-        if not llm_df.empty:
-            llm_df["source"] = "llm"
-            insights_df = pd.concat([insights_df, llm_df], ignore_index=True)
+    if use_llm:
+        llm_insights = summarize_learning_feedback(
+            candidate_rows.head(30).to_dict(orient="records")
+        )
+        if llm_insights:
+            llm_df = pd.DataFrame(llm_insights)
+            if not llm_df.empty:
+                llm_df["source"] = "llm"
+                insights_df = pd.concat([insights_df, llm_df], ignore_index=True)
 
     if insights_df.empty:
         insights_df = pd.DataFrame(columns=LEARNING_INSIGHT_COLUMNS)
