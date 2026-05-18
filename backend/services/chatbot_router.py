@@ -13,6 +13,9 @@ def _looks_like_transfer_analytics(user_input: str) -> bool:
         "shortage",
         "excess stock",
         "surplus",
+        "extra stock",
+        "more stock",
+        "surplus stock",
         "redistribution",
         "redistribute",
         "source store",
@@ -20,6 +23,11 @@ def _looks_like_transfer_analytics(user_input: str) -> bool:
         "low stock branch",
         "stockout risk",
         "stock out risk",
+        "exclusive",
+        "only available",
+        "alternative",
+        "alternatives",
+        "offer instead",
     )
     return any(term in text for term in transfer_terms)
 

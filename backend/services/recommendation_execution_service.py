@@ -276,6 +276,7 @@ def _recommendation_analysis_row(
         "clearance": _read_lookup(context["dead_stock"], ["product_id", "store_id"]),
         "reorder": _read_lookup(context["low_stock"], ["product_id", "store_id"]),
         "stock_transfer": _read_lookup(context["low_stock"], ["product_id", "store_id"]),
+        "transfer": _read_lookup(context["low_stock"], ["product_id", "store_id"]),
         "stockout_prevention_alert": _read_lookup(context["stockout"], ["product_id", "store_id"]),
         "overstock_alert": _read_lookup(context["overstock"], ["product_id", "store_id"]),
     }
@@ -322,11 +323,11 @@ def build_recommendation_context(recommendation: pd.Series | dict[str, Any]) -> 
     )
 
     source_store_id, source_store_name = _resolve_store_identifier(
-        evidence_map.get("source_store", ""),
+        evidence_map.get("source_store_id", "") or evidence_map.get("source_store", ""),
         context["stores"],
     )
     destination_store_id, destination_store_name = _resolve_store_identifier(
-        evidence_map.get("destination_store", "") or store_id,
+        evidence_map.get("destination_store_id", "") or evidence_map.get("destination_store", "") or store_id,
         context["stores"],
     )
     target_store_name = _to_text(
@@ -400,6 +401,21 @@ def build_recommendation_context(recommendation: pd.Series | dict[str, Any]) -> 
         "avg_delivery_days": _to_float(
             supplier_row.get("avg_delivery_days") or evidence_map.get("avg_delivery_days") or 0
         ),
+        "alternative_product_id": _to_text(recommendation_row.get("alternative_product_id", "")),
+        "alternative_product_name": _to_text(recommendation_row.get("alternative_product_name", "")),
+        "alternative_store_id": _to_text(recommendation_row.get("alternative_store_id", "")),
+        "alternative_store_name": _to_text(recommendation_row.get("alternative_store_name", "")),
+        "available_quantity": _to_int(
+            recommendation_row.get("available_quantity")
+            or evidence_map.get("available_quantity")
+            or 0
+        ),
+        "category": _to_text(
+            product_row.get("category")
+            or analysis_row.get("category")
+            or evidence_map.get("category", "")
+        ),
+        "is_exclusive": _to_text(evidence_map.get("is_exclusive", "")).lower() == "true",
     }
 
 
@@ -439,7 +455,7 @@ def _fallback_explanation(recommendation: dict[str, Any], context: dict[str, Any
         )
         improvement = "Clearance should accelerate sell-through and reduce expiry or dead-stock exposure."
         risk_if_ignored = "The item may remain stuck in inventory or age out before it sells."
-    elif recommendation_type == "stock_transfer":
+    elif recommendation_type in {"stock_transfer", "transfer"}:
         factors = (
             f"Target stock is {current_stock} against threshold {threshold}. The transfer suggestion is {context.get('suggested_quantity', 0)} units "
             f"from {context.get('source_store_name', context.get('source_store_id', 'source store'))}."
@@ -450,6 +466,24 @@ def _fallback_explanation(recommendation: dict[str, Any], context: dict[str, Any
         )
         improvement = "Balancing stock should reduce lost sales at the target store without waiting for fresh procurement."
         risk_if_ignored = "The destination store may stock out while surplus stock sits elsewhere."
+    elif recommendation_type == "exclusive_availability":
+        factors = (
+            f"{product_name} has {context.get('available_quantity', 0)} units available at "
+            f"{store_name or 'the exclusive store'} and no positive stock in other stores."
+        )
+        impact = "Approving logs this as a manager-reviewed promotional availability option without changing inventory."
+        improvement = "The item can be promoted as a store-specific option when nearby alternatives are limited."
+        risk_if_ignored = "The business may miss a chance to redirect demand toward available inventory."
+    elif recommendation_type == "alternative_option":
+        factors = (
+            f"{product_name} is low at {store_name or 'the target store'}, while "
+            f"{context.get('alternative_product_name', 'an alternative product')} has "
+            f"{context.get('available_quantity', 0)} units at "
+            f"{context.get('alternative_store_name', context.get('alternative_store_id', 'another store'))}."
+        )
+        impact = "Approving logs this alternative offer as reviewed without moving stock automatically."
+        improvement = "The alternative can protect sales when the original low-stock item cannot be fulfilled quickly."
+        risk_if_ignored = "Customers may see an unavailable item without a substitute offer."
     elif recommendation_type == "reorder":
         factors = (
             f"Current stock is {current_stock}, reorder threshold is {threshold}, and the suggested replenishment is "
@@ -994,10 +1028,13 @@ def approve_recommendation(
         "discount": execute_discount_action,
         "clearance": execute_clearance_action,
         "stock_transfer": execute_transfer_action,
+        "transfer": execute_transfer_action,
         "reorder": execute_reorder_action,
         "supplier_risk_alert": execute_risk_action,
         "overstock_alert": execute_risk_action,
         "stockout_prevention_alert": execute_risk_action,
+        "exclusive_availability": execute_risk_action,
+        "alternative_option": execute_risk_action,
     }
 
     if recommendation_type not in action_map:

@@ -209,3 +209,213 @@ def analyze_transfer_opportunities(
         "shortages": shortages.head(limit),
         "surpluses": surpluses.head(limit),
     }
+
+
+def find_exclusive_store_items(
+    inventory: pd.DataFrame,
+    products: pd.DataFrame,
+    stores: pd.DataFrame,
+) -> pd.DataFrame:
+    """Return products with positive stock in exactly one store."""
+    output_columns = [
+        "product_id",
+        "product_name",
+        "category",
+        "exclusive_store_id",
+        "exclusive_store_name",
+        "city",
+        "available_quantity",
+        "selling_price",
+        "business_note",
+        "alternative_recommendation",
+        "unavailable_store_names",
+        "inventory_store_rows",
+    ]
+    inv = _prepare_inventory(inventory, stores, products)
+    if inv.empty:
+        return pd.DataFrame(columns=output_columns)
+
+    inv["stock_level"] = _number_column(inv, "stock_level")
+    positive = inv[inv["stock_level"] > 0].copy()
+    if positive.empty:
+        return pd.DataFrame(columns=output_columns)
+
+    store_count = (
+        positive.groupby("product_id")["store_id"]
+        .nunique()
+        .reset_index(name="positive_store_count")
+    )
+    exclusive_products = store_count[store_count["positive_store_count"] == 1]["product_id"].astype(str)
+    exclusive_rows = positive[positive["product_id"].astype(str).isin(exclusive_products)].copy()
+    if exclusive_rows.empty:
+        return pd.DataFrame(columns=output_columns)
+
+    product_store_counts = (
+        inv.groupby("product_id")["store_id"]
+        .nunique()
+        .reset_index(name="inventory_store_rows")
+    )
+    exclusive_rows = exclusive_rows.merge(product_store_counts, on="product_id", how="left")
+    exclusive_rows["available_quantity"] = exclusive_rows["stock_level"].round().astype(int)
+    exclusive_rows["exclusive_store_id"] = exclusive_rows["store_id"].astype(str)
+    exclusive_rows["exclusive_store_name"] = exclusive_rows["store_name"].fillna(exclusive_rows["store_id"]).astype(str)
+    exclusive_rows["business_note"] = exclusive_rows.apply(
+        lambda row: (
+            f"{row['product_name']} is available only at {row['exclusive_store_name']} "
+            f"with {int(row['available_quantity'])} units."
+        ),
+        axis=1,
+    )
+    exclusive_rows["alternative_recommendation"] = exclusive_rows.apply(
+        lambda row: (
+            f"Promote {row['product_name']} as an alternative {row['category']} option "
+            f"from {row['exclusive_store_name']} when similar products are low elsewhere."
+        ),
+        axis=1,
+    )
+    store_names_by_id = (
+        stores.assign(store_id=stores["store_id"].astype(str))
+        .set_index("store_id")["store_name"]
+        .astype(str)
+        .to_dict()
+        if not stores.empty and {"store_id", "store_name"}.issubset(stores.columns)
+        else {}
+    )
+    positive_store_sets = (
+        positive.groupby("product_id")["store_id"]
+        .apply(lambda values: {str(value) for value in values})
+        .to_dict()
+    )
+    all_store_ids = set(stores["store_id"].astype(str).tolist()) if not stores.empty and "store_id" in stores.columns else set()
+    exclusive_rows["unavailable_store_names"] = exclusive_rows["product_id"].astype(str).map(
+        lambda product_id: " | ".join(
+            store_names_by_id.get(store_id, store_id)
+            for store_id in sorted(all_store_ids - positive_store_sets.get(product_id, set()))
+        )
+    )
+
+    for column in output_columns:
+        if column not in exclusive_rows.columns:
+            exclusive_rows[column] = ""
+
+    return exclusive_rows[output_columns].sort_values(
+        ["available_quantity", "product_name"],
+        ascending=[False, True],
+    ).reset_index(drop=True)
+
+
+def _build_low_stock_scope(
+    inventory: pd.DataFrame,
+    products: pd.DataFrame,
+    stores: pd.DataFrame,
+    low_stock_items: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    if low_stock_items is not None and not low_stock_items.empty:
+        low_stock = low_stock_items.copy()
+        low_stock["product_id"] = low_stock.get("product_id", "").astype(str)
+        low_stock["store_id"] = low_stock.get("store_id", "").astype(str)
+        if "stock_level" not in low_stock.columns and "current_quantity" in low_stock.columns:
+            low_stock["stock_level"] = low_stock["current_quantity"]
+        if "effective_reorder_threshold" not in low_stock.columns and "reorder_threshold" in low_stock.columns:
+            low_stock["effective_reorder_threshold"] = low_stock["reorder_threshold"]
+        return low_stock
+
+    inv = _prepare_inventory(inventory, stores, products)
+    if inv.empty:
+        return pd.DataFrame()
+    inv["stock_level"] = _number_column(inv, "stock_level")
+    inv["effective_reorder_threshold"] = _number_column(inv, "reorder_threshold")
+    return inv[inv["stock_level"] <= inv["effective_reorder_threshold"]].copy()
+
+
+def find_alternative_products_for_low_stock(
+    inventory: pd.DataFrame,
+    products: pd.DataFrame,
+    stores: pd.DataFrame,
+    low_stock_items: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Find same-category alternatives for low-stock or unavailable products."""
+    inv = _prepare_inventory(inventory, stores, products)
+    low_stock = _build_low_stock_scope(inventory, products, stores, low_stock_items)
+    if inv.empty or low_stock.empty:
+        return pd.DataFrame()
+
+    inv["stock_level"] = _number_column(inv, "stock_level")
+    low_stock["stock_level"] = _number_column(low_stock, "stock_level")
+    if "category" not in low_stock.columns and not products.empty:
+        product_view = products[["product_id", "product_name", "category"]].copy()
+        product_view["product_id"] = product_view["product_id"].astype(str)
+        low_stock = low_stock.merge(product_view, on="product_id", how="left")
+    if "store_name" not in low_stock.columns and not stores.empty:
+        store_view = stores[["store_id", "store_name", "city"]].copy()
+        store_view["store_id"] = store_view["store_id"].astype(str)
+        low_stock = low_stock.merge(store_view, on="store_id", how="left")
+
+    exclusive = find_exclusive_store_items(inventory, products, stores)
+    exclusive_keys = {
+        (str(row.get("product_id", "")), str(row.get("exclusive_store_id", "")))
+        for _, row in exclusive.iterrows()
+    }
+
+    available = inv[inv["stock_level"] > 0].copy()
+    rows: list[dict[str, Any]] = []
+    for _, low_row in low_stock.iterrows():
+        low_product_id = _safe_text(low_row.get("product_id"))
+        category = _safe_text(low_row.get("category"))
+        if not low_product_id or not category:
+            continue
+
+        candidates = available[
+            (available["category"].astype(str) == category)
+            & (available["product_id"].astype(str) != low_product_id)
+        ].copy()
+        if candidates.empty:
+            continue
+
+        candidates["available_quantity"] = candidates["stock_level"].round().astype(int)
+        candidates["is_exclusive"] = candidates.apply(
+            lambda row: (str(row.get("product_id", "")), str(row.get("store_id", ""))) in exclusive_keys,
+            axis=1,
+        )
+        candidates = candidates.sort_values(
+            ["is_exclusive", "available_quantity", "product_name"],
+            ascending=[False, False, True],
+        )
+
+        for _, alt in candidates.iterrows():
+            is_exclusive = bool(alt.get("is_exclusive", False))
+            low_stock_store = _safe_text(low_row.get("store_name"), _safe_text(low_row.get("store_id")))
+            alt_store = _safe_text(alt.get("store_name"), _safe_text(alt.get("store_id")))
+            rows.append(
+                {
+                    "low_stock_product_id": low_product_id,
+                    "low_stock_product": _safe_text(low_row.get("product_name"), low_product_id),
+                    "low_stock_store_id": _safe_text(low_row.get("store_id")),
+                    "low_stock_store": low_stock_store,
+                    "alternative_product_id": _safe_text(alt.get("product_id")),
+                    "alternative_product": _safe_text(alt.get("product_name"), _safe_text(alt.get("product_id"))),
+                    "alternative_store_id": _safe_text(alt.get("store_id")),
+                    "alternative_store": alt_store,
+                    "available_quantity": int(alt.get("available_quantity", 0)),
+                    "category": category,
+                    "is_exclusive": is_exclusive,
+                    "reason": (
+                        f"{alt.get('product_name')} is exclusively available at {alt_store} "
+                        f"with {int(alt.get('available_quantity', 0))} units."
+                        if is_exclusive
+                        else f"{alt.get('product_name')} is available in the same {category} category at {alt_store}."
+                    ),
+                    "priority": "high" if is_exclusive else "medium",
+                }
+            )
+
+    alternatives = pd.DataFrame(rows)
+    if alternatives.empty:
+        return alternatives
+
+    alternatives["_exclusive_rank"] = alternatives["is_exclusive"].astype(int)
+    alternatives = alternatives.sort_values(
+        ["_exclusive_rank", "available_quantity", "alternative_product"],
+        ascending=[False, False, True],
+    ).drop(columns=["_exclusive_rank"])
+    return alternatives.reset_index(drop=True)

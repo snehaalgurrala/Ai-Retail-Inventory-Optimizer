@@ -1,6 +1,8 @@
 product_id,product_name,category,store_id,store_name,city,supplier_id,supplier_name,current_quantity,reorder_threshold,shortage_quantity,suggested_reorder_quantity,recent_daily_sales_velocity,priority
-P113,Apples,Fruits,S1,Hyderabad Central,Hyderabad,SUP4,Farm Fresh Produce,1,15,14,91,5.433333333333334,High
-P114,Tomatoes,Vegetables,S3,Guntur Branch,Guntur,SUP4,Farm Fresh Produce,6,10,4,14,0.2,Medium
-P114,Tomatoes,Vegetables,S2,Vijayawada Branch,Vijayawada,SUP4,Farm Fresh Produce,8,10,2,12,0.2,Medium
-P118,Ice Cream,Frozen,S3,Guntur Branch,Guntur,SUP6,Frozen Foods Distributor,9,10,1,42,2.9,Medium
-P112,Bananas,Fruits,S3,Guntur Branch,Guntur,SUP4,Farm Fresh Produce,10,10,0,41,2.8666666666666667,Low
+P113,Apples,Fruits,S1,Hyderabad Central,Hyderabad,SUP4,Farm Fresh Produce,1,15,14,49,2.466666666666667,High
+P110,Butter,Dairy,S3,Guntur Branch,Guntur,SUP1,Fresh Dairy Suppliers,10,20,10,30,1.4,High
+P112,Bananas,Fruits,S1,Hyderabad Central,Hyderabad,SUP4,Farm Fresh Produce,5,10,5,36,2.2,High
+P114,Tomatoes,Vegetables,S3,Guntur Branch,Guntur,SUP4,Farm Fresh Produce,6,10,4,14,0.06666666666666667,Medium
+P114,Tomatoes,Vegetables,S2,Vijayawada Branch,Vijayawada,SUP4,Farm Fresh Produce,8,10,2,12,0.03333333333333333,Medium
+P118,Ice Cream,Frozen,S3,Guntur Branch,Guntur,SUP6,Frozen Foods Distributor,9,10,1,13,0.8333333333333334,Medium
+P112,Bananas,Fruits,S3,Guntur Branch,Guntur,SUP4,Farm Fresh Produce,10,10,0,11,0.7666666666666667,Low

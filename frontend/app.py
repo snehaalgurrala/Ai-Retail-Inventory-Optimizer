@@ -15,6 +15,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.agents.orchestrator_agent import run_agent_graph  # noqa: E402
 from backend.services.low_stock_service import get_low_stock_items  # noqa: E402
+from backend.services.stock_alternative_service import (  # noqa: E402
+    build_surplus_alternative_alert_text,
+    get_alternative_availability_for_low_stock,
+    get_surplus_stock_items,
+)
 from backend.services import agent_summary_service, email_service  # noqa: E402
 from backend.utils.data_loader import load_all_data  # noqa: E402
 from frontend.components.ui_components import (  # noqa: E402
@@ -23,6 +28,7 @@ from frontend.components.ui_components import (  # noqa: E402
     render_command_center_orchestrator_card,
     render_kpi_card,
     render_low_stock_alert_card,
+    render_surplus_alternative_alert_card,
 )
 from frontend.utils.page_helpers import (  # noqa: E402
     apply_page_style,
@@ -321,6 +327,13 @@ agent_card_summaries = agent_output_state["agent_card_summaries"]
 orchestrator_summary_df = agent_output_state["orchestrator_summary"]
 recommendations = agent_output_state["recommendations"]
 low_stock_alerts = get_low_stock_items(save_output=True)
+surplus_stock_items = get_surplus_stock_items(inventory, products, data["stores"])
+alternative_availability_alerts = get_alternative_availability_for_low_stock(
+    inventory,
+    products,
+    data["stores"],
+    low_stock_alerts,
+)
 summary_service = _get_agent_summary_service()
 build_low_stock_alert_text = getattr(
     summary_service,
@@ -353,6 +366,10 @@ last_updated_timestamp = latest_timestamp_iso_from_files(agent_output_files)
 
 low_stock_count = int(len(low_stock_alerts))
 current_low_stock_alert_text = build_low_stock_alert_text(low_stock_alerts)
+current_surplus_alternative_text = build_surplus_alternative_alert_text(
+    surplus_stock_items,
+    alternative_availability_alerts,
+)
 
 header_left, header_right = st.columns([4.8, 1.2], gap="large")
 with header_left:
@@ -469,6 +486,10 @@ if has_agent_run and not orchestrator_summary_df.empty:
             orchestrator_row.get("last_agent_run_time", last_agent_run_time)
         ),
         low_stock_alert=current_low_stock_alert_text,
+        surplus_alternative_alert=(
+            f"{len(surplus_stock_items):,} surplus items or "
+            f"{len(alternative_availability_alerts):,} transfer alternatives detected."
+        ),
         top_risk=str(
             orchestrator_row.get(
                 "top_risk",
@@ -579,6 +600,74 @@ else:
             use_container_width=True,
             hide_index=True,
         )
+
+st.subheader("📦 Stock Surplus & Alternatives")
+if surplus_stock_items.empty and alternative_availability_alerts.empty:
+    st.info("No major surplus or alternative availability detected right now.")
+else:
+    render_surplus_alternative_alert_card(current_surplus_alternative_text)
+    if not surplus_stock_items.empty:
+        with st.container(border=True):
+            surplus_preview = surplus_stock_items[
+                [
+                    column
+                    for column in [
+                        "product_name",
+                        "store_name",
+                        "current_quantity",
+                        "reorder_threshold",
+                        "surplus_quantity",
+                        "reason",
+                        "opportunity_level",
+                    ]
+                    if column in surplus_stock_items.columns
+                ]
+            ].rename(
+                columns={
+                    "product_name": "Product",
+                    "store_name": "Store",
+                    "current_quantity": "Available Qty",
+                    "reorder_threshold": "Threshold",
+                    "surplus_quantity": "Surplus Qty",
+                    "reason": "Suggested Action",
+                    "opportunity_level": "Priority/Opportunity",
+                }
+            ).head(5)
+            st.dataframe(
+                surplus_preview,
+                use_container_width=True,
+                hide_index=True,
+            )
+    if not alternative_availability_alerts.empty:
+        with st.container(border=True):
+            alternative_preview = alternative_availability_alerts[
+                [
+                    column
+                    for column in [
+                        "low_stock_product",
+                        "low_stock_store",
+                        "alternative_product",
+                        "alternative_store",
+                        "available_quantity",
+                        "suggested_action",
+                    ]
+                    if column in alternative_availability_alerts.columns
+                ]
+            ].rename(
+                columns={
+                    "low_stock_product": "Low Stock Item",
+                    "low_stock_store": "Low Stock Store",
+                    "alternative_product": "Alternative / Source Item",
+                    "alternative_store": "Available At",
+                    "available_quantity": "Quantity",
+                    "suggested_action": "Action",
+                }
+            ).head(5)
+            st.dataframe(
+                alternative_preview,
+                use_container_width=True,
+                hide_index=True,
+            )
 
 st.divider()
 

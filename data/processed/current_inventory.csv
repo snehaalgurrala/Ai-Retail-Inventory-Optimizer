@@ -14,7 +14,7 @@ P104,S3,28,10,2026-04-22,Cooking Oil 1L,Grocery,120,180,365,10,SUP3,Guntur Branc
 P105,S1,150,25,2026-04-22,Eggs (12 pack),Dairy,60,90,10,25,SUP1,Hyderabad Central,Hyderabad,1200
 P105,S2,80,25,2026-04-22,Eggs (12 pack),Dairy,60,90,10,25,SUP1,Vijayawada Branch,Vijayawada,900
 P105,S3,60,25,2026-04-22,Eggs (12 pack),Dairy,60,90,10,25,SUP1,Guntur Branch,Guntur,850
-P106,S1,300,40,2026-04-22,Biscuits Pack,Snacks,10,20,120,40,SUP5,Hyderabad Central,Hyderabad,1200
+P106,S1,250,40,2026-05-15,Biscuits Pack,Snacks,10,20,120,40,SUP5,Hyderabad Central,Hyderabad,1200
 P106,S2,120,40,2026-04-22,Biscuits Pack,Snacks,10,20,120,40,SUP5,Vijayawada Branch,Vijayawada,900
 P106,S3,100,40,2026-04-22,Biscuits Pack,Snacks,10,20,120,40,SUP5,Guntur Branch,Guntur,850
 P107,S1,55,20,2026-04-27,Soft Drink 1L,Beverages,30,50,180,20,SUP5,Hyderabad Central,Hyderabad,1200
@@ -28,11 +28,11 @@ P109,S2,18,15,2026-04-22,Curd,Dairy,30,50,5,15,SUP1,Vijayawada Branch,Vijayawada
 P109,S3,24,15,2026-04-27,Curd,Dairy,30,50,5,15,SUP1,Guntur Branch,Guntur,850
 P110,S1,60,20,2026-04-22,Butter,Dairy,80,120,20,20,SUP1,Hyderabad Central,Hyderabad,1200
 P110,S2,30,20,2026-04-22,Butter,Dairy,80,120,20,20,SUP1,Vijayawada Branch,Vijayawada,900
-P110,S3,25,20,2026-04-22,Butter,Dairy,80,120,20,20,SUP1,Guntur Branch,Guntur,850
+P110,S3,10,20,2026-05-15,Butter,Dairy,80,120,20,20,SUP1,Guntur Branch,Guntur,850
 P111,S1,70,20,2026-04-22,Cheese,Dairy,150,250,30,20,SUP1,Hyderabad Central,Hyderabad,1200
 P111,S2,22,20,2026-04-22,Cheese,Dairy,150,250,30,20,SUP1,Vijayawada Branch,Vijayawada,900
 P111,S3,27,20,2026-04-27,Cheese,Dairy,150,250,30,20,SUP1,Guntur Branch,Guntur,850
-P112,S1,30,10,2026-04-22,Bananas,Fruits,20,40,4,10,SUP4,Hyderabad Central,Hyderabad,1200
+P112,S1,5,10,2026-05-15,Bananas,Fruits,20,40,4,10,SUP4,Hyderabad Central,Hyderabad,1200
 P112,S2,15,10,2026-04-22,Bananas,Fruits,20,40,4,10,SUP4,Vijayawada Branch,Vijayawada,900
 P112,S3,10,10,2026-04-22,Bananas,Fruits,20,40,4,10,SUP4,Guntur Branch,Guntur,850
 P113,S1,1,15,2026-04-28,Apples,Fruits,60,120,10,15,SUP4,Hyderabad Central,Hyderabad,1200

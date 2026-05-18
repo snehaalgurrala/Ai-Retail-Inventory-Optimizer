@@ -1,7 +1,11 @@
 import pandas as pd
 
 from backend.memory.learning_loop import get_learning_context
-from backend.services.recommendation_engine import generate_stock_transfer_recommendations
+from backend.services.recommendation_engine import (
+    generate_alternative_option_recommendations,
+    generate_exclusive_availability_recommendations,
+    generate_stock_transfer_recommendations,
+)
 
 
 SOURCE_AGENT = "transfer_agent"
@@ -39,7 +43,7 @@ def _build_llm_candidates(inputs: dict, recommendations: list[dict]) -> list[dic
         memory_context = get_learning_context(
             product_id=product_id,
             store_id=store_id,
-            recommendation_type="stock_transfer",
+            recommendation_type="transfer",
         )
 
         candidates.append(
@@ -124,6 +128,21 @@ def analyze_transfer_opportunities(
         inputs.get("current_inventory", pd.DataFrame()),
         inputs.get("low_stock_items", pd.DataFrame()),
         config,
+    )
+    recommendations.extend(
+        generate_exclusive_availability_recommendations(
+            inputs.get("inventory", pd.DataFrame()),
+            inputs.get("products", pd.DataFrame()),
+            inputs.get("stores", pd.DataFrame()),
+        )
+    )
+    recommendations.extend(
+        generate_alternative_option_recommendations(
+            inputs.get("inventory", pd.DataFrame()),
+            inputs.get("products", pd.DataFrame()),
+            inputs.get("stores", pd.DataFrame()),
+            inputs.get("low_stock_items", pd.DataFrame()),
+        )
     )
 
     return _tag_source_agent(recommendations)

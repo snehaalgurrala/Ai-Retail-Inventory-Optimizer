@@ -1,4 +1,4 @@
 store_id,store_name,city,capacity,total_inventory,remaining_capacity,capacity_used_percent
-S1,Hyderabad Central,Hyderabad,1200,1724,-524,143.66666666666669
+S1,Hyderabad Central,Hyderabad,1200,1649,-449,137.41666666666669
 S2,Vijayawada Branch,Vijayawada,900,817,83,90.77777777777779
-S3,Guntur Branch,Guntur,850,696,154,81.88235294117648
+S3,Guntur Branch,Guntur,850,681,169,80.11764705882352

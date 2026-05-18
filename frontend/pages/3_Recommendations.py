@@ -41,6 +41,9 @@ TYPE_META = {
     "discount": {"icon": "💸", "label": "Discount", "accent": "#2563eb"},
     "clearance": {"icon": "🧹", "label": "Clearance", "accent": "#f97316"},
     "stock_transfer": {"icon": "↔", "label": "Stock Transfer", "accent": "#7c3aed"},
+    "transfer": {"icon": "T", "label": "Transfer", "accent": "#0f766e"},
+    "exclusive_availability": {"icon": "E", "label": "Exclusive Availability", "accent": "#0f766e"},
+    "alternative_option": {"icon": "A", "label": "Alternative Option", "accent": "#0891b2"},
     "reorder": {"icon": "📦", "label": "Reorder", "accent": "#16a34a"},
     "supplier_risk_alert": {"icon": "⚠", "label": "Supplier Risk", "accent": "#dc2626"},
     "overstock_alert": {"icon": "📊", "label": "Overstock Alert", "accent": "#ea580c"},
@@ -312,7 +315,10 @@ def most_common_action(df: pd.DataFrame) -> str:
 
 def build_summary_card_data(recommendations: pd.DataFrame) -> list[dict]:
     pricing_rows = recommendation_type_rows(recommendations, ["discount", "clearance"])
-    transfer_rows = recommendation_type_rows(recommendations, ["stock_transfer"])
+    transfer_rows = recommendation_type_rows(
+        recommendations,
+        ["stock_transfer", "transfer", "exclusive_availability", "alternative_option"],
+    )
     procurement_rows = recommendation_type_rows(recommendations, ["reorder"])
     risk_rows = recommendation_type_rows(
         recommendations,
@@ -338,7 +344,7 @@ def build_summary_card_data(recommendations: pd.DataFrame) -> list[dict]:
             "summary": f"{len(transfer_rows):,} opportunities",
             "accent": "purple",
             "button_key": "review_transfer",
-            "types": ["stock_transfer"],
+            "types": ["stock_transfer", "transfer", "exclusive_availability", "alternative_option"],
             "insights": [
                 f"{unique_count(transfer_rows, 'product_id'):,} products can be rebalanced.",
                 f"{pending_count(transfer_rows):,} transfers are pending.",
@@ -400,10 +406,21 @@ def compact_value_summary(recommendation: pd.Series, context: dict) -> str:
             f"Clearance {context['recommended_discount_percent']:.1f}% • "
             f"{context['current_price']:.2f} to {context['discounted_price']:.2f}"
         )
-    if recommendation_type == "stock_transfer":
+    if recommendation_type in {"stock_transfer", "transfer"}:
         return (
             f"{context['source_store_id'] or 'source'} to {context['target_store_id'] or recommendation.get('store_id', '')} • "
             f"{context['suggested_quantity']} units"
+        )
+    if recommendation_type == "exclusive_availability":
+        return (
+            f"{recommendation.get('store_name') or recommendation.get('store_id', '')} - "
+            f"{context.get('available_quantity', recommendation.get('available_quantity', 0))} units"
+        )
+    if recommendation_type == "alternative_option":
+        return (
+            f"{recommendation.get('alternative_product_name', '')} at "
+            f"{recommendation.get('alternative_store_name') or recommendation.get('alternative_store_id', '')} - "
+            f"{context.get('available_quantity', recommendation.get('available_quantity', 0))} units"
         )
     if recommendation_type == "reorder":
         return f"Reorder {context['suggested_quantity']} units"
@@ -477,13 +494,28 @@ def render_type_specific_details(recommendation: pd.Series, context: dict) -> No
             f"slow movement, overstock, recent sales velocity {context['recent_daily_velocity']:.2f}, "
             f"stock level {context['current_stock']}, shelf life {context['shelf_life_days']}."
         )
-    elif recommendation_type == "stock_transfer":
+    elif recommendation_type in {"stock_transfer", "transfer"}:
         st.write(f"Source store: {context['source_store_name'] or context['source_store_id'] or 'Missing'}")
         st.write(f"Target store: {context['target_store_name'] or context['target_store_id'] or 'Missing'}")
         st.write(f"Transfer quantity: {context['suggested_quantity']}")
         st.write(f"Reason: {recommendation.get('reason', '')}")
         st.write("Expected benefit: Moves supply to a store with tighter coverage faster than new procurement.")
         st.write("Risk if not transferred: The target store may stock out while surplus remains elsewhere.")
+    elif recommendation_type == "exclusive_availability":
+        st.write(f"Product: {recommendation.get('product_name', '')}")
+        st.write(f"Exclusive store: {recommendation.get('store_name') or recommendation.get('store_id', '')}")
+        st.write(f"Available quantity: {context.get('available_quantity', recommendation.get('available_quantity', 0))}")
+        st.write(f"Category: {context.get('category', '')}")
+        st.write(f"Alternative suggestion: {recommendation.get('action', '')}")
+        st.write(f"Why it matters: {recommendation.get('reason', '')}")
+    elif recommendation_type == "alternative_option":
+        st.write(f"Low-stock product: {recommendation.get('product_name', '')}")
+        st.write(f"Low-stock store: {recommendation.get('store_name') or recommendation.get('store_id', '')}")
+        st.write(f"Alternative product: {recommendation.get('alternative_product_name', '')}")
+        st.write(f"Alternative store: {recommendation.get('alternative_store_name') or recommendation.get('alternative_store_id', '')}")
+        st.write(f"Available quantity: {context.get('available_quantity', recommendation.get('available_quantity', 0))}")
+        st.write(f"Category: {context.get('category', '')}")
+        st.write(f"Action suggestion: {recommendation.get('action', '')}")
     elif recommendation_type == "reorder":
         st.write(f"Current stock: {context['current_stock']}")
         st.write(f"Threshold: {context['threshold']}")
@@ -540,7 +572,7 @@ def render_edit_form(recommendation: pd.Series, context: dict, disabled: bool) -
             else:
                 edited_values["discount_percent"] = defaults["discount_percent"]
 
-            if recommendation_type in {"stock_transfer", "reorder"}:
+            if recommendation_type in {"stock_transfer", "transfer", "reorder"}:
                 edited_values["suggested_quantity"] = st.number_input(
                     "Suggested quantity",
                     min_value=0,
@@ -551,7 +583,7 @@ def render_edit_form(recommendation: pd.Series, context: dict, disabled: bool) -
             else:
                 edited_values["suggested_quantity"] = defaults["suggested_quantity"]
 
-            if recommendation_type == "stock_transfer":
+            if recommendation_type in {"stock_transfer", "transfer"}:
                 edited_values["source_store"] = st.text_input(
                     "Source store",
                     value=defaults["source_store"],
@@ -654,8 +686,9 @@ def render_recommendation_execution_card(recommendation: pd.Series) -> None:
     context = build_recommendation_context(recommendation)
     current_status = str(recommendation.get("status", "pending")).lower()
     disabled = current_status in {"approved", "rejected"}
-    store_name = context.get("store_name") or str(recommendation.get("store_id", ""))
+    store_name = context.get("store_name") or str(recommendation.get("store_name") or recommendation.get("store_id", ""))
     compact_summary = compact_value_summary(recommendation, context)
+    is_availability_card = recommendation_type in {"exclusive_availability", "alternative_option"}
 
     with st.container(border=True):
         st.markdown(
@@ -685,6 +718,41 @@ def render_recommendation_execution_card(recommendation: pd.Series) -> None:
         )
 
         render_card_feedback(recommendation_id)
+
+        if is_availability_card:
+            with st.expander("View availability reasoning", expanded=False):
+                render_type_specific_details(recommendation, context)
+                st.divider()
+                render_reasoning_box(
+                    "Where Available",
+                    str(
+                        recommendation.get("alternative_store_name")
+                        or recommendation.get("store_name")
+                        or recommendation.get("alternative_store_id")
+                        or recommendation.get("store_id")
+                        or "No store available."
+                    ),
+                )
+                render_reasoning_box(
+                    "Where Unavailable",
+                    str(
+                        context.get("evidence_map", {}).get("unavailable_stores")
+                        or "Other stores have zero quantity or no inventory row for the exclusive product."
+                    ),
+                )
+                render_reasoning_box(
+                    "Why Exclusive",
+                    "The product has quantity above zero in only one store in the current inventory data.",
+                )
+                render_reasoning_box(
+                    "Business Help",
+                    "This gives the team a substitute to promote when the original product is low or unavailable.",
+                )
+                st.divider()
+                explanation_block(recommendation, context)
+                st.divider()
+                render_edit_form(recommendation, context, disabled=disabled)
+            return
 
         with st.expander("View AI reasoning and impact", expanded=False):
             render_type_specific_details(recommendation, context)

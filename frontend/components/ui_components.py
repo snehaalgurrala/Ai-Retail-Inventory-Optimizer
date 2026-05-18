@@ -270,6 +270,7 @@ def render_command_center_orchestrator_card(
     executive_summary: str,
     executive_recommendation: str,
     summary_source: str = "",
+    surplus_alternative_alert: str = "",
 ) -> None:
     """Render the premium orchestrator command card."""
     summary_note = ""
@@ -301,6 +302,7 @@ def render_command_center_orchestrator_card(
         </div>
       </div>
       <div class="agent-action"><strong>Low stock alert:</strong> {escape(str(low_stock_alert))}</div>
+      <div class="agent-action"><strong>Surplus/Alternative Alert:</strong> {escape(str(surplus_alternative_alert or 'No major surplus or transfer alternative detected right now.'))}</div>
       <div class="agent-action"><strong>Top risk:</strong> {escape(str(top_risk))}</div>
       <div class="agent-action" style="margin-top:0.35rem;"><strong>Top opportunity:</strong> {escape(str(top_opportunity))}</div>
       <div class="agent-action" style="margin-top:0.35rem;"><strong>Executive recommendation:</strong> {escape(str(executive_recommendation))}</div>
@@ -375,6 +377,19 @@ def render_low_stock_alert_card(summary_text: str) -> None:
     st.markdown(html, unsafe_allow_html=True)
 
 
+def render_surplus_alternative_alert_card(summary_text: str) -> None:
+    """Render the summary banner for surplus stock and alternative availability."""
+    html = f"""
+    <div class="command-card" style="margin-top:0.2rem;">
+      <div class="card-accent accent-teal"></div>
+      <div class="card-kicker">Stock Surplus & Alternative Availability Alerts</div>
+      <div class="card-title">📦 Stock Surplus & Alternatives</div>
+      <p class="card-copy">{escape(str(summary_text))}</p>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
+
+
 def _normalize_badge_text(priority_level: str) -> str:
     text = str(priority_level or "").strip().title()
     return text or "Info"
@@ -443,6 +458,9 @@ def render_recommendation_card(
     type_icon_map = {
         "reorder": "\U0001F4E6",
         "stock_transfer": "\u2194",
+        "transfer": "\u2194",
+        "exclusive_availability": "E",
+        "alternative_option": "A",
         "discount": "\U0001F4B8",
         "clearance": "\u23F3",
         "supplier_risk_alert": "\u26A0",

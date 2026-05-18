@@ -9,7 +9,22 @@ from typing import Any
 import pandas as pd
 
 from backend.services.llm_reasoner import humanize_analytics_payload, llm_is_configured
-from backend.services.transfer_analysis_service import analyze_transfer_opportunities
+from backend.services.stock_alternative_service import (
+    get_alternative_availability_for_low_stock,
+    get_surplus_stock_items,
+)
+from backend.services.store_inventory_service import (
+    build_category_summary,
+    build_store_comparison,
+    build_store_inventory_view,
+    get_overstock_items,
+    get_understock_items,
+)
+from backend.services.transfer_analysis_service import (
+    analyze_transfer_opportunities,
+    find_alternative_products_for_low_stock,
+    find_exclusive_store_items,
+)
 from backend.utils.data_loader import load_all_data
 
 
@@ -116,6 +131,11 @@ ANALYTICAL_KEYWORDS = {
     "surplus",
     "excess",
     "redistribution",
+    "alternative",
+    "alternatives",
+    "exclusive",
+    "exclusively",
+    "only",
     "balancing",
     "performance",
     "category",
@@ -248,6 +268,37 @@ def _is_transfer_analytics_query(question: str) -> bool:
         "store has excess",
     ]
     return any(phrase in text for phrase in transfer_phrases)
+
+
+def _is_availability_options_query(question: str) -> bool:
+    text = _normalize(question)
+    phrases = [
+        "exclusive",
+        "exclusively available",
+        "only available",
+        "only in",
+        "alternative product",
+        "alternative products",
+        "alternatives",
+        "offer instead",
+        "what can we offer instead",
+    ]
+    return any(phrase in text for phrase in phrases)
+
+
+def _is_surplus_stock_query(question: str) -> bool:
+    text = _normalize(question)
+    phrases = [
+        "extra stock",
+        "surplus stock",
+        "surplus products",
+        "products have surplus",
+        "store has surplus",
+        "has more stock",
+        "more stock for",
+        "available in higher quantity",
+    ]
+    return any(phrase in text for phrase in phrases)
 
 
 def _ranking_direction(question: str) -> str:
@@ -451,6 +502,20 @@ def _detect_analytical_intent(question: str, matched_stores: pd.DataFrame, match
     top_ranked_query = bool(re.search(r"\btop\s+\d+\b", text) and any(token in text for token in ["sold", "sales"]))
     least_ranked_query = bool(re.search(r"\bleast\s+\d+\b", text) and any(token in text for token in ["sold", "sales"]))
 
+    if _is_availability_options_query(question):
+        if any(keyword in text for keyword in ["alternative", "alternatives", "instead", "offer"]):
+            return "alternative_options"
+        return "exclusive_availability"
+    if _is_surplus_stock_query(question):
+        return "surplus_stock"
+    if "category wise inventory" in text or "category inventory" in text or "category wise stock" in text:
+        return "category_inventory"
+    if "highest inventory" in text or "highest stock" in text or "most inventory" in text:
+        return "store_inventory_comparison"
+    if "overstock" in text or "overstocked" in text:
+        return "store_overstock"
+    if "understock" in text or "understocked" in text:
+        return "store_understock"
     if _is_transfer_analytics_query(question) and not any(keyword in text for keyword in ["agent", "why did"]):
         return "transfer_analysis"
     if any(keyword in text for keyword in ["recommendation", "recommend", "suggest", "agent", "why did"]):
@@ -917,6 +982,195 @@ def _answer_transfer_analysis(
     return AnalyticsRoute(True, "transfer_analysis", payload, opportunities, sources)
 
 
+def _answer_exclusive_availability(
+    frames: dict[str, pd.DataFrame],
+    question: str,
+    matched_stores: pd.DataFrame,
+) -> AnalyticsRoute:
+    limit = _extract_requested_limit(question, default=5, maximum=10)
+    exclusive = find_exclusive_store_items(
+        frames.get("inventory", pd.DataFrame()),
+        frames.get("products", pd.DataFrame()),
+        frames.get("stores", pd.DataFrame()),
+    )
+    sources = _build_sources(["inventory", "products", "stores"])
+    payload = _empty_payload()
+
+    if not matched_stores.empty and not exclusive.empty:
+        exclusive = exclusive[
+            exclusive["exclusive_store_id"].astype(str).isin(matched_stores["store_id"].astype(str))
+        ].copy()
+
+    if exclusive.empty:
+        scope = _store_label(matched_stores) if not matched_stores.empty else "the current data"
+        payload.update(
+            {
+                "answer": f"I do not see any products exclusively available in {scope} right now.",
+                "explanation": "A product counts as exclusive only when it has positive quantity in one store and zero or missing inventory everywhere else.",
+                "suggestions": ["Ask for alternative products for low-stock items if you want substitute options instead."],
+                "confidence": "high",
+            }
+        )
+        return AnalyticsRoute(True, "exclusive_availability", payload, pd.DataFrame(), sources)
+
+    store_scope = _store_label(matched_stores) if not matched_stores.empty else "all stores"
+    answer_lines = [f"Exclusive store availability in {store_scope}:"]
+    for index, row in enumerate(exclusive.head(limit).itertuples(index=False), start=1):
+        answer_lines.append(
+            f"{index}. **{getattr(row, 'product_name', 'Product')}** is only available at "
+            f"{getattr(row, 'exclusive_store_name', 'the store')} with "
+            f"{int(getattr(row, 'available_quantity', 0) or 0)} units."
+        )
+
+    payload.update(
+        {
+            "answer": "\n".join(answer_lines),
+            "explanation": "These products have positive inventory in exactly one branch and no available quantity in the other branches.",
+            "suggestions": ["Use these as promoted alternatives when related low-stock products cannot be fulfilled quickly."],
+            "follow_up_question": "Want me to show alternative products for low-stock items too?",
+            "confidence": "high",
+            "supporting_points": [
+                "Exclusive = quantity > 0 in only one store.",
+                "Computed from inventory.csv joined with products.csv and stores.csv.",
+            ],
+        }
+    )
+    payload = _maybe_humanize(question, payload)
+    return AnalyticsRoute(True, "exclusive_availability", payload, exclusive.head(limit), sources)
+
+
+def _answer_surplus_stock(
+    frames: dict[str, pd.DataFrame],
+    question: str,
+    matched_products: pd.DataFrame,
+    matched_stores: pd.DataFrame,
+) -> AnalyticsRoute:
+    limit = _extract_requested_limit(question, default=5, maximum=10)
+    surplus = get_surplus_stock_items(
+        frames.get("inventory", pd.DataFrame()),
+        frames.get("products", pd.DataFrame()),
+        frames.get("stores", pd.DataFrame()),
+    )
+    sources = _build_sources(["inventory", "products", "stores"])
+    payload = _empty_payload()
+
+    if not matched_products.empty and not surplus.empty:
+        surplus = surplus[
+            surplus["product_id"].astype(str).isin(matched_products["product_id"].astype(str))
+        ].copy()
+    if not matched_stores.empty and not surplus.empty:
+        surplus = surplus[
+            surplus["store_id"].astype(str).isin(matched_stores["store_id"].astype(str))
+        ].copy()
+
+    if surplus.empty:
+        payload.update(
+            {
+                "answer": "I do not see any products with major surplus stock in that scope right now.",
+                "explanation": "Surplus means current quantity is at least twice the reorder threshold.",
+                "suggestions": ["You can also ask for transfer alternatives for low-stock items."],
+                "confidence": "high",
+            }
+        )
+        return AnalyticsRoute(True, "surplus_stock", payload, pd.DataFrame(), sources)
+
+    answer_lines = ["Stores and products with extra stock:"]
+    for index, row in enumerate(surplus.head(limit).itertuples(index=False), start=1):
+        answer_lines.append(
+            f"{index}. **{getattr(row, 'product_name', 'Product')}** at "
+            f"{getattr(row, 'store_name', 'store')} has "
+            f"{int(getattr(row, 'current_quantity', 0) or 0)} units, with "
+            f"{int(getattr(row, 'surplus_quantity', 0) or 0)} units above threshold."
+        )
+
+    top = surplus.iloc[0]
+    payload.update(
+        {
+            "answer": "\n".join(answer_lines),
+            "explanation": (
+                f"The top surplus item is {top['product_name']} at {top['store_name']}. "
+                "This can be considered for transfer, promotion, or alternative availability."
+            ),
+            "suggestions": ["Ask whether any low-stock branch can use these as transfer sources."],
+            "follow_up_question": "",
+            "confidence": "high",
+            "supporting_points": [
+                "Surplus = current quantity >= reorder threshold * 2.",
+                "Computed from the latest inventory.csv joined with products.csv and stores.csv.",
+            ],
+        }
+    )
+    payload = _maybe_humanize(question, payload)
+    return AnalyticsRoute(True, "surplus_stock", payload, surplus.head(limit), sources)
+
+
+def _answer_alternative_options(
+    frames: dict[str, pd.DataFrame],
+    question: str,
+    matched_products: pd.DataFrame,
+    matched_stores: pd.DataFrame,
+) -> AnalyticsRoute:
+    limit = _extract_requested_limit(question, default=5, maximum=10)
+    alternatives = get_alternative_availability_for_low_stock(
+        frames.get("inventory", pd.DataFrame()),
+        frames.get("products", pd.DataFrame()),
+        frames.get("stores", pd.DataFrame()),
+        frames.get("low_stock_items", pd.DataFrame()),
+    )
+    sources = _build_sources(["inventory", "products", "stores", "low_stock_items"])
+    payload = _empty_payload()
+
+    if not matched_products.empty and not alternatives.empty:
+        alternatives = alternatives[
+            alternatives["low_stock_product"].astype(str).isin(matched_products["product_name"].astype(str))
+            | alternatives["alternative_product"].astype(str).isin(matched_products["product_name"].astype(str))
+        ].copy()
+    if not matched_stores.empty and not alternatives.empty:
+        store_names = matched_stores["store_name"].astype(str)
+        alternatives = alternatives[
+            alternatives["low_stock_store"].astype(str).isin(store_names)
+            | alternatives["alternative_store"].astype(str).isin(store_names)
+        ].copy()
+
+    if alternatives.empty:
+        payload.update(
+            {
+                "answer": "I do not see a same-category alternative option for the matched low-stock item right now.",
+                "explanation": "I checked low-stock products against other products in the same category with available inventory.",
+                "suggestions": ["Try asking for exclusive products by store, or check transfer opportunities for the exact product."],
+                "confidence": "high",
+            }
+        )
+        return AnalyticsRoute(True, "alternative_options", payload, pd.DataFrame(), sources)
+
+    answer_lines = ["Alternative options for low-stock items:"]
+    for index, row in enumerate(alternatives.head(limit).itertuples(index=False), start=1):
+        type_label = "transfer source" if getattr(row, "alternative_type", "") == "same_product_transfer" else "category alternative"
+        answer_lines.append(
+            f"{index}. If **{getattr(row, 'low_stock_product', 'the product')}** is low at "
+            f"{getattr(row, 'low_stock_store', 'the store')}, offer "
+            f"**{getattr(row, 'alternative_product', 'an alternative')}** as a {type_label} from "
+            f"{getattr(row, 'alternative_store', 'another store')} with "
+            f"{int(getattr(row, 'available_quantity', 0) or 0)} units."
+        )
+
+    payload.update(
+        {
+            "answer": "\n".join(answer_lines),
+            "explanation": "I matched low-stock products to same-product surplus sources first, then same-category alternatives with healthy stock.",
+            "suggestions": ["Use same-product transfer sources first; use category alternatives when transfer is not enough."],
+            "follow_up_question": "",
+            "confidence": "high",
+            "supporting_points": [
+                "Same-product transfer sources must have surplus stock.",
+                "Category alternatives must have healthy stock in the same category.",
+            ],
+        }
+    )
+    payload = _maybe_humanize(question, payload)
+    return AnalyticsRoute(True, "alternative_options", payload, alternatives.head(limit), sources)
+
+
 def _answer_least_or_top_sold(
     frames: dict[str, pd.DataFrame],
     question: str,
@@ -1347,6 +1601,152 @@ def _answer_low_stock_by_store(
     return AnalyticsRoute(True, "low_stock_by_store", payload, low_stock.head(10), _build_sources(["low_stock_items", "inventory", "stores", "products"]))
 
 
+def _store_inventory_view_for_chat(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    return build_store_inventory_view(
+        frames.get("inventory", pd.DataFrame()),
+        frames.get("products", pd.DataFrame()),
+        frames.get("stores", pd.DataFrame()),
+        frames.get("suppliers", pd.DataFrame()),
+        frames.get("sales", pd.DataFrame()),
+    )
+
+
+def _answer_store_understock(
+    frames: dict[str, pd.DataFrame],
+    matched_stores: pd.DataFrame,
+) -> AnalyticsRoute:
+    view = _store_inventory_view_for_chat(frames)
+    sources = _build_sources(["inventory", "products", "stores", "sales"])
+    if view.empty:
+        return AnalyticsRoute(True, "store_understock", _friendly_no_data("I could not find inventory data yet."), pd.DataFrame(), sources)
+    if not matched_stores.empty:
+        view = view[view["store_id"].astype(str).isin(matched_stores["store_id"].astype(str))].copy()
+    understock = get_understock_items(view)
+    scope = _store_label(matched_stores) if not matched_stores.empty else "all stores"
+    if understock.empty:
+        payload = _empty_payload()
+        payload.update(
+            {
+                "answer": f"I do not see understocked items in {scope} right now.",
+                "explanation": "Understock means current quantity is at or below the reorder threshold.",
+                "confidence": "high",
+            }
+        )
+        return AnalyticsRoute(True, "store_understock", payload, pd.DataFrame(), sources)
+    lines = [f"Understocked items in {scope}:"]
+    for index, row in enumerate(understock.head(8).itertuples(index=False), start=1):
+        lines.append(
+            f"{index}. **{getattr(row, 'product_name', 'Product')}** has "
+            f"{int(getattr(row, 'current_quantity', 0) or 0)} units against threshold "
+            f"{int(getattr(row, 'reorder_threshold', 0) or 0)}."
+        )
+    payload = _empty_payload()
+    payload.update(
+        {
+            "answer": "\n".join(lines),
+            "explanation": "These rows are at or below their reorder thresholds and should be reviewed for replenishment.",
+            "confidence": "high",
+        }
+    )
+    payload = _maybe_humanize("understock inventory", payload)
+    return AnalyticsRoute(True, "store_understock", payload, understock.head(8), sources)
+
+
+def _answer_store_overstock(
+    frames: dict[str, pd.DataFrame],
+    matched_stores: pd.DataFrame,
+) -> AnalyticsRoute:
+    view = _store_inventory_view_for_chat(frames)
+    sources = _build_sources(["inventory", "products", "stores", "sales"])
+    if view.empty:
+        return AnalyticsRoute(True, "store_overstock", _friendly_no_data("I could not find inventory data yet."), pd.DataFrame(), sources)
+    if not matched_stores.empty:
+        view = view[view["store_id"].astype(str).isin(matched_stores["store_id"].astype(str))].copy()
+    overstock = get_overstock_items(view)
+    scope = _store_label(matched_stores) if not matched_stores.empty else "all stores"
+    if overstock.empty:
+        payload = _empty_payload()
+        payload.update(
+            {
+                "answer": f"I do not see overstocked items in {scope} right now.",
+                "explanation": "Overstock means quantity is at least twice the reorder threshold, or high relative to slow recent sales.",
+                "confidence": "high",
+            }
+        )
+        return AnalyticsRoute(True, "store_overstock", payload, pd.DataFrame(), sources)
+    lines = [f"Overstocked items in {scope}:"]
+    for index, row in enumerate(overstock.head(8).itertuples(index=False), start=1):
+        lines.append(
+            f"{index}. **{getattr(row, 'product_name', 'Product')}** has "
+            f"{int(getattr(row, 'current_quantity', 0) or 0)} units; surplus is "
+            f"{int(getattr(row, 'surplus_quantity', 0) or 0)} units."
+        )
+    payload = _empty_payload()
+    payload.update(
+        {
+            "answer": "\n".join(lines),
+            "explanation": "These rows can be reviewed for transfer, promotion, discount, or clearance.",
+            "confidence": "high",
+        }
+    )
+    payload = _maybe_humanize("overstock inventory", payload)
+    return AnalyticsRoute(True, "store_overstock", payload, overstock.head(8), sources)
+
+
+def _answer_category_inventory(
+    frames: dict[str, pd.DataFrame],
+    matched_stores: pd.DataFrame,
+) -> AnalyticsRoute:
+    view = _store_inventory_view_for_chat(frames)
+    sources = _build_sources(["inventory", "products", "stores"])
+    if view.empty:
+        return AnalyticsRoute(True, "category_inventory", _friendly_no_data("I could not find inventory data yet."), pd.DataFrame(), sources)
+    if not matched_stores.empty:
+        view = view[view["store_id"].astype(str).isin(matched_stores["store_id"].astype(str))].copy()
+    summary = build_category_summary(view)
+    scope = _store_label(matched_stores) if not matched_stores.empty else "all stores"
+    if summary.empty:
+        return AnalyticsRoute(True, "category_inventory", _friendly_no_data(f"I could not build category inventory for {scope}."), pd.DataFrame(), sources)
+    lines = [f"Category-wise inventory in {scope}:"]
+    for index, row in enumerate(summary.head(8).itertuples(index=False), start=1):
+        lines.append(
+            f"{index}. **{getattr(row, 'category', 'Uncategorized')}**: "
+            f"{int(getattr(row, 'inventory_quantity', 0) or 0)} units."
+        )
+    payload = _empty_payload()
+    payload.update(
+        {
+            "answer": "\n".join(lines),
+            "explanation": "This groups current inventory quantity by product category for the selected store scope.",
+            "confidence": "high",
+        }
+    )
+    payload = _maybe_humanize("category inventory", payload)
+    return AnalyticsRoute(True, "category_inventory", payload, summary.head(8), sources)
+
+
+def _answer_store_inventory_comparison(frames: dict[str, pd.DataFrame]) -> AnalyticsRoute:
+    view = _store_inventory_view_for_chat(frames)
+    sources = _build_sources(["inventory", "products", "stores"])
+    if view.empty:
+        return AnalyticsRoute(True, "store_inventory_comparison", _friendly_no_data("I could not find inventory data yet."), pd.DataFrame(), sources)
+    comparison = build_store_comparison(view)
+    if comparison.empty:
+        return AnalyticsRoute(True, "store_inventory_comparison", _friendly_no_data("I could not compare stores from the current inventory data."), pd.DataFrame(), sources)
+    top = comparison.iloc[0]
+    payload = _empty_payload()
+    payload.update(
+        {
+            "answer": f"{top['store_name']} has the highest inventory with {int(top['inventory_quantity'])} units.",
+            "explanation": f"It also has {int(top['low_stock_count'])} low-stock rows and {int(top['overstock_count'])} overstock rows.",
+            "suggestions": ["I can also show category-wise inventory for that store."],
+            "confidence": "high",
+        }
+    )
+    payload = _maybe_humanize("store inventory comparison", payload)
+    return AnalyticsRoute(True, "store_inventory_comparison", payload, comparison.head(8), sources)
+
+
 def _answer_product_performance(
     frames: dict[str, pd.DataFrame],
     question: str,
@@ -1519,6 +1919,12 @@ def try_answer_analytical_question(
     if _has_analytical_signal(user_input, matched_stores, matched_products, matched_category) and intent:
         if intent == "transfer_analysis":
             return _answer_transfer_analysis(frames, user_input)
+        if intent == "exclusive_availability":
+            return _answer_exclusive_availability(frames, user_input, matched_stores)
+        if intent == "surplus_stock":
+            return _answer_surplus_stock(frames, user_input, matched_products, matched_stores)
+        if intent == "alternative_options":
+            return _answer_alternative_options(frames, user_input, matched_products, matched_stores)
         if intent == "sales_ranking":
             return _answer_sales_ranking(frames, user_input, matched_stores, matched_category)
         if intent == "least_sold_products_ranked_by_store":
@@ -1533,6 +1939,14 @@ def try_answer_analytical_question(
             return _answer_least_or_top_sold(frames, user_input, intent, matched_stores)
         if intent == "top_sold_product_by_store":
             return _answer_least_or_top_sold(frames, user_input, intent, matched_stores)
+        if intent == "store_understock":
+            return _answer_store_understock(frames, matched_stores)
+        if intent == "store_overstock":
+            return _answer_store_overstock(frames, matched_stores)
+        if intent == "category_inventory":
+            return _answer_category_inventory(frames, matched_stores)
+        if intent == "store_inventory_comparison":
+            return _answer_store_inventory_comparison(frames)
         if intent == "low_stock_by_store":
             return _answer_low_stock_by_store(frames, matched_stores)
         if intent == "sales_summary_by_store":

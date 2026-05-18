@@ -17,6 +17,10 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.services.llm_reasoner import get_llm_settings, llm_is_configured  # noqa: E402
 from backend.services.low_stock_service import get_low_stock_items  # noqa: E402
+from backend.services.stock_alternative_service import (  # noqa: E402
+    get_alternative_availability_for_low_stock,
+    get_surplus_stock_items,
+)
 
 
 PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
@@ -401,7 +405,15 @@ def _top_opportunity_text(recommendations: pd.DataFrame) -> str:
     if recommendations.empty:
         return "No standout commercial opportunity is available yet."
 
-    opportunity_types = {"reorder", "discount", "stock_transfer", "clearance"}
+    opportunity_types = {
+        "reorder",
+        "discount",
+        "stock_transfer",
+        "transfer",
+        "clearance",
+        "exclusive_availability",
+        "alternative_option",
+    }
     opportunity_rows = recommendations[
         recommendations.get("recommendation_type", pd.Series(dtype=object))
         .fillna("")
@@ -443,6 +455,37 @@ def _fallback_agent_summary(agent_row: pd.Series, recommendations: pd.DataFrame)
         return (
             "No new findings are available yet.",
             "Run the agents to refresh the latest view.",
+        )
+
+    agent_name = str(agent_row.get("agent_name", "") or "").strip()
+    if agent_name == "transfer_agent" and not recommendations.empty:
+        recommendation_type = recommendations.get("recommendation_type", pd.Series(dtype=object)).fillna("").astype(str)
+        transfer_count = int(recommendation_type.isin(["stock_transfer", "transfer"]).sum())
+        exclusive_count = int(recommendation_type.eq("exclusive_availability").sum())
+        surplus_df = get_surplus_stock_items()
+        alternatives_df = get_alternative_availability_for_low_stock()
+        top_source_store = (
+            str(surplus_df.iloc[0].get("store_name", ""))
+            if not surplus_df.empty
+            else "no source store"
+        )
+        alternative_rows = recommendations[recommendation_type.eq("alternative_option")].copy()
+        top_alternative = _first_non_empty(alternative_rows.get("action", pd.Series(dtype=object)))
+        latest_transfer = _first_non_empty(
+            recommendations[recommendation_type.isin(["stock_transfer", "transfer"])].get("action", pd.Series(dtype=object))
+        )
+        summary = (
+            f"{transfer_count} transfer opportunities detected. "
+            f"{len(surplus_df)} surplus stock items and {len(alternatives_df)} alternative availability options are active. "
+            f"Top source store: {top_source_store}."
+        )
+        action_parts = [part for part in [top_alternative, latest_transfer] if part]
+        return (
+            _clean_sentence(summary, "Transfer and alternative availability findings are ready."),
+            _clean_sentence(
+                " ".join(action_parts[:2]),
+                "Review exclusive availability and transfer options together.",
+            ),
         )
 
     summary = latest_insight or f"{finding_count} findings were flagged in the latest run."

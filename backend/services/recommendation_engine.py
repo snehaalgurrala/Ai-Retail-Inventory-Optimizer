@@ -2,6 +2,11 @@ from pathlib import Path
 
 import pandas as pd
 
+from backend.services.transfer_analysis_service import (
+    find_alternative_products_for_low_stock,
+    find_exclusive_store_items,
+)
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
@@ -26,6 +31,12 @@ RECOMMENDATION_COLUMNS = [
     "product_id",
     "product_name",
     "store_id",
+    "store_name",
+    "alternative_product_id",
+    "alternative_product_name",
+    "alternative_store_id",
+    "alternative_store_name",
+    "available_quantity",
     "priority",
     "action",
     "reason",
@@ -74,6 +85,10 @@ def load_recommendation_inputs() -> dict[str, pd.DataFrame]:
         "high_demand_items": _read_processed_csv("high_demand_items.csv"),
         "slow_moving_items": _read_processed_csv("slow_moving_items.csv"),
         "suppliers": _read_raw_csv("suppliers.csv"),
+        "inventory": _read_raw_csv("inventory.csv"),
+        "products": _read_raw_csv("products.csv"),
+        "stores": _read_raw_csv("stores.csv"),
+        "sales": _read_raw_csv("sales.csv"),
     }
 
 
@@ -123,6 +138,12 @@ def _new_recommendation(
     reason: str,
     evidence: str,
     suggested_quantity: float | int | str = "",
+    store_name: str = "",
+    alternative_product_id: str = "",
+    alternative_product_name: str = "",
+    alternative_store_id: str = "",
+    alternative_store_name: str = "",
+    available_quantity: float | int | str = "",
 ) -> dict:
     """Create one recommendation record."""
     return {
@@ -130,6 +151,12 @@ def _new_recommendation(
         "product_id": product_id,
         "product_name": product_name,
         "store_id": store_id,
+        "store_name": store_name,
+        "alternative_product_id": alternative_product_id,
+        "alternative_product_name": alternative_product_name,
+        "alternative_store_id": alternative_store_id,
+        "alternative_store_name": alternative_store_name,
+        "available_quantity": available_quantity,
         "priority": priority,
         "action": action,
         "reason": reason,
@@ -240,10 +267,11 @@ def generate_stock_transfer_recommendations(
 
         recommendations.append(
             _new_recommendation(
-                recommendation_type="stock_transfer",
+                recommendation_type="transfer",
                 product_id=product_id,
                 product_name=_text_value(destination, "product_name"),
                 store_id=destination_store,
+                store_name=destination_store_name,
                 priority="medium",
                 action=(
                     f"Transfer {suggested_quantity} units from "
@@ -252,12 +280,118 @@ def generate_stock_transfer_recommendations(
                 reason="One store is below reorder point while another store has surplus stock.",
                 evidence=(
                     f"source_store={source_store_name or source_store}, "
+                    f"source_store_id={source_store}, "
                     f"destination_store={destination_store_name or destination_store}, "
+                    f"destination_store_id={destination_store}, "
                     f"source_surplus={round(_number_value(source, 'transfer_surplus'), 2)}, "
                     f"destination_stock={round(stock, 2)}, "
                     f"destination_threshold={round(threshold, 2)}"
                 ),
                 suggested_quantity=suggested_quantity,
+            )
+        )
+
+    return recommendations
+
+
+def generate_exclusive_availability_recommendations(
+    inventory: pd.DataFrame,
+    products: pd.DataFrame,
+    stores: pd.DataFrame,
+) -> list[dict]:
+    """Create recommendations for products available in only one store."""
+    recommendations = []
+    exclusive_items = find_exclusive_store_items(inventory, products, stores)
+
+    for _, row in exclusive_items.iterrows():
+        product_name = _text_value(row, "product_name")
+        store_name = _text_value(row, "exclusive_store_name")
+        quantity = round(_number_value(row, "available_quantity"))
+        category = _text_value(row, "category")
+        recommendations.append(
+            _new_recommendation(
+                recommendation_type="exclusive_availability",
+                product_id=_text_value(row, "product_id"),
+                product_name=product_name,
+                store_id=_text_value(row, "exclusive_store_id"),
+                store_name=store_name,
+                available_quantity=quantity,
+                priority="medium",
+                action=f"Promote {product_name} as exclusively available at {store_name} with {quantity} units.",
+                reason=_text_value(row, "business_note"),
+                evidence=(
+                    f"category={category}, "
+                    f"exclusive_store={store_name}, "
+                    f"exclusive_store_id={_text_value(row, 'exclusive_store_id')}, "
+                    f"available_quantity={quantity}, "
+                    f"unavailable_stores={_text_value(row, 'unavailable_store_names')}, "
+                    f"unavailable_elsewhere=true"
+                ),
+            )
+        )
+
+    return recommendations
+
+
+def generate_alternative_option_recommendations(
+    inventory: pd.DataFrame,
+    products: pd.DataFrame,
+    stores: pd.DataFrame,
+    low_stock_items: pd.DataFrame,
+) -> list[dict]:
+    """Create same-category alternative recommendations for low-stock products."""
+    recommendations = []
+    alternatives = find_alternative_products_for_low_stock(
+        inventory,
+        products,
+        stores,
+        low_stock_items,
+    )
+    if alternatives.empty:
+        return recommendations
+
+    alternatives = alternatives.drop_duplicates(
+        subset=["low_stock_product_id", "low_stock_store_id", "alternative_product_id"],
+        keep="first",
+    )
+    for _, row in alternatives.iterrows():
+        low_product = _text_value(row, "low_stock_product")
+        low_store = _text_value(row, "low_stock_store")
+        alt_product = _text_value(row, "alternative_product")
+        alt_store = _text_value(row, "alternative_store")
+        quantity = round(_number_value(row, "available_quantity"))
+        category = _text_value(row, "category")
+        exclusive_text = " exclusively" if bool(row.get("is_exclusive", False)) else ""
+        recommendations.append(
+            _new_recommendation(
+                recommendation_type="alternative_option",
+                product_id=_text_value(row, "low_stock_product_id"),
+                product_name=low_product,
+                store_id=_text_value(row, "low_stock_store_id"),
+                store_name=low_store,
+                alternative_product_id=_text_value(row, "alternative_product_id"),
+                alternative_product_name=alt_product,
+                alternative_store_id=_text_value(row, "alternative_store_id"),
+                alternative_store_name=alt_store,
+                available_quantity=quantity,
+                priority=_text_value(row, "priority") or "medium",
+                action=(
+                    f"Offer {alt_product} from {alt_store} as an alternative to {low_product} "
+                    f"for {low_store}."
+                ),
+                reason=(
+                    f"{alt_product} is{exclusive_text} available at {alt_store} with {quantity} units "
+                    f"in the same {category} category."
+                ),
+                evidence=(
+                    f"low_stock_product={low_product}, "
+                    f"low_stock_store={low_store}, "
+                    f"alternative_product={alt_product}, "
+                    f"alternative_store={alt_store}, "
+                    f"category={category}, "
+                    f"available_quantity={quantity}, "
+                    f"is_exclusive={bool(row.get('is_exclusive', False))}"
+                ),
             )
         )
 
@@ -485,6 +619,21 @@ def build_recommendations(config: dict | None = None) -> pd.DataFrame:
             inputs["current_inventory"],
             inputs["low_stock_items"],
             config,
+        )
+    )
+    recommendations.extend(
+        generate_exclusive_availability_recommendations(
+            inputs["inventory"],
+            inputs["products"],
+            inputs["stores"],
+        )
+    )
+    recommendations.extend(
+        generate_alternative_option_recommendations(
+            inputs["inventory"],
+            inputs["products"],
+            inputs["stores"],
+            inputs["low_stock_items"],
         )
     )
     recommendations.extend(
