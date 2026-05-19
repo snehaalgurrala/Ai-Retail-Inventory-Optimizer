@@ -1,6 +1,6 @@
 import sys
 import importlib
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from time import perf_counter
 
@@ -20,7 +20,7 @@ from backend.services.stock_alternative_service import (  # noqa: E402
     get_alternative_availability_for_low_stock,
     get_surplus_stock_items,
 )
-from backend.services import agent_summary_service, email_service  # noqa: E402
+from backend.services import agent_summary_service, email_service, report_service  # noqa: E402
 from backend.utils.data_loader import load_all_data  # noqa: E402
 from frontend.components.ui_components import (  # noqa: E402
     apply_command_center_styles,
@@ -58,6 +58,11 @@ def _get_agent_summary_service():
 def _get_email_service():
     """Reload email helpers safely during Streamlit hot reloads."""
     return importlib.reload(email_service)
+
+
+def _get_report_service():
+    """Reload report helpers safely during Streamlit hot reloads."""
+    return importlib.reload(report_service)
 
 
 def processed_file_path(filename: str) -> Path:
@@ -279,6 +284,175 @@ def latest_recommendations_table(recommendations: pd.DataFrame) -> pd.DataFrame:
     return latest.head(10)[columns]
 
 
+def available_report_dates(sales_df: pd.DataFrame, inventory_df: pd.DataFrame) -> tuple[date, date]:
+    date_values = []
+    if not sales_df.empty and "date" in sales_df.columns:
+        date_values.append(pd.to_datetime(sales_df["date"], errors="coerce"))
+    if not inventory_df.empty and "last_updated" in inventory_df.columns:
+        date_values.append(pd.to_datetime(inventory_df["last_updated"], errors="coerce"))
+    if not date_values:
+        today = datetime.now().date()
+        return today, today
+    combined = pd.concat(date_values).dropna()
+    if combined.empty:
+        today = datetime.now().date()
+        return today, today
+    return combined.min().date(), combined.max().date()
+
+
+def report_send_signature(report_type: str, branch_filter: str, start_date, end_date) -> str:
+    return "|".join([str(report_type), str(branch_filter), str(start_date), str(end_date)])
+
+
+def send_dashboard_report(report_type: str, branch_filter: str, start_date, end_date) -> None:
+    if start_date > end_date:
+        st.session_state["report_email_error"] = "Start date must be before or equal to end date."
+        return
+
+    signature = report_send_signature(report_type, branch_filter, start_date, end_date)
+    if st.session_state.get("last_report_send_signature") == signature:
+        st.session_state["report_email_warning"] = "This same report was already sent in this session."
+        return
+
+    reports = _get_report_service()
+    emails = _get_email_service()
+    if report_type == "inventory":
+        report = reports.generate_inventory_report(branch_filter, start_date, end_date)
+        success_message = (
+            "Inventory report PDF and CSV sent successfully to manager."
+            if report.get("pdf_path")
+            else "Inventory report CSV sent successfully to manager."
+        )
+        subject = f"Inventory Intelligence Report - {report.get('branch_label', branch_filter)}"
+    else:
+        report = reports.generate_sales_report(branch_filter, start_date, end_date)
+        success_message = "Sales report sent successfully to manager."
+        subject = f"Sales Report - {report.get('branch_label', branch_filter)}"
+
+    if not report.get("success"):
+        st.session_state["report_email_error"] = str(report.get("message", "No report data found."))
+        return
+
+    email_result = emails.send_report_email(
+        subject=subject,
+        html_body=report.get("email_html", report.get("html", "")),
+        attachment_path=report.get("attachment_path"),
+        attachment_paths=report.get("attachment_paths"),
+    )
+    if email_result.get("success"):
+        st.session_state["last_report_send_signature"] = signature
+        st.session_state["report_email_success"] = success_message
+        warnings = [
+            str(report.get("pdf_warning", "") or ""),
+            str(email_result.get("warning", "") or ""),
+        ]
+        warning_text = " ".join(warning for warning in warnings if warning)
+        if warning_text:
+            st.session_state["report_email_warning"] = warning_text
+    elif email_result.get("warning"):
+        st.session_state["report_email_warning"] = str(email_result.get("warning"))
+    else:
+        st.session_state["report_email_error"] = str(email_result.get("message", "Report email could not be sent."))
+
+
+def render_report_email_center(
+    sales_df: pd.DataFrame,
+    inventory_df: pd.DataFrame,
+    stores_df: pd.DataFrame,
+) -> None:
+    st.markdown(
+        """
+        <style>
+        .report-center-title {
+            font-size: 1.18rem;
+            font-weight: 800;
+            color: var(--text-color);
+            margin-bottom: 0.15rem;
+        }
+        .report-center-subtitle {
+            color: color-mix(in srgb, var(--text-color) 68%, transparent);
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.report-center-title) {
+            border-color: color-mix(in srgb, #0ea5a4 35%, transparent);
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.07);
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    with st.container(border=True):
+        st.markdown('<div class="report-center-title">📩 Report Email Center</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="report-center-subtitle">Send branch-wise inventory or sales reports directly to the manager.</div>',
+            unsafe_allow_html=True,
+        )
+
+        min_report_date, max_report_date = available_report_dates(sales_df, inventory_df)
+        branch_options = ["All Branches"]
+        branch_label_to_id = {"All Branches": "All Branches"}
+        if not stores_df.empty and {"store_id", "store_name"}.issubset(stores_df.columns):
+            for _, store_row in stores_df.sort_values("store_name").iterrows():
+                store_id = str(store_row.get("store_id", "")).strip()
+                store_name = str(store_row.get("store_name", store_id)).strip()
+                city = str(store_row.get("city", "") or "").strip()
+                label = f"{store_name} ({store_id})"
+                if city:
+                    label = f"{store_name} ({store_id}, {city})"
+                branch_options.append(label)
+                branch_label_to_id[label] = store_id
+
+        report_cols = st.columns([2.2, 1.15, 1.15, 1.35, 1.2], gap="small")
+        with report_cols[0]:
+            selected_branch_label = st.selectbox(
+                "Branch Selector",
+                branch_options,
+                key="report_branch_selector",
+            )
+        with report_cols[1]:
+            selected_start_date = st.date_input(
+                "Start Date",
+                value=min_report_date,
+                min_value=min_report_date,
+                max_value=max_report_date,
+                key="report_start_date",
+            )
+        with report_cols[2]:
+            selected_end_date = st.date_input(
+                "End Date",
+                value=max_report_date,
+                min_value=min_report_date,
+                max_value=max_report_date,
+                key="report_end_date",
+            )
+
+        branch_filter = branch_label_to_id.get(selected_branch_label, "All Branches")
+        with report_cols[3]:
+            st.write("")
+            send_inventory_report = st.button(
+                "Send Inventory Report",
+                use_container_width=True,
+                key="send_inventory_report",
+            )
+            st.caption("Inventory report uses latest stock snapshot. Date range applies only if inventory date exists.")
+        with report_cols[4]:
+            st.write("")
+            send_sales_report = st.button(
+                "Send Sales Report",
+                use_container_width=True,
+                key="send_sales_report",
+            )
+
+        if send_inventory_report:
+            send_dashboard_report("inventory", branch_filter, selected_start_date, selected_end_date)
+            st.rerun()
+        if send_sales_report:
+            send_dashboard_report("sales", branch_filter, selected_start_date, selected_end_date)
+            st.rerun()
+
+
 apply_page_style()
 apply_command_center_styles()
 
@@ -286,6 +460,9 @@ refresh_message = st.session_state.pop("dashboard_refresh_message", "")
 refresh_email_message = st.session_state.pop("dashboard_email_message", "")
 refresh_email_warning = st.session_state.pop("dashboard_email_warning", "")
 refresh_timing = st.session_state.pop("dashboard_refresh_timing", {})
+report_email_success = st.session_state.pop("report_email_success", "")
+report_email_warning = st.session_state.pop("report_email_warning", "")
+report_email_error = st.session_state.pop("report_email_error", "")
 agent_output_files = [
     "agent_outputs.csv",
     "agent_card_summaries.csv",
@@ -308,6 +485,12 @@ if refresh_timing:
         f"file save {refresh_timing.get('file_save_seconds', 0)}s | "
         f"total {refresh_timing.get('total_seconds', refresh_timing.get('total_refresh_seconds', 0))}s"
     )
+if report_email_success:
+    st.success(report_email_success)
+if report_email_warning:
+    st.warning(report_email_warning)
+if report_email_error:
+    st.error(report_email_error)
 
 try:
     data = load_dashboard_data()
@@ -320,6 +503,7 @@ products = data["products"]
 sales = data["sales"]
 inventory = data["inventory"]
 transactions = data["transactions"]
+stores = data["stores"]
 
 agent_output_state = load_agent_dashboard_outputs()
 agent_outputs = agent_output_state["agent_outputs"]
@@ -668,6 +852,9 @@ else:
                 use_container_width=True,
                 hide_index=True,
             )
+
+st.divider()
+render_report_email_center(sales, inventory, stores)
 
 st.divider()
 

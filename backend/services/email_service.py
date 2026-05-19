@@ -1,4 +1,5 @@
 import hashlib
+import mimetypes
 import os
 import smtplib
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -150,6 +151,78 @@ def _smtp_settings() -> dict[str, str]:
         "smtp_email": os.getenv("SMTP_EMAIL", "").strip(),
         "smtp_password": os.getenv("SMTP_APP_PASSWORD", "").strip(),
         "manager_email": os.getenv("MANAGER_EMAIL", "").strip(),
+    }
+
+
+def send_report_email(
+    subject: str,
+    html_body: str,
+    attachment_path: str | Path | None = None,
+    attachment_paths: list[str | Path] | tuple[str | Path, ...] | None = None,
+) -> dict:
+    """Send a professional HTML report email to the configured manager."""
+    settings = _smtp_settings()
+    if not settings["smtp_email"] or not settings["smtp_password"] or not settings["manager_email"]:
+        return {
+            "success": False,
+            "email_sent": False,
+            "warning": "Report email not sent because SMTP credentials are not configured.",
+            "message": "SMTP credentials are missing. Please set SMTP_EMAIL, SMTP_APP_PASSWORD, and MANAGER_EMAIL in .env.",
+        }
+
+    message = EmailMessage()
+    message["Subject"] = str(subject)
+    message["From"] = settings["smtp_email"]
+    message["To"] = settings["manager_email"]
+    message.set_content(
+        "Hello Inventory Manager,\n\n"
+        "Your AI Retail Inventory Optimizer report is attached and also available in HTML format.\n\n"
+        "Regards,\nAI Retail Inventory Optimizer"
+    )
+    message.add_alternative(str(html_body or "<p>No report details available.</p>"), subtype="html")
+
+    attachment_warning = ""
+    paths: list[str | Path] = []
+    if attachment_paths:
+        paths.extend(attachment_paths)
+    elif attachment_path:
+        paths.append(attachment_path)
+
+    for attachment in paths:
+        path = Path(attachment)
+        try:
+            if path.exists() and path.is_file():
+                content_type, _ = mimetypes.guess_type(path.name)
+                maintype, subtype = (content_type or "text/csv").split("/", 1)
+                message.add_attachment(
+                    path.read_bytes(),
+                    maintype=maintype,
+                    subtype=subtype,
+                    filename=path.name,
+                )
+            else:
+                attachment_warning = "One attachment file was not found, so the email was sent with available files."
+        except Exception as error:
+            attachment_warning = f"One attachment could not be added, so the email was sent with available files: {error}"
+
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+            server.starttls()
+            server.login(settings["smtp_email"], settings["smtp_password"])
+            server.send_message(message)
+    except Exception as error:
+        return {
+            "success": False,
+            "email_sent": False,
+            "warning": "",
+            "message": f"Report email could not be sent: {error}",
+        }
+
+    return {
+        "success": True,
+        "email_sent": True,
+        "warning": attachment_warning,
+        "message": f"Report email sent to {settings['manager_email']}.",
     }
 
 

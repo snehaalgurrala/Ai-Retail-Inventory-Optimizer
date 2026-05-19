@@ -1,0 +1,21 @@
+product_id,store_id,stock_level,reorder_threshold,last_updated,product_name,category,cost_price,selling_price,store_name,city,inventory_value
+P101,S1,55,20,2026-04-22,Milk,Dairy,40,60,Hyderabad Central,Hyderabad,3300
+P102,S1,17,15,2026-04-27,Bread,Bakery,20,35,Hyderabad Central,Hyderabad,595
+P103,S1,220,30,2026-04-22,Rice 1kg,Grains,50,80,Hyderabad Central,Hyderabad,17600
+P104,S1,12,10,2026-04-22,Cooking Oil 1L,Grocery,120,180,Hyderabad Central,Hyderabad,2160
+P105,S1,150,25,2026-04-22,Eggs (12 pack),Dairy,60,90,Hyderabad Central,Hyderabad,13500
+P106,S1,250,40,2026-05-15,Biscuits Pack,Snacks,10,20,Hyderabad Central,Hyderabad,5000
+P107,S1,55,20,2026-04-27,Soft Drink 1L,Beverages,30,50,Hyderabad Central,Hyderabad,2750
+P108,S1,79,20,2026-04-24,Chocolates,Snacks,20,40,Hyderabad Central,Hyderabad,3160
+P109,S1,40,15,2026-04-22,Curd,Dairy,30,50,Hyderabad Central,Hyderabad,2000
+P110,S1,60,20,2026-04-22,Butter,Dairy,80,120,Hyderabad Central,Hyderabad,7200
+P111,S1,70,20,2026-04-22,Cheese,Dairy,150,250,Hyderabad Central,Hyderabad,17500
+P112,S1,5,10,2026-05-15,Bananas,Fruits,20,40,Hyderabad Central,Hyderabad,200
+P113,S1,1,15,2026-04-28,Apples,Fruits,60,120,Hyderabad Central,Hyderabad,120
+P114,S1,20,10,2026-04-22,Tomatoes,Vegetables,15,30,Hyderabad Central,Hyderabad,600
+P115,S1,90,25,2026-04-22,Potatoes,Vegetables,20,35,Hyderabad Central,Hyderabad,3150
+P116,S1,120,30,2026-04-22,Noodles Pack,Snacks,20,40,Hyderabad Central,Hyderabad,4800
+P117,S1,110,25,2026-04-22,Chips,Snacks,10,20,Hyderabad Central,Hyderabad,2200
+P118,S1,25,10,2026-04-22,Ice Cream,Frozen,100,180,Hyderabad Central,Hyderabad,4500
+P119,S1,140,20,2026-04-22,Tea Powder,Grocery,200,300,Hyderabad Central,Hyderabad,42000
+P120,S1,130,15,2026-04-22,Coffee Powder,Grocery,250,400,Hyderabad Central,Hyderabad,52000

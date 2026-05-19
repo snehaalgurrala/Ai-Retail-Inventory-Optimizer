@@ -4,6 +4,7 @@ pandas
 numpy
 streamlit
 plotly
+reportlab
 langchain
 langchain-community
 langgraph
