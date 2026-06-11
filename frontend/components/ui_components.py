@@ -10,31 +10,49 @@ def apply_command_center_styles() -> None:
     st.markdown(
         """
         <style>
+        .home-command-header {
+            background: var(--airio-card, #FFFFFF);
+            border: 1px solid var(--airio-border, #D8E2EC);
+            border-top: 6px solid var(--airio-primary-navy, #183F5F);
+            border-radius: 14px;
+            padding: 1rem 1.15rem;
+            box-shadow: 0 8px 20px rgba(10, 31, 51, 0.06);
+            margin-bottom: 0.8rem;
+        }
+        .home-command-header::after {
+            content: "";
+            display: block;
+            width: 72px;
+            height: 3px;
+            background: var(--airio-green, #6CB33F);
+            border-radius: 999px;
+            margin-top: 0.75rem;
+        }
         .command-header-title {
             font-size: 1.85rem;
-            font-weight: 700;
+            font-weight: 800;
             line-height: 1.15;
-            color: var(--text-color);
+            color: var(--airio-primary-navy, #183F5F);
             margin: 0;
         }
         .command-header-subtitle {
-            color: color-mix(in srgb, var(--text-color) 72%, transparent);
+            color: rgba(10, 31, 51, 0.72);
             margin-top: 0.35rem;
             font-size: 0.95rem;
         }
         .command-meta {
             text-align: right;
-            color: color-mix(in srgb, var(--text-color) 68%, transparent);
+            color: rgba(10, 31, 51, 0.66);
             font-size: 0.84rem;
             margin-bottom: 0.4rem;
         }
         .command-card,
         .agent-mini-card {
-            border-radius: 16px;
-            border: 1px solid color-mix(in srgb, var(--text-color) 10%, transparent);
-            background:
-                linear-gradient(180deg, color-mix(in srgb, var(--background-color) 70%, var(--secondary-background-color) 30%), var(--secondary-background-color));
-            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            border-radius: 14px;
+            border: 1px solid var(--airio-border, #D8E2EC);
+            border-top: 4px solid var(--airio-primary-navy, #183F5F);
+            background: var(--airio-card, #FFFFFF);
+            box-shadow: 0 8px 18px rgba(10, 31, 51, 0.055);
             overflow: hidden;
         }
         .command-card {
@@ -46,32 +64,32 @@ def apply_command_center_styles() -> None:
             min-height: 235px;
         }
         .card-accent {
-            height: 4px;
+            height: 3px;
             border-radius: 999px;
             margin: -0.05rem 0 0.85rem 0;
         }
-        .accent-blue { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
-        .accent-purple { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
-        .accent-teal { background: linear-gradient(90deg, #0ea5a4, #2dd4bf); }
-        .accent-orange { background: linear-gradient(90deg, #f97316, #fb7185); }
-        .accent-green { background: linear-gradient(90deg, #22c55e, #4ade80); }
+        .accent-blue { background: #183F5F; }
+        .accent-purple { background: #183F5F; }
+        .accent-teal { background: #6CB33F; }
+        .accent-orange { background: #C76A12; }
+        .accent-green { background: #6CB33F; }
         .card-kicker {
             font-size: 0.76rem;
             text-transform: uppercase;
             letter-spacing: 0.04em;
             font-weight: 700;
-            color: color-mix(in srgb, var(--text-color) 62%, transparent);
+            color: rgba(10, 31, 51, 0.62);
             margin-bottom: 0.3rem;
         }
         .card-title {
-            color: var(--text-color);
+            color: var(--airio-deep-navy, #0A1F33);
             font-size: 1.16rem;
             font-weight: 700;
             line-height: 1.2;
             margin: 0 0 0.2rem 0;
         }
         .card-copy {
-            color: color-mix(in srgb, var(--text-color) 80%, transparent);
+            color: rgba(10, 31, 51, 0.80);
             font-size: 0.93rem;
             line-height: 1.45;
             margin: 0;
@@ -85,20 +103,21 @@ def apply_command_center_styles() -> None:
         .mini-metric {
             padding: 0.7rem 0.8rem;
             border-radius: 12px;
-            background: color-mix(in srgb, var(--secondary-background-color) 85%, transparent);
-            border: 1px solid color-mix(in srgb, var(--text-color) 8%, transparent);
+            background: #F5F8FB;
+            border: 1px solid var(--airio-border, #D8E2EC);
+            border-left: 3px solid var(--airio-green, #6CB33F);
         }
         .mini-label {
             font-size: 0.72rem;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            color: color-mix(in srgb, var(--text-color) 58%, transparent);
+            color: rgba(10, 31, 51, 0.58);
             margin-bottom: 0.2rem;
         }
         .mini-value {
             font-size: 1.08rem;
             font-weight: 700;
-            color: var(--text-color);
+            color: var(--airio-primary-navy, #183F5F);
             line-height: 1.2;
         }
         .agent-top {
@@ -121,18 +140,18 @@ def apply_command_center_styles() -> None:
         }
         .priority-high {
             color: #7f1d1d;
-            background: rgba(248, 113, 113, 0.18);
-            border-color: rgba(248, 113, 113, 0.24);
+            background: var(--airio-soft-red, #FFF1F2);
+            border-color: rgba(180, 35, 24, 0.24);
         }
         .priority-medium {
             color: #854d0e;
-            background: rgba(250, 204, 21, 0.18);
-            border-color: rgba(250, 204, 21, 0.24);
+            background: var(--airio-soft-amber, #FFF7E8);
+            border-color: rgba(199, 106, 18, 0.24);
         }
         .priority-low, .priority-info {
-            color: #1d4ed8;
-            background: rgba(96, 165, 250, 0.16);
-            border-color: rgba(96, 165, 250, 0.22);
+            color: #285F12;
+            background: rgba(108, 179, 63, 0.14);
+            border-color: rgba(108, 179, 63, 0.25);
         }
         .agent-statline {
             display: flex;
@@ -143,23 +162,23 @@ def apply_command_center_styles() -> None:
         .agent-stat {
             font-size: 1.45rem;
             font-weight: 800;
-            color: var(--text-color);
+            color: var(--airio-primary-navy, #183F5F);
             line-height: 1.1;
         }
         .agent-statlabel {
             font-size: 0.82rem;
-            color: color-mix(in srgb, var(--text-color) 60%, transparent);
+            color: rgba(10, 31, 51, 0.60);
         }
         .agent-action {
             margin-top: 0.7rem;
             padding-top: 0.65rem;
-            border-top: 1px solid color-mix(in srgb, var(--text-color) 8%, transparent);
-            color: color-mix(in srgb, var(--text-color) 84%, transparent);
+            border-top: 1px solid var(--airio-border, #D8E2EC);
+            color: rgba(10, 31, 51, 0.84);
             font-size: 0.86rem;
             line-height: 1.4;
         }
         .agent-action strong {
-            color: var(--text-color);
+            color: var(--airio-deep-navy, #0A1F33);
         }
         @media (max-width: 1200px) {
             .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

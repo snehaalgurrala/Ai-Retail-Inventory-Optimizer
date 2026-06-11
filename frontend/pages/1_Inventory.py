@@ -269,7 +269,7 @@ with kpi_cols[0]:
 with kpi_cols[1]:
     render_kpi_card("Products", f"{kpis['product_count']:,}", "Unique products", "purple")
 with kpi_cols[2]:
-    render_kpi_card("Low Stock", f"{kpis['low_stock_count']:,}", "At or below threshold", "orange")
+    render_kpi_card("Low Stock", f"{kpis['low_stock_count']:,}", "Predictive depletion risk", "orange")
 with kpi_cols[3]:
     render_kpi_card("Overstock", f"{kpis['overstock_count']:,}", "High stock rows", "green")
 with kpi_cols[4]:
@@ -296,6 +296,11 @@ inventory_table = format_table(
         "category",
         "current_quantity",
         "reorder_threshold",
+        "urgency_label",
+        "depletion_window",
+        "depletion_tooltip",
+        "risk_score",
+        "demand_trend",
         "stock_status",
         "selling_price",
         "supplier_name",
@@ -305,6 +310,11 @@ inventory_table = format_table(
         "category": "Category",
         "current_quantity": "Current Quantity",
         "reorder_threshold": "Reorder Threshold",
+        "urgency_label": "Urgency",
+        "depletion_window": "Depletion Window",
+        "depletion_tooltip": "Exact Estimate",
+        "risk_score": "Risk Score",
+        "demand_trend": "Demand Trend",
         "stock_status": "Stock Status",
         "selling_price": "Selling Price",
         "supplier_name": "Supplier",
@@ -332,6 +342,12 @@ with left_section:
                     "reorder_threshold",
                     "shortage_quantity",
                     "suggested_reorder_quantity",
+                    "urgency_label",
+                    "depletion_window",
+                    "depletion_tooltip",
+                    "risk_score",
+                    "demand_trend",
+                    "suggested_transfer_branch",
                     "priority",
                     "ai_recommendation",
                 ],
@@ -341,6 +357,12 @@ with left_section:
                     "reorder_threshold": "Threshold",
                     "shortage_quantity": "Shortage Qty",
                     "suggested_reorder_quantity": "Suggested Reorder Qty",
+                    "urgency_label": "Urgency",
+                    "depletion_window": "Depletion Window",
+                    "depletion_tooltip": "Exact Estimate",
+                    "risk_score": "Risk Score",
+                    "demand_trend": "Demand Trend",
+                    "suggested_transfer_branch": "Transfer Source",
                     "priority": "Priority",
                     "ai_recommendation": "AI Recommendation",
                 },

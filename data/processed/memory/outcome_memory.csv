@@ -6,3 +6,4 @@ MEMOUT000004,2026-04-27T14:34:59,REC00109,reorder,P102,Bread,S3,Added 15 units t
 MEMOUT000005,2026-04-27T14:35:10,REC00110,reorder,P107,Soft Drink 1L,S1,Added 50 units to store S1 through procurement.,executed,
 MEMOUT000006,2026-04-27T14:35:21,REC00111,reorder,P109,Curd,S3,Added 9 units to store S3 through procurement.,executed,
 MEMOUT000007,2026-04-27T14:35:30,REC00112,reorder,P111,Cheese,S3,Added 9 units to store S3 through procurement.,executed,
+MEMOUT000008,2026-05-28T15:38:25,REC00002,discount,P102,Bread,S2,Updated selling price from 35.00 to 31.50 (10.00% discount).,executed,

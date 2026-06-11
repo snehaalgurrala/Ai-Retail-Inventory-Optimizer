@@ -5,6 +5,7 @@ numpy
 streamlit
 plotly
 reportlab
+openpyxl
 langchain
 langchain-community
 langgraph

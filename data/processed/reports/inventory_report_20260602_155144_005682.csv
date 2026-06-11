@@ -1,0 +1,61 @@
+product_id,store_id,stock_level,reorder_threshold,last_updated,product_name,category,cost_price,selling_price,store_name,city,inventory_value
+P101,S1,55,20,2026-04-22,Milk,Dairy,40,60.0,Hyderabad Central,Hyderabad,3300.0
+P101,S2,22,20,2026-04-22,Milk,Dairy,40,60.0,Vijayawada Branch,Vijayawada,1320.0
+P101,S3,37,20,2026-04-27,Milk,Dairy,40,60.0,Guntur Branch,Guntur,2220.0
+P102,S1,17,15,2026-04-27,Bread,Bakery,20,31.5,Hyderabad Central,Hyderabad,535.5
+P102,S2,30,15,2026-04-27,Bread,Bakery,20,31.5,Vijayawada Branch,Vijayawada,945.0
+P102,S3,19,15,2026-04-27,Bread,Bakery,20,31.5,Guntur Branch,Guntur,598.5
+P103,S1,220,30,2026-04-22,Rice 1kg,Grains,50,80.0,Hyderabad Central,Hyderabad,17600.0
+P103,S2,90,30,2026-04-22,Rice 1kg,Grains,50,80.0,Vijayawada Branch,Vijayawada,7200.0
+P103,S3,70,30,2026-04-22,Rice 1kg,Grains,50,80.0,Guntur Branch,Guntur,5600.0
+P104,S1,12,10,2026-04-22,Cooking Oil 1L,Grocery,120,180.0,Hyderabad Central,Hyderabad,2160.0
+P104,S2,35,10,2026-04-22,Cooking Oil 1L,Grocery,120,180.0,Vijayawada Branch,Vijayawada,6300.0
+P104,S3,28,10,2026-04-22,Cooking Oil 1L,Grocery,120,180.0,Guntur Branch,Guntur,5040.0
+P105,S1,150,25,2026-04-22,Eggs (12 pack),Dairy,60,90.0,Hyderabad Central,Hyderabad,13500.0
+P105,S2,80,25,2026-04-22,Eggs (12 pack),Dairy,60,90.0,Vijayawada Branch,Vijayawada,7200.0
+P105,S3,60,25,2026-04-22,Eggs (12 pack),Dairy,60,90.0,Guntur Branch,Guntur,5400.0
+P106,S1,250,40,2026-05-15,Biscuits Pack,Snacks,10,20.0,Hyderabad Central,Hyderabad,5000.0
+P106,S2,120,40,2026-04-22,Biscuits Pack,Snacks,10,20.0,Vijayawada Branch,Vijayawada,2400.0
+P106,S3,100,40,2026-04-22,Biscuits Pack,Snacks,10,20.0,Guntur Branch,Guntur,2000.0
+P107,S1,55,20,2026-04-27,Soft Drink 1L,Beverages,30,50.0,Hyderabad Central,Hyderabad,2750.0
+P107,S2,45,20,2026-04-22,Soft Drink 1L,Beverages,30,50.0,Vijayawada Branch,Vijayawada,2250.0
+P107,S3,25,20,2026-04-22,Soft Drink 1L,Beverages,30,50.0,Guntur Branch,Guntur,1250.0
+P108,S1,79,20,2026-04-24,Chocolates,Snacks,20,40.0,Hyderabad Central,Hyderabad,3160.0
+P108,S2,35,20,2026-04-22,Chocolates,Snacks,20,40.0,Vijayawada Branch,Vijayawada,1400.0
+P108,S3,30,20,2026-04-22,Chocolates,Snacks,20,40.0,Guntur Branch,Guntur,1200.0
+P109,S1,40,15,2026-04-22,Curd,Dairy,30,50.0,Hyderabad Central,Hyderabad,2000.0
+P109,S2,18,15,2026-04-22,Curd,Dairy,30,50.0,Vijayawada Branch,Vijayawada,900.0
+P109,S3,24,15,2026-04-27,Curd,Dairy,30,50.0,Guntur Branch,Guntur,1200.0
+P110,S1,60,20,2026-04-22,Butter,Dairy,80,120.0,Hyderabad Central,Hyderabad,7200.0
+P110,S2,30,20,2026-04-22,Butter,Dairy,80,120.0,Vijayawada Branch,Vijayawada,3600.0
+P110,S3,10,20,2026-05-15,Butter,Dairy,80,120.0,Guntur Branch,Guntur,1200.0
+P111,S1,70,20,2026-04-22,Cheese,Dairy,150,250.0,Hyderabad Central,Hyderabad,17500.0
+P111,S2,22,20,2026-04-22,Cheese,Dairy,150,250.0,Vijayawada Branch,Vijayawada,5500.0
+P111,S3,27,20,2026-04-27,Cheese,Dairy,150,250.0,Guntur Branch,Guntur,6750.0
+P112,S1,5,10,2026-05-15,Bananas,Fruits,20,40.0,Hyderabad Central,Hyderabad,200.0
+P112,S2,15,10,2026-04-22,Bananas,Fruits,20,40.0,Vijayawada Branch,Vijayawada,600.0
+P112,S3,10,10,2026-04-22,Bananas,Fruits,20,40.0,Guntur Branch,Guntur,400.0
+P113,S1,1,15,2026-04-28,Apples,Fruits,60,120.0,Hyderabad Central,Hyderabad,120.0
+P113,S2,20,15,2026-04-22,Apples,Fruits,60,120.0,Vijayawada Branch,Vijayawada,2400.0
+P113,S3,16,15,2026-04-22,Apples,Fruits,60,120.0,Guntur Branch,Guntur,1920.0
+P114,S1,20,10,2026-04-22,Tomatoes,Vegetables,15,30.0,Hyderabad Central,Hyderabad,600.0
+P114,S2,8,10,2026-04-22,Tomatoes,Vegetables,15,30.0,Vijayawada Branch,Vijayawada,240.0
+P114,S3,6,10,2026-04-22,Tomatoes,Vegetables,15,30.0,Guntur Branch,Guntur,180.0
+P115,S1,90,25,2026-04-22,Potatoes,Vegetables,20,35.0,Hyderabad Central,Hyderabad,3150.0
+P115,S2,35,25,2026-04-22,Potatoes,Vegetables,20,35.0,Vijayawada Branch,Vijayawada,1225.0
+P115,S3,5,25,2026-06-01,Potatoes,Vegetables,20,35.0,Guntur Branch,Guntur,175.0
+P116,S1,120,30,2026-04-22,Noodles Pack,Snacks,20,40.0,Hyderabad Central,Hyderabad,4800.0
+P116,S2,45,30,2026-04-22,Noodles Pack,Snacks,20,40.0,Vijayawada Branch,Vijayawada,1800.0
+P116,S3,40,30,2026-04-22,Noodles Pack,Snacks,20,40.0,Guntur Branch,Guntur,1600.0
+P117,S1,110,25,2026-04-22,Chips,Snacks,10,20.0,Hyderabad Central,Hyderabad,2200.0
+P117,S2,40,25,2026-04-22,Chips,Snacks,10,20.0,Vijayawada Branch,Vijayawada,800.0
+P117,S3,35,25,2026-04-22,Chips,Snacks,10,20.0,Guntur Branch,Guntur,700.0
+P118,S1,25,10,2026-04-22,Ice Cream,Frozen,100,180.0,Hyderabad Central,Hyderabad,4500.0
+P118,S2,12,10,2026-04-22,Ice Cream,Frozen,100,180.0,Vijayawada Branch,Vijayawada,2160.0
+P118,S3,9,10,2026-04-22,Ice Cream,Frozen,100,180.0,Guntur Branch,Guntur,1620.0
+P119,S1,140,20,2026-04-22,Tea Powder,Grocery,200,300.0,Hyderabad Central,Hyderabad,42000.0
+P119,S2,60,20,2026-04-22,Tea Powder,Grocery,200,300.0,Vijayawada Branch,Vijayawada,18000.0
+P119,S3,55,20,2026-04-22,Tea Powder,Grocery,200,300.0,Guntur Branch,Guntur,16500.0
+P120,S1,130,15,2026-04-22,Coffee Powder,Grocery,250,400.0,Hyderabad Central,Hyderabad,52000.0
+P120,S2,55,15,2026-04-22,Coffee Powder,Grocery,250,400.0,Vijayawada Branch,Vijayawada,22000.0
+P120,S3,50,15,2026-04-22,Coffee Powder,Grocery,250,400.0,Guntur Branch,Guntur,20000.0

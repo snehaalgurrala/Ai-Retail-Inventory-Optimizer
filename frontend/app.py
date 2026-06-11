@@ -14,9 +14,13 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 from backend.agents.orchestrator_agent import run_agent_graph  # noqa: E402
+from backend.services.depletion_formatter import (  # noqa: E402
+    depletion_urgency_label,
+    exact_depletion_tooltip,
+    format_depletion_window,
+)
 from backend.services.low_stock_service import get_low_stock_items  # noqa: E402
 from backend.services.stock_alternative_service import (  # noqa: E402
-    build_surplus_alternative_alert_text,
     get_alternative_availability_for_low_stock,
     get_surplus_stock_items,
 )
@@ -28,7 +32,6 @@ from frontend.components.ui_components import (  # noqa: E402
     render_command_center_orchestrator_card,
     render_kpi_card,
     render_low_stock_alert_card,
-    render_surplus_alternative_alert_card,
 )
 from frontend.utils.page_helpers import (  # noqa: E402
     apply_page_style,
@@ -274,6 +277,8 @@ def latest_recommendations_table(recommendations: pd.DataFrame) -> pd.DataFrame:
             "product_name",
             "store_id",
             "priority",
+            "urgency_label",
+            "depletion_window",
             "action",
             "reason",
             "source_agent",
@@ -282,6 +287,21 @@ def latest_recommendations_table(recommendations: pd.DataFrame) -> pd.DataFrame:
         if column in latest.columns
     ]
     return latest.head(10)[columns]
+
+
+def format_alert_display_table(alerts: pd.DataFrame) -> pd.DataFrame:
+    display = alerts.copy()
+    days = pd.to_numeric(display.get("predicted_days_remaining"), errors="coerce")
+    if "depletion_window" not in display.columns:
+        display["depletion_window"] = days.map(format_depletion_window)
+    else:
+        display["depletion_window"] = display["depletion_window"].fillna(days.map(format_depletion_window))
+    if "urgency_label" not in display.columns:
+        display["urgency_label"] = days.map(depletion_urgency_label)
+    else:
+        display["urgency_label"] = display["urgency_label"].fillna(days.map(depletion_urgency_label))
+    display["exact_estimate"] = days.map(exact_depletion_tooltip)
+    return display
 
 
 def available_report_dates(sales_df: pd.DataFrame, inventory_df: pd.DataFrame) -> tuple[date, date]:
@@ -366,17 +386,28 @@ def render_report_email_center(
         .report-center-title {
             font-size: 1.18rem;
             font-weight: 800;
-            color: var(--text-color);
+            color: var(--airio-deep-navy, #0A1F33);
             margin-bottom: 0.15rem;
         }
         .report-center-subtitle {
-            color: color-mix(in srgb, var(--text-color) 68%, transparent);
+            color: rgba(10, 31, 51, 0.68);
             font-size: 0.9rem;
             margin-bottom: 0.75rem;
         }
         div[data-testid="stVerticalBlockBorderWrapper"]:has(.report-center-title) {
-            border-color: color-mix(in srgb, #0ea5a4 35%, transparent);
-            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.07);
+            border-color: var(--airio-border, #D8E2EC);
+            border-top: 4px solid var(--airio-primary-navy, #183F5F);
+            box-shadow: 0 12px 30px rgba(10, 31, 51, 0.08);
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.report-center-title) .stButton > button {
+            background: var(--airio-green, #6CB33F);
+            border-color: var(--airio-green, #6CB33F);
+            color: #ffffff;
+            box-shadow: 0 6px 14px rgba(108, 179, 63, 0.18);
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.report-center-title) .stButton > button:hover {
+            background: #5a9b35;
+            border-color: #5a9b35;
         }
         </style>
         """,
@@ -550,19 +581,16 @@ last_updated_timestamp = latest_timestamp_iso_from_files(agent_output_files)
 
 low_stock_count = int(len(low_stock_alerts))
 current_low_stock_alert_text = build_low_stock_alert_text(low_stock_alerts)
-current_surplus_alternative_text = build_surplus_alternative_alert_text(
-    surplus_stock_items,
-    alternative_availability_alerts,
-)
 
 header_left, header_right = st.columns([4.8, 1.2], gap="large")
 with header_left:
     st.markdown(
-        '<div class="command-header-title">Agent Command Center</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div class="command-header-subtitle">A premium view of orchestrator health, specialist agent updates, and the latest actions worth taking.</div>',
+        """
+        <div class="home-command-header">
+          <div class="command-header-title">Agent Command Center</div>
+          <div class="command-header-subtitle">A premium operations view of orchestrator health, specialist agent updates, and the latest actions worth taking.</div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 with header_right:
@@ -764,7 +792,8 @@ if low_stock_alerts.empty:
 else:
     render_low_stock_alert_card(current_low_stock_alert_text)
     with st.container(border=True):
-        preview_df = low_stock_alerts[
+        display_alerts = format_alert_display_table(low_stock_alerts)
+        preview_df = display_alerts[
             [
                 column
                 for column in [
@@ -772,86 +801,58 @@ else:
                     "store_name",
                     "city",
                     "current_quantity",
-                    "reorder_threshold",
+                    "urgency_label",
+                    "depletion_window",
+                    "exact_estimate",
+                    "avg_daily_sales",
+                    "demand_trend",
+                    "risk_score",
+                    "confidence_level",
                     "suggested_reorder_quantity",
+                    "suggested_transfer_branch",
                     "priority",
                 ]
-                if column in low_stock_alerts.columns
+                if column in display_alerts.columns
             ]
-        ].head(5)
+        ].head(5).rename(
+            columns={
+                "urgency_label": "Urgency",
+                "depletion_window": "Depletion Window",
+                "exact_estimate": "Exact Estimate",
+            }
+        )
         st.dataframe(
             preview_df,
             use_container_width=True,
             hide_index=True,
         )
-
-st.subheader("📦 Stock Surplus & Alternatives")
-if surplus_stock_items.empty and alternative_availability_alerts.empty:
-    st.info("No major surplus or alternative availability detected right now.")
-else:
-    render_surplus_alternative_alert_card(current_surplus_alternative_text)
-    if not surplus_stock_items.empty:
-        with st.container(border=True):
-            surplus_preview = surplus_stock_items[
-                [
-                    column
-                    for column in [
-                        "product_name",
-                        "store_name",
-                        "current_quantity",
-                        "reorder_threshold",
-                        "surplus_quantity",
-                        "reason",
-                        "opportunity_level",
-                    ]
-                    if column in surplus_stock_items.columns
-                ]
-            ].rename(
-                columns={
-                    "product_name": "Product",
-                    "store_name": "Store",
-                    "current_quantity": "Available Qty",
-                    "reorder_threshold": "Threshold",
-                    "surplus_quantity": "Surplus Qty",
-                    "reason": "Suggested Action",
-                    "opportunity_level": "Priority/Opportunity",
+        if "risk_score" in low_stock_alerts.columns:
+            st.caption("Predictive risk indicators")
+            for _, row in display_alerts.head(3).iterrows():
+                risk_score = int(pd.to_numeric(row.get("risk_score", 0), errors="coerce") or 0)
+                product_label = row.get("product_name", row.get("product_id", "Product"))
+                store_label = row.get("store_name", row.get("store_id", "Branch"))
+                risk_label = row.get("urgency_label", row.get("risk_category", row.get("priority", "Risk")))
+                badge_colors = {
+                    "Critical": ("#991b1b", "#fee2e2"),
+                    "High": ("#9a3412", "#ffedd5"),
+                    "Medium": ("#92400e", "#fef3c7"),
+                    "Healthy": ("#166534", "#dcfce7"),
                 }
-            ).head(5)
-            st.dataframe(
-                surplus_preview,
-                use_container_width=True,
-                hide_index=True,
-            )
-    if not alternative_availability_alerts.empty:
-        with st.container(border=True):
-            alternative_preview = alternative_availability_alerts[
-                [
-                    column
-                    for column in [
-                        "low_stock_product",
-                        "low_stock_store",
-                        "alternative_product",
-                        "alternative_store",
-                        "available_quantity",
-                        "suggested_action",
-                    ]
-                    if column in alternative_availability_alerts.columns
-                ]
-            ].rename(
-                columns={
-                    "low_stock_product": "Low Stock Item",
-                    "low_stock_store": "Low Stock Store",
-                    "alternative_product": "Alternative / Source Item",
-                    "alternative_store": "Available At",
-                    "available_quantity": "Quantity",
-                    "suggested_action": "Action",
-                }
-            ).head(5)
-            st.dataframe(
-                alternative_preview,
-                use_container_width=True,
-                hide_index=True,
-            )
+                color, background = badge_colors.get(str(risk_label), ("#166534", "#dcfce7"))
+                st.markdown(
+                    (
+                        f"<span style='display:inline-block;padding:0.18rem 0.55rem;border-radius:999px;"
+                        f"font-size:0.78rem;font-weight:700;color:{color};background:{background};'>"
+                        f"{risk_label}</span> "
+                        f"<span style='font-size:0.86rem;color:#0A1F33;'>{product_label} at {store_label}</span>"
+                    ),
+                    unsafe_allow_html=True,
+                )
+                st.progress(
+                    min(max(risk_score, 0), 100),
+                    text=f"{risk_label}: {product_label} at {store_label} - {row.get('depletion_window', '')}",
+                )
 
 st.divider()
 render_report_email_center(sales, inventory, stores)
@@ -895,7 +896,7 @@ with kpi_columns[2]:
     render_kpi_card(
         "Low Stock",
         f"{low_stock_count:,}",
-        "Rows at or below reorder threshold",
+        "Predictive depletion alerts",
         "orange",
     )
 with kpi_columns[3]:

@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from backend.services.depletion_formatter import format_depletion_window
 from backend.services.transfer_analysis_service import (
     find_alternative_products_for_low_stock,
     find_exclusive_store_items,
@@ -42,6 +43,16 @@ RECOMMENDATION_COLUMNS = [
     "reason",
     "evidence",
     "suggested_quantity",
+    "avg_daily_sales",
+    "predicted_days_remaining",
+    "demand_trend",
+    "risk_score",
+    "confidence_level",
+    "suggested_reorder_qty",
+    "suggested_transfer_branch",
+    "alert_reason",
+    "depletion_window",
+    "urgency_label",
     "source_agent",
     "status",
 ]
@@ -144,6 +155,16 @@ def _new_recommendation(
     alternative_store_id: str = "",
     alternative_store_name: str = "",
     available_quantity: float | int | str = "",
+    avg_daily_sales: float | int | str = "",
+    predicted_days_remaining: float | int | str = "",
+    demand_trend: str = "",
+    risk_score: float | int | str = "",
+    confidence_level: str = "",
+    suggested_reorder_qty: float | int | str = "",
+    suggested_transfer_branch: str = "",
+    alert_reason: str = "",
+    depletion_window: str = "",
+    urgency_label: str = "",
 ) -> dict:
     """Create one recommendation record."""
     return {
@@ -162,8 +183,33 @@ def _new_recommendation(
         "reason": reason,
         "evidence": evidence,
         "suggested_quantity": suggested_quantity,
+        "avg_daily_sales": avg_daily_sales,
+        "predicted_days_remaining": predicted_days_remaining,
+        "demand_trend": demand_trend,
+        "risk_score": risk_score,
+        "confidence_level": confidence_level,
+        "suggested_reorder_qty": suggested_reorder_qty,
+        "suggested_transfer_branch": suggested_transfer_branch,
+        "alert_reason": alert_reason,
+        "depletion_window": depletion_window,
+        "urgency_label": urgency_label,
         "source_agent": "recommendation_engine",
         "status": "pending",
+    }
+
+
+def _predictive_kwargs(row: pd.Series) -> dict:
+    return {
+        "avg_daily_sales": round(_number_value(row, "avg_daily_sales", _number_value(row, "recent_daily_sales_velocity")), 2),
+        "predicted_days_remaining": round(_number_value(row, "predicted_days_remaining", _number_value(row, "days_of_stock_remaining", 999)), 2),
+        "demand_trend": _text_value(row, "demand_trend"),
+        "risk_score": round(_number_value(row, "risk_score"), 0),
+        "confidence_level": _text_value(row, "confidence_level"),
+        "suggested_reorder_qty": round(_number_value(row, "suggested_reorder_qty", _number_value(row, "suggested_quantity")), 0),
+        "suggested_transfer_branch": _text_value(row, "suggested_transfer_branch"),
+        "alert_reason": _text_value(row, "alert_reason") or _text_value(row, "reason"),
+        "depletion_window": _text_value(row, "depletion_window") or format_depletion_window(_number_value(row, "predicted_days_remaining", 999)),
+        "urgency_label": _text_value(row, "urgency_label"),
     }
 
 
@@ -179,8 +225,9 @@ def generate_reorder_recommendations(
         stock = _number_value(row, "stock_level")
         threshold = _number_value(row, "effective_reorder_threshold")
         velocity = _number_value(row, "recent_daily_sales_velocity")
+        predictive_reorder = _number_value(row, "suggested_reorder_qty")
         target_stock = threshold + (velocity * config["reorder_cover_days"])
-        suggested_quantity = max(0, round(target_stock - stock))
+        suggested_quantity = max(0, round(predictive_reorder or (target_stock - stock)))
 
         if suggested_quantity <= 0:
             continue
@@ -195,10 +242,19 @@ def generate_reorder_recommendations(
                 product_name=_text_value(row, "product_name"),
                 store_id=_text_value(row, "store_id"),
                 priority=priority,
-                action=f"Reorder {suggested_quantity} units.",
-                reason="Stock is below the reorder point after recent demand is considered.",
-                evidence=_text_value(row, "evidence"),
+                action=f"Reorder {suggested_quantity} units after checking transfer availability.",
+                reason=(
+                    _text_value(row, "ai_alert_message")
+                    or f"AI predicts this item has {format_depletion_window(days_of_stock).lower()} based on recent demand velocity."
+                ),
+                evidence=(
+                    f"{_text_value(row, 'evidence')}, "
+                    f"demand_trend={_text_value(row, 'demand_trend')}, "
+                    f"confidence={_text_value(row, 'confidence_level')}, "
+                    f"transfer_option={_text_value(row, 'suggested_transfer_branch')}"
+                ),
                 suggested_quantity=suggested_quantity,
+                **_predictive_kwargs(row),
             )
         )
 
@@ -288,6 +344,7 @@ def generate_stock_transfer_recommendations(
                     f"destination_threshold={round(threshold, 2)}"
                 ),
                 suggested_quantity=suggested_quantity,
+                **_predictive_kwargs(destination),
             )
         )
 
@@ -596,9 +653,19 @@ def generate_stockout_prevention_alerts(
                 product_name=_text_value(row, "product_name"),
                 store_id=_text_value(row, "store_id"),
                 priority=priority,
-                action="Take replenishment action before projected stockout.",
-                reason=_text_value(row, "reason"),
-                evidence=_text_value(row, "evidence"),
+                action="Act before the predicted stockout window closes.",
+                reason=(
+                    _text_value(row, "ai_alert_message")
+                    or _text_value(row, "reason")
+                    or "AI predicts current stock may not cover recent demand velocity."
+                ),
+                evidence=(
+                    f"{_text_value(row, 'evidence')}, "
+                    f"demand_trend={_text_value(row, 'demand_trend')}, "
+                    f"confidence={_text_value(row, 'confidence_level')}, "
+                    f"transfer_option={_text_value(row, 'suggested_transfer_branch')}"
+                ),
+                **_predictive_kwargs(row),
             )
         )
 

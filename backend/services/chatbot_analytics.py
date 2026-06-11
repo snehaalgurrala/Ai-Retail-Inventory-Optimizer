@@ -9,6 +9,11 @@ from typing import Any
 import pandas as pd
 
 from backend.services.llm_reasoner import humanize_analytics_payload, llm_is_configured
+from backend.services.depletion_formatter import (
+    depletion_sentence,
+    depletion_urgency_label,
+    format_depletion_window,
+)
 from backend.services.stock_alternative_service import (
     get_alternative_availability_for_low_stock,
     get_surplus_stock_items,
@@ -301,6 +306,24 @@ def _is_surplus_stock_query(question: str) -> bool:
     return any(phrase in text for phrase in phrases)
 
 
+def _is_predictive_inventory_query(question: str) -> bool:
+    text = _normalize(question)
+    phrases = [
+        "run out soon",
+        "may run out",
+        "stockout soon",
+        "highest inventory risk",
+        "highest risk branch",
+        "demand spike",
+        "demand spikes",
+        "immediate replenishment",
+        "need immediate replenishment",
+        "predicted depletion",
+        "days remaining",
+    ]
+    return any(phrase in text for phrase in phrases)
+
+
 def _ranking_direction(question: str) -> str:
     text = _normalize(question)
     if any(phrase in text for phrase in ["least", "lowest", "worst selling"]):
@@ -506,6 +529,8 @@ def _detect_analytical_intent(question: str, matched_stores: pd.DataFrame, match
         if any(keyword in text for keyword in ["alternative", "alternatives", "instead", "offer"]):
             return "alternative_options"
         return "exclusive_availability"
+    if _is_predictive_inventory_query(question):
+        return "predictive_inventory"
     if _is_surplus_stock_query(question):
         return "surplus_stock"
     if "category wise inventory" in text or "category inventory" in text or "category wise stock" in text:
@@ -913,12 +938,13 @@ def _answer_transfer_analysis(
 
         answer_lines = ["Highest shortage risk branches:"]
         for index, row in enumerate(shortages.head(limit).itertuples(index=False), start=1):
+            days_remaining = float(getattr(row, "days_of_inventory_remaining", 999) or 999)
             answer_lines.append(
                 f"{index}. **{getattr(row, 'product_name', 'Product')}** at "
                 f"{getattr(row, 'store_name', getattr(row, 'store_id', 'store'))} - "
                 f"{int(round(getattr(row, 'stock_level', 0) or 0))} units on hand, "
                 f"threshold {int(round(getattr(row, 'reorder_threshold', 0) or 0))}, "
-                f"{float(getattr(row, 'days_of_inventory_remaining', 0) or 0):.1f} days remaining"
+                f"{format_depletion_window(days_remaining).lower()}"
             )
         payload.update(
             {
@@ -964,7 +990,7 @@ def _answer_transfer_analysis(
         f"{top['source_stock']} units on hand and slower movement "
         f"({top['source_velocity']} units/day), while {top['target_store_name']} has "
         f"{top['target_stock']} units against a threshold of {top['target_threshold']} and "
-        f"{top['target_days_remaining']} days of stock remaining."
+        f"{format_depletion_window(top['target_days_remaining']).lower()}."
     )
     payload.update(
         {
@@ -1601,6 +1627,110 @@ def _answer_low_stock_by_store(
     return AnalyticsRoute(True, "low_stock_by_store", payload, low_stock.head(10), _build_sources(["low_stock_items", "inventory", "stores", "products"]))
 
 
+def _answer_predictive_inventory(frames: dict[str, pd.DataFrame], question: str) -> AnalyticsRoute:
+    low_stock = frames.get("low_stock_items", pd.DataFrame()).copy()
+    sources = _build_sources(["low_stock_items", "sales", "inventory", "products", "stores"])
+    payload = _empty_payload()
+    if low_stock.empty:
+        payload.update(
+            {
+                "answer": "I do not see predictive depletion alerts in the latest processed data.",
+                "explanation": "Run or refresh agents so low_stock_items.csv is rebuilt from sales velocity and inventory levels.",
+                "confidence": "low",
+                "cannot_answer": True,
+            }
+        )
+        return AnalyticsRoute(True, "predictive_inventory", payload, pd.DataFrame(), sources)
+
+    if "risk_score" in low_stock.columns:
+        low_stock["_risk_score"] = pd.to_numeric(low_stock["risk_score"], errors="coerce").fillna(0)
+    else:
+        low_stock["_risk_score"] = 0
+    if "predicted_days_remaining" in low_stock.columns:
+        low_stock["_days"] = pd.to_numeric(low_stock["predicted_days_remaining"], errors="coerce").fillna(999)
+    else:
+        low_stock["_days"] = pd.to_numeric(low_stock.get("days_of_stock_remaining", 999), errors="coerce").fillna(999)
+
+    text = _normalize(question)
+    limit = _extract_requested_limit(question, default=5, maximum=10)
+
+    if "demand spike" in text or "demand spikes" in text:
+        spike_rows = low_stock[
+            low_stock.get("demand_spike", pd.Series(False, index=low_stock.index))
+            .fillna(False)
+            .astype(str)
+            .str.lower()
+            .isin(["true", "1"])
+        ].sort_values("_risk_score", ascending=False)
+        if spike_rows.empty:
+            payload.update(
+                {
+                    "answer": "No demand spike is currently detected in the predictive alert data.",
+                    "explanation": "A spike is flagged when recent sales velocity rises materially above historical velocity.",
+                    "confidence": "high",
+                }
+            )
+            return AnalyticsRoute(True, "predictive_inventory", payload, pd.DataFrame(), sources)
+        answer_lines = ["Products showing demand spikes:"]
+        for index, (_, row) in enumerate(spike_rows.head(limit).iterrows(), start=1):
+            days = row.get("_days", 999)
+            answer_lines.append(
+                f"{index}. **{row.get('product_name', 'Product')}** at {row.get('store_name', row.get('store_id', 'branch'))} - "
+                f"{depletion_urgency_label(days)}: {format_depletion_window(days)}, risk score {int(row.get('_risk_score', 0) or 0)}."
+            )
+        payload.update(
+            {
+                "answer": "\n".join(answer_lines),
+                "explanation": "These items have recent demand velocity materially above their historical sales velocity.",
+                "suggestions": ["Prioritize transfer sources first, then procurement for uncovered demand."],
+                "confidence": "high",
+            }
+        )
+        return AnalyticsRoute(True, "predictive_inventory", payload, spike_rows.head(limit), sources)
+
+    ranked_all = low_stock.sort_values(["_risk_score", "_days"], ascending=[False, True])
+    soon_rows = ranked_all[ranked_all["_days"] < 10].copy()
+    ranked = (soon_rows if not soon_rows.empty else ranked_all).head(limit)
+    if "highest inventory risk" in text or "highest risk branch" in text:
+        top = ranked.iloc[0]
+        store_name = str(top.get("store_name", top.get("store_id", "branch")))
+        product_name = str(top.get("product_name", top.get("product_id", "product")))
+        payload.update(
+            {
+                "answer": f"The highest inventory risk is {product_name} at {store_name}.",
+                "explanation": (
+                    f"Risk score is {int(top.get('_risk_score', 0))}. {depletion_sentence(product_name, top.get('_days', 999))} "
+                    f"{top.get('alert_reason', top.get('reason', ''))}"
+                ),
+                "suggestions": [str(top.get("transfer_recommendation") or "Check transfers first, then reorder if no surplus branch can cover it.")],
+                "confidence": str(top.get("confidence_level", "medium")).lower() or "medium",
+            }
+        )
+        return AnalyticsRoute(True, "predictive_inventory", payload, ranked, sources)
+
+    answer_lines = ["Items that may run out soon:"]
+    for index, (_, row) in enumerate(ranked.iterrows(), start=1):
+        transfer = row.get("suggested_transfer_branch", "")
+        if str(transfer).lower() == "nan":
+            transfer = ""
+        transfer_text = f" Transfer source: {transfer}." if transfer else ""
+        answer_lines.append(
+            f"{index}. **{row.get('product_name', 'Product')}** at {row.get('store_name', row.get('store_id', 'branch'))} - "
+            f"{depletion_urgency_label(row.get('_days', 999))}: {format_depletion_window(row.get('_days', 999))}, "
+            f"risk score {int(row.get('_risk_score', 0) or 0)}.{transfer_text}"
+        )
+    payload.update(
+        {
+            "answer": "\n".join(answer_lines),
+            "explanation": "Days remaining is current stock divided by recent average daily sales, then ranked with risk score.",
+            "suggestions": ["Review transfer recommendations before creating new purchase orders."],
+            "follow_up_question": "Want only demand spike products or only immediate reorder items?",
+            "confidence": "high",
+        }
+    )
+    return AnalyticsRoute(True, "predictive_inventory", payload, ranked, sources)
+
+
 def _store_inventory_view_for_chat(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
     return build_store_inventory_view(
         frames.get("inventory", pd.DataFrame()),
@@ -1923,6 +2053,8 @@ def try_answer_analytical_question(
             return _answer_exclusive_availability(frames, user_input, matched_stores)
         if intent == "surplus_stock":
             return _answer_surplus_stock(frames, user_input, matched_products, matched_stores)
+        if intent == "predictive_inventory":
+            return _answer_predictive_inventory(frames, user_input)
         if intent == "alternative_options":
             return _answer_alternative_options(frames, user_input, matched_products, matched_stores)
         if intent == "sales_ranking":

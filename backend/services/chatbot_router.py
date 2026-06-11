@@ -2,6 +2,7 @@ import pandas as pd
 
 from backend.services.chatbot_analytics import try_answer_analytical_question
 from backend.services.chatbot_intent import classify_user_intent
+from backend.services.location_validation import validate_requested_location
 from backend.services.rag_service import answer_question_with_rag
 
 
@@ -106,6 +107,16 @@ def route_chatbot_request(
     chat_history=None,
 ) -> tuple[str, dict, pd.DataFrame, list[dict]]:
     """Route a chatbot request by intent and only run RAG for business queries."""
+    location_validation = validate_requested_location(user_input)
+    if not location_validation.is_available and location_validation.payload:
+        print("[chatbot] detected_intent=unsupported_location is_follow_up=False")
+        return (
+            "unsupported_location",
+            location_validation.payload,
+            pd.DataFrame(),
+            [{"dataset": "stores"}],
+        )
+
     if _looks_like_transfer_analytics(user_input):
         analytics_route = try_answer_analytical_question(
             user_input,

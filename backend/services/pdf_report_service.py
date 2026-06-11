@@ -32,12 +32,12 @@ def _style_table(table, colors, header_bg="#e0f2fe"):
         TableStyle(
             [
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(header_bg)),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0A1F33")),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, -1), 7.5),
                 ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F5F8FB")]),
                 ("LEFTPADDING", (0, 0), (-1, -1), 5),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 5),
                 ("TOPPADDING", (0, 0), (-1, -1), 5),
@@ -53,7 +53,7 @@ def _section_title(text: str, styles):
     return [Spacer(1, 10), Paragraph(text, styles["SectionTitle"]), Spacer(1, 5)]
 
 
-def _metric_card(label: str, value: Any, colors, accent: str = "#2563eb", background: str = "#f8fafc"):
+def _metric_card(label: str, value: Any, colors, accent: str = "#183F5F", background: str = "#F5F8FB"):
     from reportlab.platypus import Paragraph, Table, TableStyle
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
@@ -62,14 +62,14 @@ def _metric_card(label: str, value: Any, colors, accent: str = "#2563eb", backgr
         "MetricLabel",
         parent=styles["Normal"],
         fontSize=7,
-        textColor=colors.HexColor("#64748b"),
+        textColor=colors.HexColor("#476C8B"),
         leading=9,
     )
     value_style = ParagraphStyle(
         "MetricValue",
         parent=styles["Normal"],
         fontSize=13,
-        textColor=colors.HexColor("#0f172a"),
+        textColor=colors.HexColor("#0A1F33"),
         leading=16,
         fontName="Helvetica-Bold",
     )
@@ -98,7 +98,7 @@ def _bar_chart(title: str, df: pd.DataFrame, label_column: str, value_column: st
     from reportlab.graphics.shapes import Drawing, String
 
     drawing = Drawing(250, 145)
-    drawing.add(String(4, 130, title, fontSize=8, fillColor=colors.HexColor("#0f172a")))
+    drawing.add(String(4, 130, title, fontSize=8, fillColor=colors.HexColor("#0A1F33")))
     chart = VerticalBarChart()
     chart.x = 25
     chart.y = 25
@@ -115,7 +115,7 @@ def _bar_chart(title: str, df: pd.DataFrame, label_column: str, value_column: st
     chart.categoryAxis.categoryNames = labels
     chart.categoryAxis.labels.fontSize = 5.8
     chart.valueAxis.labels.fontSize = 6
-    chart.bars[0].fillColor = colors.HexColor("#2563eb")
+    chart.bars[0].fillColor = colors.HexColor("#183F5F")
     drawing.add(chart)
     return drawing
 
@@ -125,7 +125,7 @@ def _pie_chart(title: str, labels: list[str], values: list[int], colors):
     from reportlab.graphics.shapes import Drawing, String
 
     drawing = Drawing(250, 145)
-    drawing.add(String(4, 130, title, fontSize=8, fillColor=colors.HexColor("#0f172a")))
+    drawing.add(String(4, 130, title, fontSize=8, fillColor=colors.HexColor("#0A1F33")))
     pie = Pie()
     pie.x = 62
     pie.y = 18
@@ -133,7 +133,7 @@ def _pie_chart(title: str, labels: list[str], values: list[int], colors):
     pie.height = 105
     pie.data = values if any(values) else [1]
     pie.labels = labels if any(values) else ["No alerts"]
-    palette = ["#22c55e", "#ef4444", "#f59e0b", "#2563eb"]
+    palette = ["#6CB33F", "#B42318", "#C76A12", "#183F5F"]
     for index, color in enumerate(palette[: len(pie.data)]):
         pie.slices[index].fillColor = colors.HexColor(color)
     pie.slices.strokeColor = colors.white
@@ -157,7 +157,7 @@ def generate_inventory_pdf_report(report: dict[str, Any], output_path: str | Pat
             parent=styles["Title"],
             fontSize=21,
             leading=26,
-            textColor=colors.HexColor("#0f766e"),
+            textColor=colors.HexColor("#183F5F"),
             spaceAfter=8,
         )
     )
@@ -167,7 +167,7 @@ def generate_inventory_pdf_report(report: dict[str, Any], output_path: str | Pat
             parent=styles["Normal"],
             fontSize=9,
             leading=13,
-            textColor=colors.HexColor("#475569"),
+            textColor=colors.HexColor("#476C8B"),
         )
     )
     styles.add(
@@ -176,7 +176,7 @@ def generate_inventory_pdf_report(report: dict[str, Any], output_path: str | Pat
             parent=styles["Heading2"],
             fontSize=12,
             leading=15,
-            textColor=colors.HexColor("#0f172a"),
+            textColor=colors.HexColor("#0A1F33"),
             spaceBefore=6,
             spaceAfter=2,
         )
@@ -208,9 +208,9 @@ def generate_inventory_pdf_report(report: dict[str, Any], output_path: str | Pat
     header.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
-                ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#dbeafe")),
-                ("LINEBEFORE", (0, 0), (0, -1), 6, colors.HexColor("#0f766e")),
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F5F8FB")),
+                ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#D8E2EC")),
+                ("LINEBEFORE", (0, 0), (0, -1), 6, colors.HexColor("#183F5F")),
                 ("LEFTPADDING", (0, 0), (-1, -1), 14),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 14),
                 ("TOPPADDING", (0, 0), (-1, -1), 10),
@@ -221,12 +221,12 @@ def generate_inventory_pdf_report(report: dict[str, Any], output_path: str | Pat
     story = [header, Spacer(1, 12)]
 
     metrics = [
-        _metric_card("Total Products", f"{int(report.get('total_products', 0)):,}", colors, "#2563eb", "#eff6ff"),
-        _metric_card("Total Stock", f"{int(report.get('total_inventory_quantity', 0)):,}", colors, "#0f766e", "#ecfdf5"),
-        _metric_card("Low Stock", f"{int(report.get('low_stock_count', 0)):,}", colors, "#dc2626", "#fff7f7"),
-        _metric_card("Overstock", f"{int(report.get('overstock_count', 0)):,}", colors, "#d97706", "#fffbeb"),
-        _metric_card("Transfers", f"{int(report.get('transfer_opportunity_count', 0)):,}", colors, "#0891b2", "#ecfeff"),
-        _metric_card("High Priority", f"{int(report.get('high_priority_recommendations_count', 0)):,}", colors, "#7c3aed", "#f5f3ff"),
+        _metric_card("Total Products", f"{int(report.get('total_products', 0)):,}", colors, "#183F5F", "#EAF1F7"),
+        _metric_card("Total Stock", f"{int(report.get('total_inventory_quantity', 0)):,}", colors, "#6CB33F", "#F2FAEA"),
+        _metric_card("Low Stock", f"{int(report.get('low_stock_count', 0)):,}", colors, "#B42318", "#FFF1F2"),
+        _metric_card("Overstock", f"{int(report.get('overstock_count', 0)):,}", colors, "#C76A12", "#FFF7E8"),
+        _metric_card("Transfers", f"{int(report.get('transfer_opportunity_count', 0)):,}", colors, "#6CB33F", "#F2FAEA"),
+        _metric_card("High Priority", f"{int(report.get('high_priority_recommendations_count', 0)):,}", colors, "#183F5F", "#EAF1F7"),
     ]
     metric_grid = Table([metrics[:3], metrics[3:]], colWidths=[168, 168, 168])
     story.extend([metric_grid, Spacer(1, 10)])
@@ -282,6 +282,9 @@ def generate_inventory_pdf_report(report: dict[str, Any], output_path: str | Pat
                 "store_name",
                 "stock_level",
                 "reorder_threshold",
+                "urgency_label",
+                "depletion_window",
+                "depletion_tooltip",
                 "shortage_quantity",
                 "suggested_reorder_quantity",
                 "priority",

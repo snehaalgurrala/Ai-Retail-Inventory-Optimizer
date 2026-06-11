@@ -1,0 +1,2 @@
+update_id,recommendation_id,action_type,product_id,product_name,store_id,old_price,discount_percent,new_price,reason,manager_note,executed_at
+PRC202605281538216D6D3A,REC00002,discount,P102,Bread,S2,35.0,10.0,31.5,Consider a discount to improve sell-through.,,2026-05-28T15:38:21

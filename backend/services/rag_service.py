@@ -19,6 +19,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 from backend.services import llm_reasoner
+from backend.services.location_validation import validate_requested_location
 
 
 load_dotenv(override=True)
@@ -1312,6 +1313,21 @@ def answer_question_with_rag(
             },
             pd.DataFrame(),
             [],
+        )
+
+    location_validation = validate_requested_location(cleaned_question)
+    if not location_validation.is_available and location_validation.payload:
+        LAST_RETRIEVAL_STATUS.update(
+            {
+                "answer_path": "location_validation",
+                "retrieval_mode": "pre_retrieval",
+                "last_error": "",
+            }
+        )
+        return (
+            location_validation.payload,
+            pd.DataFrame(),
+            [{"dataset": "stores"}],
         )
 
     intent = _infer_query_intent(cleaned_question, chat_history)

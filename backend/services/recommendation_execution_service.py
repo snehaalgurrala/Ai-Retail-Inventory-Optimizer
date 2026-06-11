@@ -10,6 +10,11 @@ import pandas as pd
 
 from backend.memory.memory_store import save_decision_record, save_outcome_record
 from backend.services.data_processor import build_processed_datasets
+from backend.services.depletion_formatter import (
+    depletion_urgency_label,
+    exact_depletion_tooltip,
+    format_depletion_window,
+)
 from backend.services.inventory_analyzer import build_inventory_analysis
 from backend.services.llm_reasoner import _chat_json, _extract_json_text, llm_is_configured
 
@@ -379,6 +384,9 @@ def build_recommendation_context(recommendation: pd.Series | dict[str, Any]) -> 
         "target_store_id": destination_store_id,
         "target_store_name": target_store_name,
         "recent_daily_velocity": _to_float(
+            recommendation_row.get("avg_daily_sales")
+            or analysis_row.get("avg_daily_sales")
+            or
             analysis_row.get("recent_daily_sales_velocity")
             or evidence_map.get("recent_daily_velocity")
             or 0
@@ -386,6 +394,9 @@ def build_recommendation_context(recommendation: pd.Series | dict[str, Any]) -> 
         "recent_30_day_sales": _to_int(analysis_row.get("recent_30_day_quantity_sold") or 0),
         "days_of_stock": round(
             _to_float(
+                recommendation_row.get("predicted_days_remaining")
+                or analysis_row.get("predicted_days_remaining")
+                or
                 analysis_row.get("days_of_stock_remaining")
                 or evidence_map.get("days_of_stock")
                 or 0
@@ -416,6 +427,42 @@ def build_recommendation_context(recommendation: pd.Series | dict[str, Any]) -> 
             or evidence_map.get("category", "")
         ),
         "is_exclusive": _to_text(evidence_map.get("is_exclusive", "")).lower() == "true",
+        "demand_trend": _to_text(recommendation_row.get("demand_trend") or analysis_row.get("demand_trend", "")),
+        "risk_score": _to_float(recommendation_row.get("risk_score") or analysis_row.get("risk_score") or 0),
+        "confidence_level": _to_text(recommendation_row.get("confidence_level") or analysis_row.get("confidence_level", "")),
+        "suggested_transfer_branch": _to_text(
+            recommendation_row.get("suggested_transfer_branch") or analysis_row.get("suggested_transfer_branch", "")
+        ),
+        "alert_reason": _to_text(recommendation_row.get("alert_reason") or analysis_row.get("alert_reason", "")),
+        "depletion_window": _to_text(
+            recommendation_row.get("depletion_window")
+            or analysis_row.get("depletion_window")
+            or format_depletion_window(
+                recommendation_row.get("predicted_days_remaining")
+                or analysis_row.get("predicted_days_remaining")
+                or analysis_row.get("days_of_stock_remaining")
+                or 999
+            )
+        ),
+        "urgency_label": _to_text(
+            recommendation_row.get("urgency_label")
+            or analysis_row.get("urgency_label")
+            or depletion_urgency_label(
+                recommendation_row.get("predicted_days_remaining")
+                or analysis_row.get("predicted_days_remaining")
+                or analysis_row.get("days_of_stock_remaining")
+                or 999
+            )
+        ),
+        "depletion_tooltip": _to_text(
+            analysis_row.get("depletion_tooltip")
+            or exact_depletion_tooltip(
+                recommendation_row.get("predicted_days_remaining")
+                or analysis_row.get("predicted_days_remaining")
+                or analysis_row.get("days_of_stock_remaining")
+                or 999
+            )
+        ),
     }
 
 

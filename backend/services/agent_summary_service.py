@@ -16,6 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 from backend.services.llm_reasoner import get_llm_settings, llm_is_configured  # noqa: E402
+from backend.services.depletion_formatter import format_depletion_window  # noqa: E402
 from backend.services.low_stock_service import get_low_stock_items  # noqa: E402
 from backend.services.stock_alternative_service import (  # noqa: E402
     get_alternative_availability_for_low_stock,
@@ -330,6 +331,15 @@ def build_compact_llm_context(
                 "current_quantity",
                 "reorder_threshold",
                 "suggested_reorder_quantity",
+                "avg_daily_sales",
+                "predicted_days_remaining",
+                "demand_trend",
+                "risk_score",
+                "confidence_level",
+                "suggested_transfer_branch",
+                "alert_reason",
+                "depletion_window",
+                "urgency_label",
                 "priority",
             ],
             5,
@@ -828,12 +838,33 @@ def build_low_stock_alert_text(low_stock_df: pd.DataFrame) -> str:
         low_stock_df.get("priority", pd.Series(dtype=object)).fillna("").astype(str).eq("High")
     ].copy()
     focus_df = high_priority_rows if not high_priority_rows.empty else low_stock_df
+    if "risk_score" in focus_df.columns:
+        focus_df = focus_df.assign(
+            _risk_score=pd.to_numeric(focus_df["risk_score"], errors="coerce").fillna(0)
+        ).sort_values("_risk_score", ascending=False)
     focus_row = focus_df.iloc[0]
     product_name = str(focus_row.get("product_name", focus_row.get("product_id", ""))).strip()
     store_name = str(focus_row.get("store_name", focus_row.get("store_id", ""))).strip()
     current_quantity = int(pd.to_numeric(focus_row.get("current_quantity", 0), errors="coerce") or 0)
+    days_remaining = pd.to_numeric(
+        focus_row.get("predicted_days_remaining", focus_row.get("days_of_stock_remaining", 999)),
+        errors="coerce",
+    )
+    demand_spikes = 0
+    if "demand_spike" in low_stock_df.columns:
+        demand_spikes = int(
+            low_stock_df["demand_spike"].fillna(False).astype(str).str.lower().isin(["true", "1"]).sum()
+        )
+    if pd.notna(days_remaining) and float(days_remaining) < 999:
+        window = format_depletion_window(days_remaining)
+        return (
+            f"AI predicts {product_count} product{'s' if product_count != 1 else ''} may deplete soon across "
+            f"{store_count} store{'s' if store_count != 1 else ''}. "
+            f"Highest risk: {product_name} at {store_name} has {current_quantity} units left: {window.lower()}."
+            + (f" Demand spike alerts: {demand_spikes}." if demand_spikes else "")
+        )
     return (
-        f"{product_count} product{'s' if product_count != 1 else ''} are below reorder threshold across "
+        f"{product_count} product{'s' if product_count != 1 else ''} need review across "
         f"{store_count} store{'s' if store_count != 1 else ''}. "
         f"Highest priority: {product_name} at {store_name} has only {current_quantity} units left."
     )

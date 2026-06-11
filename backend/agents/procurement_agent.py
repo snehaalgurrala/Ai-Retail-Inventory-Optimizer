@@ -138,8 +138,12 @@ def analyze_procurement(
 
         if supplier_is_risky:
             recommendation["priority"] = "high"
+            base_reason = str(recommendation.get("reason", "") or "").strip()
+            supplier_reason = "Supplier risk may delay replenishment."
             recommendation["reason"] = (
-                "Stock is below the reorder point and supplier risk may delay replenishment."
+                f"{base_reason} {supplier_reason}".strip()
+                if base_reason
+                else "Stock is below the reorder point and supplier risk may delay replenishment."
             )
             recommendation["action"] = (
                 f"{recommendation['action']} Review supplier timing before placing the order."

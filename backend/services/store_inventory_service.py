@@ -3,6 +3,12 @@ from typing import Any
 
 import pandas as pd
 
+from backend.services.inventory_prediction_service import build_predictive_inventory_view
+from backend.services.depletion_formatter import (
+    depletion_urgency_label,
+    exact_depletion_tooltip,
+    format_depletion_window,
+)
 from backend.services.llm_reasoner import humanize_analytics_payload, llm_is_configured
 
 
@@ -125,6 +131,39 @@ def build_store_inventory_view(
             velocity["recent_daily_sales_velocity"] = velocity["recent_30_day_quantity_sold"] / 30
             view = view.merge(velocity, on=["product_id", "store_id"], how="left")
 
+    if sales is not None and not sales.empty:
+        predictive = build_predictive_inventory_view(
+            inventory,
+            products,
+            stores,
+            sales,
+            suppliers if suppliers is not None else pd.DataFrame(),
+        )
+        if not predictive.empty:
+            predictive_columns = [
+                column
+                for column in [
+                    "product_id",
+                    "store_id",
+                    "avg_daily_sales",
+                    "predicted_days_remaining",
+                    "demand_trend",
+                    "demand_spike",
+                    "risk_score",
+                    "risk_category",
+                    "confidence_level",
+                    "suggested_reorder_qty",
+                    "suggested_transfer_branch",
+                    "alert_reason",
+                    "ai_alert_message",
+                    "depletion_window",
+                    "urgency_label",
+                    "depletion_tooltip",
+                ]
+                if column in predictive.columns
+            ]
+            view = view.merge(predictive[predictive_columns], on=["product_id", "store_id"], how="left")
+
     for column in ["recent_30_day_quantity_sold", "recent_daily_sales_velocity"]:
         view[column] = _number_column(view, column)
 
@@ -134,6 +173,12 @@ def build_store_inventory_view(
     view["cost_inventory_value"] = view["current_quantity"] * view["cost_price"]
     view["shortage_quantity"] = (view["reorder_threshold"] - view["current_quantity"]).clip(lower=0)
     view["suggested_reorder_quantity"] = ((view["reorder_threshold"] * 2) - view["current_quantity"]).clip(lower=0).round().astype(int)
+    if "suggested_reorder_qty" in view.columns:
+        predictive_reorder = _number_column(view, "suggested_reorder_qty")
+        view["suggested_reorder_quantity"] = view["suggested_reorder_quantity"].where(
+            predictive_reorder <= 0,
+            predictive_reorder.round().astype(int),
+        )
     view["surplus_quantity"] = (view["current_quantity"] - view["reorder_threshold"]).clip(lower=0)
 
     view["stock_status"] = "Healthy"
@@ -150,6 +195,17 @@ def build_store_inventory_view(
         & (view["reorder_threshold"] > 0),
         "stock_status",
     ] = "Overstock"
+    if "predicted_days_remaining" in view.columns:
+        predicted_days = pd.to_numeric(view["predicted_days_remaining"], errors="coerce").fillna(999)
+        view["depletion_window"] = view.get("depletion_window", predicted_days.map(format_depletion_window))
+        view["urgency_label"] = view.get("urgency_label", predicted_days.map(depletion_urgency_label))
+        view["depletion_tooltip"] = view.get("depletion_tooltip", predicted_days.map(exact_depletion_tooltip))
+        view.loc[
+            (predicted_days <= 7)
+            & (view["recent_daily_sales_velocity"] > 0)
+            & (~view["stock_status"].eq("Overstock")),
+            "stock_status",
+        ] = "Low Stock"
 
     view["priority"] = view.apply(
         lambda row: "High"
@@ -182,6 +238,9 @@ def _row_recommendation(row: pd.Series) -> str:
     product = _text(row.get("product_name"), _text(row.get("product_id"), "This product"))
     status = _text(row.get("stock_status"))
     if status == "Low Stock":
+        ai_message = _text(row.get("ai_alert_message"))
+        if ai_message:
+            return ai_message
         shortage = int(round(float(row.get("shortage_quantity", 0))))
         reorder = int(round(float(row.get("suggested_reorder_quantity", 0))))
         return f"Replenish {product}; shortage is {shortage} units and suggested reorder is {reorder} units."

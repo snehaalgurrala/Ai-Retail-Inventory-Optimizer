@@ -38,13 +38,13 @@ apply_page_style()
 
 
 TYPE_META = {
-    "discount": {"icon": "💸", "label": "Discount", "accent": "#2563eb"},
+    "discount": {"icon": "💸", "label": "Discount", "accent": "#183F5F"},
     "clearance": {"icon": "🧹", "label": "Clearance", "accent": "#f97316"},
-    "stock_transfer": {"icon": "↔", "label": "Stock Transfer", "accent": "#7c3aed"},
-    "transfer": {"icon": "T", "label": "Transfer", "accent": "#0f766e"},
-    "exclusive_availability": {"icon": "E", "label": "Exclusive Availability", "accent": "#0f766e"},
+    "stock_transfer": {"icon": "↔", "label": "Stock Transfer", "accent": "#6CB33F"},
+    "transfer": {"icon": "T", "label": "Transfer", "accent": "#6CB33F"},
+    "exclusive_availability": {"icon": "E", "label": "Exclusive Availability", "accent": "#6CB33F"},
     "alternative_option": {"icon": "A", "label": "Alternative Option", "accent": "#0891b2"},
-    "reorder": {"icon": "📦", "label": "Reorder", "accent": "#16a34a"},
+    "reorder": {"icon": "📦", "label": "Reorder", "accent": "#6CB33F"},
     "supplier_risk_alert": {"icon": "⚠", "label": "Supplier Risk", "accent": "#dc2626"},
     "overstock_alert": {"icon": "📊", "label": "Overstock Alert", "accent": "#ea580c"},
     "stockout_prevention_alert": {"icon": "🚨", "label": "Stockout Risk", "accent": "#b91c1c"},
@@ -58,14 +58,13 @@ def inject_recommendation_styles() -> None:
         """
         <style>
         .recommendation-shell {
-            border: 1px solid color-mix(in srgb, var(--text-color) 9%, transparent);
-            border-radius: 20px;
+            border: 1px solid var(--airio-border, #D8E2EC);
+            border-top: 4px solid var(--airio-primary-navy, #183F5F);
+            border-radius: 14px;
             padding: 1rem 1rem 0.7rem 1rem;
             margin-bottom: 1rem;
-            background:
-                radial-gradient(circle at top right, color-mix(in srgb, var(--secondary-background-color) 82%, transparent), transparent 32%),
-                linear-gradient(180deg, color-mix(in srgb, var(--background-color) 65%, var(--secondary-background-color) 35%), var(--secondary-background-color));
-            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+            background: var(--airio-card, #FFFFFF);
+            box-shadow: 0 12px 28px rgba(10, 31, 51, 0.07);
         }
         .recommendation-head {
             display: flex;
@@ -77,11 +76,11 @@ def inject_recommendation_styles() -> None:
         .recommendation-title {
             font-size: 1.04rem;
             font-weight: 700;
-            color: var(--text-color);
+            color: var(--airio-deep-navy, #0A1F33);
             margin-bottom: 0.18rem;
         }
         .recommendation-subtitle {
-            color: color-mix(in srgb, var(--text-color) 68%, transparent);
+            color: rgba(10, 31, 51, 0.68);
             font-size: 0.87rem;
         }
         .recommendation-summary {
@@ -93,19 +92,19 @@ def inject_recommendation_styles() -> None:
         .recommendation-chip {
             border-radius: 14px;
             padding: 0.7rem 0.8rem;
-            border: 1px solid color-mix(in srgb, var(--text-color) 8%, transparent);
-            background: color-mix(in srgb, var(--secondary-background-color) 86%, transparent);
+            border: 1px solid var(--airio-border, #D8E2EC);
+            background: var(--airio-bg, #F5F8FB);
         }
         .recommendation-chip-label {
             font-size: 0.69rem;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            color: color-mix(in srgb, var(--text-color) 58%, transparent);
+            color: rgba(10, 31, 51, 0.58);
             margin-bottom: 0.18rem;
         }
         .recommendation-chip-value {
             font-size: 0.97rem;
-            color: var(--text-color);
+            color: var(--airio-deep-navy, #0A1F33);
             font-weight: 700;
             line-height: 1.28;
         }
@@ -119,12 +118,12 @@ def inject_recommendation_styles() -> None:
             margin-left: 0.35rem;
             border: 1px solid transparent;
         }
-        .priority-high { color: #7f1d1d; background: rgba(248, 113, 113, 0.18); border-color: rgba(248, 113, 113, 0.28); }
-        .priority-medium { color: #854d0e; background: rgba(250, 204, 21, 0.18); border-color: rgba(250, 204, 21, 0.28); }
-        .priority-low { color: #1d4ed8; background: rgba(96, 165, 250, 0.18); border-color: rgba(96, 165, 250, 0.28); }
-        .status-pending { color: #334155; background: rgba(148, 163, 184, 0.16); border-color: rgba(148, 163, 184, 0.2); }
-        .status-approved { color: #166534; background: rgba(74, 222, 128, 0.18); border-color: rgba(74, 222, 128, 0.3); }
-        .status-rejected { color: #991b1b; background: rgba(248, 113, 113, 0.16); border-color: rgba(248, 113, 113, 0.26); }
+        .priority-high { color: #7f1d1d; background: var(--airio-soft-red, #FFF1F2); border-color: rgba(180, 35, 24, 0.28); }
+        .priority-medium { color: #854d0e; background: var(--airio-soft-amber, #FFF7E8); border-color: rgba(199, 106, 18, 0.28); }
+        .priority-low { color: #183F5F; background: #EAF1F7; border-color: #D8E2EC; }
+        .status-pending { color: #854d0e; background: var(--airio-soft-amber, #FFF7E8); border-color: rgba(199, 106, 18, 0.28); }
+        .status-approved { color: #285F12; background: rgba(108, 179, 63, 0.16); border-color: rgba(108, 179, 63, 0.28); }
+        .status-rejected { color: #991b1b; background: var(--airio-soft-red, #FFF1F2); border-color: rgba(180, 35, 24, 0.26); }
         .reasoning-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -134,18 +133,18 @@ def inject_recommendation_styles() -> None:
         .reasoning-box {
             border-radius: 14px;
             padding: 0.8rem 0.9rem;
-            border: 1px solid color-mix(in srgb, var(--text-color) 8%, transparent);
-            background: color-mix(in srgb, var(--secondary-background-color) 86%, transparent);
+            border: 1px solid var(--airio-border, #D8E2EC);
+            background: var(--airio-bg, #F5F8FB);
         }
         .reasoning-title {
             font-size: 0.73rem;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            color: color-mix(in srgb, var(--text-color) 56%, transparent);
+            color: rgba(10, 31, 51, 0.56);
             margin-bottom: 0.28rem;
         }
         .reasoning-body {
-            color: var(--text-color);
+            color: var(--airio-deep-navy, #0A1F33);
             font-size: 0.9rem;
             line-height: 1.42;
         }
@@ -394,6 +393,21 @@ def status_badge(status: str) -> str:
     return f"<span class='status-pill status-{normalized}'>{normalized.title()}</span>"
 
 
+def urgency_badge(label: str) -> str:
+    normalized = str(label or "Healthy").strip()
+    color, background = {
+        "Critical": ("#991b1b", "#fee2e2"),
+        "High": ("#9a3412", "#ffedd5"),
+        "Medium": ("#92400e", "#fef3c7"),
+        "Healthy": ("#166534", "#dcfce7"),
+    }.get(normalized, ("#166534", "#dcfce7"))
+    return (
+        "<span class='status-pill' "
+        f"style='color:{color};background:{background};border-color:{background};'>"
+        f"{normalized}</span>"
+    )
+
+
 def compact_value_summary(recommendation: pd.Series, context: dict) -> str:
     recommendation_type = str(recommendation.get("recommendation_type", ""))
     if recommendation_type == "discount":
@@ -423,7 +437,9 @@ def compact_value_summary(recommendation: pd.Series, context: dict) -> str:
             f"{context.get('available_quantity', recommendation.get('available_quantity', 0))} units"
         )
     if recommendation_type == "reorder":
-        return f"Reorder {context['suggested_quantity']} units"
+        return f"{context.get('urgency_label', 'Healthy')} - {context.get('depletion_window', 'Inventory stable')}"
+    if recommendation_type == "stockout_prevention_alert":
+        return f"{context.get('urgency_label', 'Healthy')} - {context.get('depletion_window', 'Inventory stable')}"
     return f"{TYPE_META.get(recommendation_type, {}).get('label', recommendation_type)} • {recommendation.get('priority', '')}"
 
 
@@ -519,7 +535,15 @@ def render_type_specific_details(recommendation: pd.Series, context: dict) -> No
     elif recommendation_type == "reorder":
         st.write(f"Current stock: {context['current_stock']}")
         st.write(f"Threshold: {context['threshold']}")
+        st.write(f"Urgency: {context.get('urgency_label', '')}")
+        st.write(f"Depletion window: {context.get('depletion_window', '')}")
+        st.caption(context.get("depletion_tooltip", ""))
+        st.write(f"Risk score: {context.get('risk_score', 0):.0f}")
+        st.write(f"Demand trend: {context.get('demand_trend', '')}")
+        st.write(f"Confidence level: {context.get('confidence_level', '')}")
         st.write(f"Suggested reorder quantity: {context['suggested_quantity']}")
+        if context.get("suggested_transfer_branch"):
+            st.write(f"Transfer recommendation: Review stock from {context['suggested_transfer_branch']} first.")
         st.write(f"Priority: {recommendation.get('priority', '')}")
         st.write(f"Reason: {recommendation.get('reason', '')}")
         if context.get("supplier_name"):
@@ -534,6 +558,14 @@ def render_type_specific_details(recommendation: pd.Series, context: dict) -> No
         st.write("Expected benefit: Faster sell-through, lower expiry exposure, and less dead-stock buildup.")
     else:
         st.write(f"Risk type: {TYPE_META.get(recommendation_type, {}).get('label', recommendation_type)}")
+        if context.get("risk_score"):
+            st.write(f"Risk score: {context.get('risk_score', 0):.0f}")
+        if context.get("days_of_stock"):
+            st.write(f"Urgency: {context.get('urgency_label', '')}")
+            st.write(f"Depletion window: {context.get('depletion_window', '')}")
+            st.caption(context.get("depletion_tooltip", ""))
+        if context.get("demand_trend"):
+            st.write(f"Demand trend: {context.get('demand_trend', '')}")
         st.write(f"Risk reason: {recommendation.get('reason', '')}")
         st.write(f"Mitigation action: {recommendation.get('action', '')}")
 
@@ -682,7 +714,7 @@ def render_card_feedback(recommendation_id: str) -> None:
 def render_recommendation_execution_card(recommendation: pd.Series) -> None:
     recommendation_type = str(recommendation.get("recommendation_type", ""))
     recommendation_id = str(recommendation.get("recommendation_id", ""))
-    meta = TYPE_META.get(recommendation_type, {"icon": "•", "label": recommendation_type, "accent": "#475569"})
+    meta = TYPE_META.get(recommendation_type, {"icon": "•", "label": recommendation_type, "accent": "#183F5F"})
     context = build_recommendation_context(recommendation)
     current_status = str(recommendation.get("status", "pending")).lower()
     disabled = current_status in {"approved", "rejected"}
@@ -699,7 +731,7 @@ def render_recommendation_execution_card(recommendation: pd.Series) -> None:
                 f"<div class='recommendation-subtitle'>{store_name or 'No store scope'} • {recommendation_id}</div>"
                 "</div>"
                 "<div>"
-                f"{priority_badge(recommendation.get('priority', ''))}{status_badge(recommendation.get('status', 'pending'))}"
+                f"{urgency_badge(context.get('urgency_label', 'Healthy'))}{priority_badge(recommendation.get('priority', ''))}{status_badge(recommendation.get('status', 'pending'))}"
                 "</div>"
                 "</div>"
             ),
@@ -853,3 +885,4 @@ else:
 
     for _, recommendation in filtered_recommendations.iterrows():
         render_recommendation_execution_card(recommendation)
+

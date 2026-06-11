@@ -24,6 +24,7 @@ from backend.memory.learning_loop import (
 from backend.services.data_processor import build_processed_datasets
 from backend.services.agent_summary_service import generate_agent_card_summaries
 from backend.services.inventory_analyzer import build_inventory_analysis
+from backend.services.depletion_formatter import format_depletion_window
 from backend.services.recommendation_engine import (
     PROCESSED_DATA_DIR,
     RECOMMENDATION_COLUMNS,
@@ -79,6 +80,11 @@ ORCHESTRATOR_SUMMARY_COLUMNS = [
     "high_priority_alerts",
     "last_agent_run_time",
     "summary",
+    "highest_inventory_risk",
+    "branches_at_risk",
+    "predicted_stockout_windows",
+    "transfer_opportunities",
+    "procurement_urgency",
     "inventory_agent_seconds",
     "pricing_agent_seconds",
     "transfer_agent_seconds",
@@ -200,7 +206,11 @@ def _build_agent_outputs_df(state: AgentGraphState, run_time: str) -> pd.DataFra
         )
     if int(inventory_output.get("low_stock_count", 0)) > 0:
         inventory_insight_parts.append(
-            f"{inventory_output.get('low_stock_count', 0)} low stock items"
+            f"{inventory_output.get('low_stock_count', 0)} predictive inventory alerts"
+        )
+    if int(inventory_output.get("demand_spike_count", 0)) > 0:
+        inventory_insight_parts.append(
+            f"{inventory_output.get('demand_spike_count', 0)} demand spikes"
         )
     if int(inventory_output.get("stockout_risk_count", 0)) > 0:
         inventory_insight_parts.append(
@@ -260,7 +270,7 @@ def _build_orchestrator_summary_df(
     summary_parts = []
     if int(inventory_output.get("low_stock_count", 0)) > 0:
         summary_parts.append(
-            f"{inventory_output.get('low_stock_count', 0)} low stock items"
+            f"{inventory_output.get('low_stock_count', 0)} predictive depletion alerts"
         )
     if int(inventory_output.get("stockout_risk_count", 0)) > 0:
         summary_parts.append(
@@ -282,6 +292,46 @@ def _build_orchestrator_summary_df(
         if summary_parts
         else "Run agents to generate latest analysis."
     )
+    low_stock_df = state.get("inputs", {}).get("low_stock_items", pd.DataFrame())
+    highest_inventory_risk = "No major inventory risk stands out."
+    branches_at_risk = "No branch is currently concentrated in predictive risk."
+    predicted_stockout_windows = "No near-term stockout window detected."
+    transfer_opportunities = "No transfer opportunity is available from predictive alerts."
+    procurement_urgency = "No immediate procurement urgency detected."
+
+    if not low_stock_df.empty:
+        ranked = low_stock_df.copy()
+        if "risk_score" in ranked.columns:
+            ranked["_risk_score"] = pd.to_numeric(ranked["risk_score"], errors="coerce").fillna(0)
+            ranked = ranked.sort_values("_risk_score", ascending=False)
+        top = ranked.iloc[0]
+        highest_inventory_risk = (
+            f"{top.get('product_name', top.get('product_id', 'Product'))} at "
+            f"{top.get('store_name', top.get('store_id', 'branch'))}: risk score "
+            f"{top.get('risk_score', 0)}, {format_depletion_window(top.get('predicted_days_remaining', top.get('days_of_stock_remaining', 999))).lower()}."
+        )
+        if "store_name" in ranked.columns:
+            branch_counts = ranked["store_name"].fillna(ranked.get("store_id", "")).astype(str).value_counts()
+            if not branch_counts.empty:
+                branches_at_risk = f"{branch_counts.index[0]} has the highest alert concentration ({int(branch_counts.iloc[0])} rows)."
+        days_values = pd.to_numeric(
+            ranked.get("predicted_days_remaining", ranked.get("days_of_stock_remaining", pd.Series(dtype=float))),
+            errors="coerce",
+        ).dropna()
+        if not days_values.empty:
+            predicted_stockout_windows = f"Nearest predicted stockout window: {format_depletion_window(days_values.min())}."
+        transfer_rows = ranked[ranked.get("suggested_transfer_branch", pd.Series("", index=ranked.index)).fillna("").astype(str).str.strip().ne("")]
+        if not transfer_rows.empty:
+            transfer_top = transfer_rows.iloc[0]
+            transfer_opportunities = (
+                f"{transfer_top.get('suggested_transfer_branch')} can support "
+                f"{transfer_top.get('store_name', transfer_top.get('store_id', 'the target branch'))} for "
+                f"{transfer_top.get('product_name', transfer_top.get('product_id', 'a product'))}."
+            )
+        critical_count = int(
+            ranked.get("risk_category", pd.Series(dtype=object)).fillna("").astype(str).isin(["Critical", "High"]).sum()
+        )
+        procurement_urgency = f"{critical_count} high or critical predictive alerts need procurement or transfer review."
     high_priority_alerts = 0
     if "priority" in recommendations_df.columns:
         high_priority_alerts = int(
@@ -295,6 +345,11 @@ def _build_orchestrator_summary_df(
         "high_priority_alerts": high_priority_alerts,
         "last_agent_run_time": run_time,
         "summary": summary_text,
+        "highest_inventory_risk": highest_inventory_risk,
+        "branches_at_risk": branches_at_risk,
+        "predicted_stockout_windows": predicted_stockout_windows,
+        "transfer_opportunities": transfer_opportunities,
+        "procurement_urgency": procurement_urgency,
         "inventory_agent_seconds": float(state.get("inventory_agent_seconds", 0)),
         "pricing_agent_seconds": float(state.get("pricing_agent_seconds", 0)),
         "transfer_agent_seconds": float(state.get("transfer_agent_seconds", 0)),
@@ -371,6 +426,11 @@ def _inventory_agent_node(state: AgentGraphState) -> AgentGraphState:
         stockout_risk_items = inputs.get("stockout_risk_items", pd.DataFrame())
         overstock_items = inputs.get("overstock_items", pd.DataFrame())
         high_demand_items = inputs.get("high_demand_items", pd.DataFrame())
+        demand_spike_count = 0
+        if not low_stock_items.empty and "demand_spike" in low_stock_items.columns:
+            demand_spike_count = int(
+                low_stock_items["demand_spike"].fillna(False).astype(str).str.lower().isin(["true", "1"]).sum()
+            )
 
         finding_count = (
             int(len(low_stock_items))
@@ -386,6 +446,7 @@ def _inventory_agent_node(state: AgentGraphState) -> AgentGraphState:
             "stockout_risk_count": int(len(stockout_risk_items)),
             "overstock_count": int(len(overstock_items)),
             "high_demand_count": int(len(high_demand_items)),
+            "demand_spike_count": demand_spike_count,
             "tool_context": {
                 "inventory_rows": int(len(inputs.get("current_inventory", pd.DataFrame()))),
                 "low_stock_rows": int(len(low_stock_items)),

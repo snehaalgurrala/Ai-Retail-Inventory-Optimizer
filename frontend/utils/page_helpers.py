@@ -10,25 +10,26 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 from backend.utils.data_loader import load_all_data  # noqa: E402
+from frontend.components.theme import THEME_COLORS, apply_enterprise_theme  # noqa: E402
 
 
 CHART_COLORS = {
-    "blue": "#38bdf8",
-    "purple": "#a78bfa",
-    "orange": "#f59e0b",
-    "green": "#22c55e",
-    "red": "#ef4444",
+    "blue": THEME_COLORS["primary_navy"],
+    "purple": "#476C8B",
+    "orange": THEME_COLORS["warning_orange"],
+    "green": THEME_COLORS["fresh_green"],
+    "red": THEME_COLORS["risk_red"],
 }
 
 CHART_PALETTE = [
     CHART_COLORS["blue"],
-    CHART_COLORS["purple"],
-    CHART_COLORS["orange"],
     CHART_COLORS["green"],
-    "#14b8a6",
-    "#f472b6",
-    "#60a5fa",
-    "#c084fc",
+    CHART_COLORS["purple"],
+    THEME_COLORS["soft_green"],
+    "#7EA2BE",
+    CHART_COLORS["orange"],
+    "#8FB8D2",
+    CHART_COLORS["red"],
 ]
 
 CHART_GRID_COLOR = "rgba(127, 127, 127, 0.18)"
@@ -49,6 +50,7 @@ DASHBOARD_CSS = """
 
 def apply_page_style() -> None:
     """Apply light-touch component styling without changing Streamlit chrome."""
+    apply_enterprise_theme()
     st.markdown(DASHBOARD_CSS, unsafe_allow_html=True)
 
 
@@ -61,9 +63,15 @@ def render_section_header(icon: str, title: str, subtitle: str = "") -> None:
 
 def render_page_header(title: str, subtitle: str = "") -> None:
     """Compatibility wrapper for the shared page header component."""
-    from frontend.components.ui_components import render_page_header as component
-
-    component(title, subtitle)
+    st.markdown(
+        f"""
+        <div class="airio-page-header">
+          <div class="airio-page-header-title">{str(title)}</div>
+          <div class="airio-page-header-subtitle">{str(subtitle or "")}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_kpi_card(

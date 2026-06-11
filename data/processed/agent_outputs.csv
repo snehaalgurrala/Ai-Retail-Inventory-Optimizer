@@ -1,6 +1,6 @@
 run_time,agent_name,finding_count,priority_level,latest_insight
-2026-05-18T09:41:51,inventory_agent,57,high,15 high demand items. 7 low stock items. 3 stockout risks.
-2026-05-18T09:41:51,pricing_agent,65,high,Inventory coverage is high compared with recent sales velocity.
-2026-05-18T09:41:51,transfer_agent,13,medium,One store is below reorder point while another store has surplus stock.
-2026-05-18T09:41:51,risk_agent,44,high,Supplier reliability or delivery time crosses the configured risk threshold.
-2026-05-18T09:41:51,procurement_agent,7,high,Stock is below the reorder point after recent demand is considered.
+2026-06-02T15:53:32,inventory_agent,29,high,1 high demand items. 8 predictive inventory alerts. 2 stockout risks.
+2026-06-02T15:53:32,pricing_agent,60,high,Inventory coverage is high compared with recent sales velocity.
+2026-06-02T15:53:32,transfer_agent,15,medium,One store is below reorder point while another store has surplus stock.
+2026-06-02T15:53:32,risk_agent,29,high,Supplier reliability or delivery time crosses the configured risk threshold.
+2026-06-02T15:53:32,procurement_agent,8,high,Butter needs review because sales history is limited and stock is at or below its reorder point.

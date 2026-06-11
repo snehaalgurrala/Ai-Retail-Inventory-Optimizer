@@ -7,6 +7,11 @@ from typing import Any
 
 import pandas as pd
 
+from backend.services.depletion_formatter import (
+    depletion_urgency_label,
+    exact_depletion_tooltip,
+    format_depletion_window,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
@@ -199,7 +204,7 @@ def _write_report_log(row: dict[str, Any]) -> None:
 def _table_html(df: pd.DataFrame, columns: list[str], limit: int = 10) -> str:
     visible_columns = [column for column in columns if column in df.columns]
     if df.empty or not visible_columns:
-        return "<p style='margin:0;color:#64748b;'>No rows available for this section.</p>"
+        return "<p style='margin:0;color:#476C8B;'>No rows available for this section.</p>"
 
     header = "".join(f"<th>{escape(str(column).replace('_', ' ').title())}</th>" for column in visible_columns)
     rows = []
@@ -283,7 +288,7 @@ def _email_count(value: Any) -> str:
     return f"{int(value or 0):,}"
 
 
-def _email_badge(text: Any, color: str = "#2563eb", background: str = "#dbeafe") -> str:
+def _email_badge(text: Any, color: str = "#183F5F", background: str = "#EAF1F7") -> str:
     return (
         f"<span style='display:inline-block;padding:5px 10px;border-radius:999px;"
         f"font-size:11px;font-weight:700;color:{color};background:{background};'>"
@@ -301,9 +306,9 @@ def _email_dashboard_card(
     return f"""
     <td style="width:25%;padding:6px;vertical-align:top;">
       <div style="background:{background};border:1px solid rgba(15,23,42,0.08);border-left:5px solid {accent};border-radius:14px;padding:14px;min-height:112px;">
-        <div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.03em;">{escape(title)}</div>
-        <div style="font-size:28px;line-height:34px;font-weight:800;color:#0f172a;margin-top:8px;">{_email_count(count)}</div>
-        <div style="font-size:12px;line-height:17px;color:#475569;margin-top:6px;">{escape(insight)}</div>
+        <div style="font-size:12px;font-weight:700;color:#476C8B;text-transform:uppercase;letter-spacing:0.03em;">{escape(title)}</div>
+        <div style="font-size:28px;line-height:34px;font-weight:800;color:#0A1F33;margin-top:8px;">{_email_count(count)}</div>
+        <div style="font-size:12px;line-height:17px;color:#476C8B;margin-top:6px;">{escape(insight)}</div>
       </div>
     </td>
     """
@@ -319,12 +324,12 @@ def _email_table(
     visible_columns = [column for column in columns if column in df.columns]
     if df.empty or not visible_columns:
         return (
-            "<div style='background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;"
-            "padding:14px;color:#64748b;font-size:13px;'>No rows available for this section.</div>"
+            "<div style='background:#F5F8FB;border:1px dashed #D8E2EC;border-radius:12px;"
+            "padding:14px;color:#476C8B;font-size:13px;'>No rows available for this section.</div>"
         )
 
     header_cells = "".join(
-        f"<th style='padding:10px 9px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.03em;color:#475569;background:#f8fafc;border-bottom:1px solid #e2e8f0;'>{escape(labels.get(column, column.replace('_', ' ').title()))}</th>"
+        f"<th style='padding:10px 9px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.03em;color:#476C8B;background:#F5F8FB;border-bottom:1px solid #D8E2EC;'>{escape(labels.get(column, column.replace('_', ' ').title()))}</th>"
         for column in visible_columns
     )
     body_rows = []
@@ -332,23 +337,25 @@ def _email_table(
         cells = []
         for column in visible_columns:
             value = _clean_text(row.get(column))
-            if column == "priority":
+            if column in {"priority", "urgency_label"}:
                 priority = value.casefold()
                 color, background = {
-                    "high": ("#991b1b", "#fee2e2"),
+                    "critical": ("#991b1b", "#fee2e2"),
+                    "high": ("#9a3412", "#ffedd5"),
                     "medium": ("#92400e", "#fef3c7"),
-                    "low": ("#1d4ed8", "#dbeafe"),
-                }.get(priority, ("#334155", "#e2e8f0"))
+                    "low": ("#183F5F", "#EAF1F7"),
+                    "healthy": ("#166534", "#dcfce7"),
+                }.get(priority, ("#0A1F33", "#D8E2EC"))
                 value_html = _email_badge(value, color, background)
             else:
                 value_html = escape(value)
             cells.append(
-                f"<td style='padding:10px 9px;font-size:12px;line-height:17px;color:#0f172a;border-bottom:1px solid #edf2f7;vertical-align:top;'>{value_html}</td>"
+                f"<td style='padding:10px 9px;font-size:12px;line-height:17px;color:#0A1F33;border-bottom:1px solid #D8E2EC;vertical-align:top;'>{value_html}</td>"
             )
         body_rows.append(f"<tr>{''.join(cells)}</tr>")
 
     return f"""
-    <div style="overflow:hidden;border:1px solid #e2e8f0;border-radius:14px;background:#ffffff;">
+    <div style="overflow:hidden;border:1px solid #D8E2EC;border-radius:14px;background:#ffffff;">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;">
         <thead><tr>{header_cells}</tr></thead>
         <tbody>{''.join(body_rows)}</tbody>
@@ -359,9 +366,9 @@ def _email_table(
 
 def _email_section(title: str, subtitle: str, body: str) -> str:
     return f"""
-    <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;margin-top:16px;box-shadow:0 8px 22px rgba(15,23,42,0.05);">
-      <div style="font-size:17px;font-weight:800;color:#0f172a;margin-bottom:4px;">{escape(title)}</div>
-      <div style="font-size:12px;line-height:18px;color:#64748b;margin-bottom:12px;">{escape(subtitle)}</div>
+    <div style="background:#ffffff;border:1px solid #D8E2EC;border-radius:16px;padding:18px;margin-top:16px;box-shadow:0 8px 22px rgba(15,23,42,0.05);">
+      <div style="font-size:17px;font-weight:800;color:#0A1F33;margin-bottom:4px;">{escape(title)}</div>
+      <div style="font-size:12px;line-height:18px;color:#476C8B;margin-bottom:12px;">{escape(subtitle)}</div>
       {body}
     </div>
     """
@@ -407,21 +414,21 @@ def _agent_cards_html(report: dict[str, Any]) -> str:
         priority_color, priority_bg = {
             "high": ("#991b1b", "#fee2e2"),
             "medium": ("#92400e", "#fef3c7"),
-            "low": ("#1d4ed8", "#dbeafe"),
-        }.get(priority.casefold(), ("#334155", "#e2e8f0"))
+            "low": ("#183F5F", "#EAF1F7"),
+        }.get(priority.casefold(), ("#0A1F33", "#D8E2EC"))
         cards.append(
             f"""
-            <div style="border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin-top:10px;background:#fbfdff;">
+            <div style="border:1px solid #D8E2EC;border-radius:14px;padding:14px;margin-top:10px;background:#FFFFFF;">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td style="font-size:15px;font-weight:800;color:#0f172a;">{escape(label)}</td>
+                  <td style="font-size:15px;font-weight:800;color:#0A1F33;">{escape(label)}</td>
                   <td style="text-align:right;">{_email_badge(priority, priority_color, priority_bg)}</td>
                 </tr>
               </table>
-              <div style="font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:10px;">Latest Insight</div>
-              <div style="font-size:13px;line-height:19px;color:#0f172a;margin-top:3px;">{escape(insight or 'No agent output is available; using inventory fallback logic.')}</div>
-              <div style="font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:10px;">Recommendation</div>
-              <div style="font-size:13px;line-height:19px;color:#0f172a;margin-top:3px;">{escape(_agent_recommendation(agent_name, recommendations))}</div>
+              <div style="font-size:12px;font-weight:700;color:#476C8B;text-transform:uppercase;margin-top:10px;">Latest Insight</div>
+              <div style="font-size:13px;line-height:19px;color:#0A1F33;margin-top:3px;">{escape(insight or 'No agent output is available; using inventory fallback logic.')}</div>
+              <div style="font-size:12px;font-weight:700;color:#476C8B;text-transform:uppercase;margin-top:10px;">Recommendation</div>
+              <div style="font-size:13px;line-height:19px;color:#0A1F33;margin-top:3px;">{escape(_agent_recommendation(agent_name, recommendations))}</div>
             </div>
             """
         )
@@ -445,22 +452,35 @@ def build_inventory_report_email_html(report: dict[str, Any]) -> str:
     kpi_cards = f"""
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
       <tr>
-        {_email_dashboard_card("Low Stock Items", low_count, low_insight, "#dc2626", "#fff7f7")}
-        {_email_dashboard_card("Overstock Items", over_count, over_insight, "#d97706", "#fffbeb")}
-        {_email_dashboard_card("Transfer Opportunities", transfer_count, transfer_insight, "#0f766e", "#ecfdf5")}
-        {_email_dashboard_card("High Priority", high_count, high_insight, "#2563eb", "#eff6ff")}
+        {_email_dashboard_card("Low Stock Items", low_count, low_insight, "#B42318", "#FFF1F2")}
+        {_email_dashboard_card("Overstock Items", over_count, over_insight, "#C76A12", "#FFF7E8")}
+        {_email_dashboard_card("Transfer Opportunities", transfer_count, transfer_insight, "#6CB33F", "#F2FAEA")}
+        {_email_dashboard_card("High Priority", high_count, high_insight, "#183F5F", "#EAF1F7")}
       </tr>
     </table>
     """
 
     low_stock_table = _email_table(
         report.get("low_stock_table", pd.DataFrame()),
-        ["product_name", "store_name", "stock_level", "reorder_threshold", "suggested_reorder_quantity", "priority"],
+        [
+            "product_name",
+            "store_name",
+            "stock_level",
+            "reorder_threshold",
+            "urgency_label",
+            "depletion_window",
+            "depletion_tooltip",
+            "suggested_reorder_quantity",
+            "priority",
+        ],
         {
             "product_name": "Product",
             "store_name": "Branch",
             "stock_level": "Qty",
             "reorder_threshold": "Threshold",
+            "urgency_label": "Urgency",
+            "depletion_window": "Depletion Window",
+            "depletion_tooltip": "Exact Estimate",
             "suggested_reorder_quantity": "Suggested Reorder",
         },
         limit=7,
@@ -501,34 +521,34 @@ def build_inventory_report_email_html(report: dict[str, Any]) -> str:
 
     return f"""
     <html>
-      <body style="margin:0;padding:0;background:#eef3f8;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+      <body style="margin:0;padding:0;background:#F5F8FB;font-family:Arial,Helvetica,sans-serif;color:#0A1F33;">
         <div style="display:none;max-height:0;overflow:hidden;">Inventory dashboard report with PDF and CSV attachments.</div>
         <div style="max-width:920px;margin:0 auto;padding:28px 18px;">
-          <div style="background:#0f172a;border-radius:22px 22px 10px 10px;padding:28px;color:#ffffff;">
-            <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#93c5fd;">AI Retail Inventory Optimizer</div>
+          <div style="background:#183F5F;border-radius:22px 22px 10px 10px;padding:28px;color:#ffffff;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#A6D96A;">AI Retail Inventory Optimizer</div>
             <div style="font-size:28px;line-height:35px;font-weight:800;margin-top:8px;">AI Retail Inventory Intelligence Report</div>
-            <div style="font-size:14px;line-height:21px;color:#dbeafe;margin-top:10px;">A manager-ready stock view with low-stock risk, overstock optimization, transfer opportunities, and AI agent recommendations.</div>
+            <div style="font-size:14px;line-height:21px;color:#EAF1F7;margin-top:10px;">A manager-ready stock view with low-stock risk, overstock optimization, transfer opportunities, and AI agent recommendations.</div>
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;border-collapse:collapse;">
               <tr>
-                <td style="padding:9px 12px;background:rgba(255,255,255,0.08);border-radius:12px;font-size:12px;color:#e2e8f0;">
+                <td style="padding:9px 12px;background:rgba(255,255,255,0.10);border-radius:12px;font-size:12px;color:#EAF1F7;">
                   <strong style="color:#ffffff;">Branch:</strong> {escape(str(report.get('branch_label', 'All Branches')))}
                 </td>
-                <td style="padding:9px 12px;background:rgba(255,255,255,0.08);border-radius:12px;font-size:12px;color:#e2e8f0;">
+                <td style="padding:9px 12px;background:rgba(255,255,255,0.10);border-radius:12px;font-size:12px;color:#EAF1F7;">
                   <strong style="color:#ffffff;">Generated:</strong> {escape(generated_at)}
                 </td>
-                <td style="padding:9px 12px;background:rgba(255,255,255,0.08);border-radius:12px;font-size:12px;color:#e2e8f0;">
+                <td style="padding:9px 12px;background:rgba(255,255,255,0.10);border-radius:12px;font-size:12px;color:#EAF1F7;">
                   <strong style="color:#ffffff;">Range:</strong> {escape(str(report.get('date_range_label', 'Latest snapshot')))}
                 </td>
               </tr>
             </table>
           </div>
 
-          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:0 0 18px 18px;padding:20px;box-shadow:0 14px 36px rgba(15,23,42,0.10);">
-            <div style="font-size:14px;line-height:21px;color:#334155;margin-bottom:16px;">
+          <div style="background:#FFFFFF;border:1px solid #D8E2EC;border-radius:0 0 18px 18px;padding:20px;box-shadow:0 14px 36px rgba(10,31,51,0.10);">
+            <div style="font-size:14px;line-height:21px;color:#0A1F33;margin-bottom:16px;">
               Hello Inventory Manager, this visual report summarizes the latest inventory intelligence. The full visual PDF and filtered inventory CSV are attached for offline review.
             </div>
             {kpi_cards}
-            <div style="font-size:12px;line-height:18px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-top:14px;">
+            <div style="font-size:12px;line-height:18px;color:#476C8B;background:#F5F8FB;border:1px solid #D8E2EC;border-radius:12px;padding:12px;margin-top:14px;">
               {escape(str(report.get('snapshot_note', 'Inventory report is based on the latest stock snapshot.')))} Charts are included in the attached PDF.
             </div>
 
@@ -538,12 +558,12 @@ def build_inventory_report_email_html(report: dict[str, Any]) -> str:
             {_email_section("Branch-wise Recommendations", "Latest branch-filtered AI recommendation queue.", branch_recs)}
             {_email_section("AI Agent Recommendations", "Five specialist agent perspectives for the selected inventory scope.", _agent_cards_html(report))}
 
-            <div style="margin-top:18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:15px;">
-              <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:6px;">Attachments Included</div>
-              <div style="font-size:13px;line-height:20px;color:#334155;">1. Visual PDF executive report<br>2. Filtered inventory CSV data</div>
+            <div style="margin-top:18px;background:#F5F8FB;border:1px solid #D8E2EC;border-radius:14px;padding:15px;">
+              <div style="font-size:13px;font-weight:800;color:#0A1F33;margin-bottom:6px;">Attachments Included</div>
+              <div style="font-size:13px;line-height:20px;color:#0A1F33;">1. Visual PDF executive report<br>2. Filtered inventory CSV data</div>
             </div>
 
-            <div style="font-size:12px;line-height:18px;color:#64748b;text-align:center;margin-top:22px;">
+            <div style="font-size:12px;line-height:18px;color:#476C8B;text-align:center;margin-top:22px;">
               This report was generated automatically by AI Retail Inventory Optimizer.
             </div>
           </div>
@@ -661,26 +681,26 @@ def _email_shell(title: str, subtitle: str, cards: str, sections: str) -> str:
     <html>
       <head>
         <style>
-          body {{ margin:0; padding:0; background:#f4f7fb; color:#0f172a; font-family:Arial, Helvetica, sans-serif; }}
+          body {{ margin:0; padding:0; background:#F5F8FB; color:#0A1F33; font-family:Arial, Helvetica, sans-serif; }}
           .wrap {{ max-width:980px; margin:0 auto; padding:26px; }}
-          .hero {{ background:linear-gradient(135deg,#0f766e,#2563eb); border-radius:18px 18px 8px 8px; padding:28px; color:#ffffff; }}
+          .hero {{ background:linear-gradient(135deg,#6CB33F,#183F5F); border-radius:18px 18px 8px 8px; padding:28px; color:#ffffff; }}
           .hero h1 {{ margin:0 0 8px; font-size:26px; }}
           .hero p {{ margin:0; opacity:0.92; font-size:14px; }}
-          .panel {{ background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:20px; margin-top:14px; box-shadow:0 10px 28px rgba(15,23,42,0.08); }}
+          .panel {{ background:#ffffff; border:1px solid #D8E2EC; border-radius:8px; padding:20px; margin-top:14px; box-shadow:0 10px 28px rgba(15,23,42,0.08); }}
           .cards {{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px; }}
-          .metric {{ background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; }}
-          .metric-label {{ color:#64748b; font-size:12px; text-transform:uppercase; font-weight:700; }}
+          .metric {{ background:#F5F8FB; border:1px solid #D8E2EC; border-radius:8px; padding:14px; }}
+          .metric-label {{ color:#476C8B; font-size:12px; text-transform:uppercase; font-weight:700; }}
           .metric-value {{ margin-top:5px; font-size:20px; font-weight:800; }}
           h2 {{ margin:0 0 12px; font-size:18px; }}
           .section {{ margin-top:20px; }}
           .report-table {{ width:100%; border-collapse:collapse; font-size:13px; }}
-          .report-table th {{ background:#eff6ff; color:#1e3a8a; text-align:left; padding:10px; border:1px solid #dbeafe; }}
+          .report-table th {{ background:#EAF1F7; color:#183F5F; text-align:left; padding:10px; border:1px solid #EAF1F7; }}
           .report-table td {{ padding:10px; border:1px solid #e5e7eb; vertical-align:top; }}
           .badge {{ display:inline-block; padding:4px 9px; border-radius:999px; color:#ffffff; font-weight:700; font-size:12px; }}
           .badge-red {{ background:#dc2626; }}
           .badge-amber {{ background:#d97706; }}
-          .badge-blue {{ background:#2563eb; }}
-          .footer {{ text-align:center; color:#64748b; font-size:12px; padding:20px 0 4px; }}
+          .badge-blue {{ background:#183F5F; }}
+          .footer {{ text-align:center; color:#476C8B; font-size:12px; padding:20px 0 4px; }}
           @media (max-width:720px) {{ .cards {{ display:block; }} .metric {{ margin-bottom:10px; }} }}
         </style>
       </head>
@@ -727,10 +747,10 @@ def build_inventory_report_html(report: dict[str, Any]) -> str:
     )
     sections = "".join(
         [
-            _section("Snapshot Note", f"<p style='margin:0;line-height:1.6;color:#475569;'>{escape(report['snapshot_note'])}</p>"),
+            _section("Snapshot Note", f"<p style='margin:0;line-height:1.6;color:#476C8B;'>{escape(report['snapshot_note'])}</p>"),
             _section("Category-wise Inventory Summary", _table_html(report["category_summary"], ["category", "stock_level"])),
-            _section("Store-wise Inventory Summary", _table_html(report["store_summary"], ["store_name", "city", "stock_level"]) if report["include_store_summary"] else "<p style='margin:0;color:#64748b;'>Single branch selected.</p>"),
-            _section("Low Stock Items", _table_html(report["low_stock_table"], ["product_name", "store_name", "stock_level", "reorder_threshold", "shortage_quantity", "suggested_reorder_quantity", "priority", "ai_recommendation"])),
+            _section("Store-wise Inventory Summary", _table_html(report["store_summary"], ["store_name", "city", "stock_level"]) if report["include_store_summary"] else "<p style='margin:0;color:#476C8B;'>Single branch selected.</p>"),
+            _section("Low Stock Items", _table_html(report["low_stock_table"], ["product_name", "store_name", "stock_level", "reorder_threshold", "urgency_label", "depletion_window", "depletion_tooltip", "shortage_quantity", "suggested_reorder_quantity", "priority", "ai_recommendation"])),
             _section("Overstock Items", _table_html(report["overstock_table"], ["product_name", "store_name", "stock_level", "reorder_threshold", "surplus_quantity", "suggested_action"])),
             _section("Transfer / Alternative Availability", _table_html(report["transfer_opportunities"], ["product", "source_branch", "target_branch", "suggested_transfer_quantity", "alternative_product", "reason"])),
             _section("Branch-wise Recommendations", _table_html(report["branch_recommendations"], ["store_name", "source_agent", "priority", "recommendation_type", "product_name", "action"], limit=12)),
@@ -757,7 +777,7 @@ def build_sales_report_html(report: dict[str, Any]) -> str:
             _section("Top Selling Products", _table_html(report["top_selling"], ["product_name", "category", "quantity_sold", "revenue"])),
             _section("Least Selling Products", _table_html(report["least_selling"], ["product_name", "category", "quantity_sold", "revenue"])),
             _section("Category-wise Sales Summary", _table_html(report["category_summary"], ["category", "quantity_sold", "revenue"])),
-            _section("Branch-wise Sales Summary", _table_html(report["branch_summary"], ["store_name", "city", "quantity_sold", "revenue"]) if report["include_branch_summary"] else "<p style='margin:0;color:#64748b;'>Single branch selected.</p>"),
+            _section("Branch-wise Sales Summary", _table_html(report["branch_summary"], ["store_name", "city", "quantity_sold", "revenue"]) if report["include_branch_summary"] else "<p style='margin:0;color:#476C8B;'>Single branch selected.</p>"),
             _section("Sales Trend Summary", _table_html(report["trend_summary"], ["date", "quantity_sold", "revenue"], limit=12)),
             _section("AI Insight", f"<p style='margin:0;line-height:1.6;'>{escape(report['ai_insight'])}</p>"),
         ]
@@ -805,14 +825,51 @@ def generate_inventory_report(branch_filter, start_date, end_date) -> dict[str, 
         enriched["inventory_value"] = 0
 
     low_stock = enriched[(thresholds > 0) & (stock <= thresholds)].copy()
+    processed_low_stock = data.get("low_stock", pd.DataFrame()).copy()
+    if not processed_low_stock.empty and {"product_id", "store_id"}.issubset(processed_low_stock.columns):
+        display_columns = [
+            column
+            for column in [
+                "product_id",
+                "store_id",
+                "predicted_days_remaining",
+                "depletion_window",
+                "urgency_label",
+                "depletion_tooltip",
+                "risk_score",
+                "demand_trend",
+                "ai_alert_message",
+            ]
+            if column in processed_low_stock.columns
+        ]
+        low_stock = low_stock.merge(
+            processed_low_stock[display_columns].drop_duplicates(["product_id", "store_id"]),
+            on=["product_id", "store_id"],
+            how="left",
+        )
+    days_source = low_stock["predicted_days_remaining"] if "predicted_days_remaining" in low_stock.columns else pd.Series(999, index=low_stock.index)
+    days = pd.to_numeric(days_source, errors="coerce").fillna(999)
+    low_stock["depletion_window"] = low_stock.get("depletion_window", days.map(format_depletion_window)).fillna(
+        days.map(format_depletion_window)
+    )
+    low_stock["urgency_label"] = low_stock.get("urgency_label", days.map(depletion_urgency_label)).fillna(
+        days.map(depletion_urgency_label)
+    )
+    low_stock["depletion_tooltip"] = low_stock.get("depletion_tooltip", days.map(exact_depletion_tooltip)).fillna(
+        days.map(exact_depletion_tooltip)
+    )
     low_stock["shortage_quantity"] = (low_stock["reorder_threshold"] - low_stock["stock_level"]).clip(lower=0).round().astype(int)
     low_stock["suggested_reorder_quantity"] = (low_stock["shortage_quantity"] + low_stock["reorder_threshold"]).round().astype(int)
     low_stock["priority"] = low_stock["shortage_quantity"].map(lambda value: "High" if value >= 10 else "Medium")
     low_stock["ai_recommendation"] = low_stock.apply(
         lambda row: (
-            f"Reorder {int(row.get('suggested_reorder_quantity', 0))} units for "
-            f"{row.get('product_name', row.get('product_id', 'this product'))} at "
-            f"{row.get('store_name', row.get('store_id', 'this branch'))}."
+            str(row.get("ai_alert_message") or "").strip()
+            or (
+                f"Reorder {int(row.get('suggested_reorder_quantity', 0))} units for "
+                f"{row.get('product_name', row.get('product_id', 'this product'))} at "
+                f"{row.get('store_name', row.get('store_id', 'this branch'))}; "
+                f"{row.get('depletion_window', 'inventory needs review').lower()}."
+            )
         ),
         axis=1,
     )
@@ -1014,3 +1071,4 @@ def generate_sales_report(branch_filter, start_date, end_date) -> dict[str, Any]
     }
     report["html"] = build_sales_report_html(report)
     return report
+

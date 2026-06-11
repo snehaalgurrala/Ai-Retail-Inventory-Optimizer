@@ -1,7 +1,14 @@
-from math import ceil
 from pathlib import Path
 
 import pandas as pd
+
+from backend.services.inventory_prediction_service import (
+    DEPLETION_ALERT_DAYS,
+    DEFAULT_SUPPLIER_LEAD_DAYS,
+    DEMAND_SPIKE_PERCENT,
+    SAFETY_FACTOR,
+    get_predictive_inventory_alerts,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -23,40 +30,6 @@ def _safe_read_csv(path: Path) -> pd.DataFrame:
         return pd.read_csv(path)
     except Exception:
         return pd.DataFrame()
-
-
-def _sales_velocity_lookup(sales_df: pd.DataFrame) -> pd.DataFrame:
-    """Build recent per-product-per-store sales velocity for reorder suggestions."""
-    if sales_df.empty or not {"date", "product_id", "store_id", "quantity_sold"}.issubset(
-        sales_df.columns
-    ):
-        return pd.DataFrame(columns=["product_id", "store_id", "recent_daily_sales_velocity"])
-
-    sales_view = sales_df.copy()
-    sales_view["date"] = pd.to_datetime(sales_view["date"], errors="coerce")
-    sales_view["quantity_sold"] = pd.to_numeric(
-        sales_view["quantity_sold"], errors="coerce"
-    ).fillna(0)
-    sales_view = sales_view.dropna(subset=["date"])
-    if sales_view.empty:
-        return pd.DataFrame(columns=["product_id", "store_id", "recent_daily_sales_velocity"])
-
-    latest_date = sales_view["date"].max()
-    recent_sales = sales_view[
-        sales_view["date"] >= latest_date - pd.Timedelta(days=30)
-    ].copy()
-    if recent_sales.empty:
-        return pd.DataFrame(columns=["product_id", "store_id", "recent_daily_sales_velocity"])
-
-    velocity = (
-        recent_sales.groupby(["product_id", "store_id"], as_index=False)["quantity_sold"]
-        .sum()
-        .rename(columns={"quantity_sold": "recent_30_day_quantity_sold"})
-    )
-    velocity["recent_daily_sales_velocity"] = (
-        pd.to_numeric(velocity["recent_30_day_quantity_sold"], errors="coerce").fillna(0) / 30
-    )
-    return velocity[["product_id", "store_id", "recent_daily_sales_velocity"]]
 
 
 def calculate_priority(current_quantity: float, reorder_threshold: float) -> str:
@@ -96,7 +69,7 @@ def suggest_reorder_quantity(
 
 
 def get_low_stock_items(save_output: bool = True) -> pd.DataFrame:
-    """Return product-store rows where current stock is at or below threshold."""
+    """Return predictive product-store inventory alerts with threshold fallback."""
     inventory_df = _safe_read_csv(INVENTORY_PATH)
     products_df = _safe_read_csv(PRODUCTS_PATH)
     stores_df = _safe_read_csv(STORES_PATH)
@@ -107,59 +80,19 @@ def get_low_stock_items(save_output: bool = True) -> pd.DataFrame:
     if inventory_df.empty or not required_inventory_columns.issubset(inventory_df.columns):
         return pd.DataFrame()
 
-    inventory_view = inventory_df.copy()
-    inventory_view["stock_level"] = pd.to_numeric(
-        inventory_view["stock_level"], errors="coerce"
-    ).fillna(0)
-
-    if "reorder_threshold" in inventory_view.columns:
-        inventory_view["inventory_reorder_threshold"] = pd.to_numeric(
-            inventory_view["reorder_threshold"], errors="coerce"
-        ).fillna(0)
-        inventory_view = inventory_view.drop(columns=["reorder_threshold"])
-    else:
-        inventory_view["inventory_reorder_threshold"] = 0
-
-    if not products_df.empty:
-        products_view = products_df.copy()
-        if "reorder_threshold" in products_view.columns:
-            products_view["product_reorder_threshold"] = pd.to_numeric(
-                products_view["reorder_threshold"], errors="coerce"
-            ).fillna(0)
-            products_view = products_view.drop(columns=["reorder_threshold"])
-        inventory_view = inventory_view.merge(products_view, on="product_id", how="left")
-
-    if not stores_df.empty:
-        inventory_view = inventory_view.merge(stores_df, on="store_id", how="left")
-
-    if not suppliers_df.empty and "supplier_id" in inventory_view.columns:
-        inventory_view = inventory_view.merge(suppliers_df, on="supplier_id", how="left")
-
-    velocity_lookup = _sales_velocity_lookup(sales_df)
-    if not velocity_lookup.empty:
-        inventory_view = inventory_view.merge(
-            velocity_lookup,
-            on=["product_id", "store_id"],
-            how="left",
-        )
-
-    inventory_view["current_quantity"] = pd.to_numeric(
-        inventory_view["stock_level"], errors="coerce"
-    ).fillna(0)
-    inventory_view["reorder_threshold"] = pd.to_numeric(
-        inventory_view.get("inventory_reorder_threshold", 0), errors="coerce"
-    ).fillna(0)
-    if "product_reorder_threshold" in inventory_view.columns:
-        inventory_view["reorder_threshold"] = inventory_view["reorder_threshold"].where(
-            inventory_view["reorder_threshold"] > 0,
-            pd.to_numeric(
-                inventory_view["product_reorder_threshold"], errors="coerce"
-            ).fillna(0),
-        )
-
-    low_stock_df = inventory_view[
-        inventory_view["current_quantity"] <= inventory_view["reorder_threshold"]
-    ].copy()
+    low_stock_df = get_predictive_inventory_alerts(
+        inventory_df,
+        products_df,
+        stores_df,
+        sales_df,
+        suppliers_df,
+        config={
+            "depletion_alert_days": DEPLETION_ALERT_DAYS,
+            "demand_spike_percent": DEMAND_SPIKE_PERCENT,
+            "safety_factor": SAFETY_FACTOR,
+            "default_supplier_lead_days": DEFAULT_SUPPLIER_LEAD_DAYS,
+        },
+    )
 
     if low_stock_df.empty:
         if save_output:
@@ -180,6 +113,19 @@ def get_low_stock_items(save_output: bool = True) -> pd.DataFrame:
                     "suggested_reorder_quantity",
                     "recent_daily_sales_velocity",
                     "priority",
+                    "avg_daily_sales",
+                    "predicted_days_remaining",
+                    "demand_trend",
+                    "risk_score",
+                    "risk_category",
+                    "confidence_level",
+                    "suggested_reorder_qty",
+                    "suggested_transfer_branch",
+                    "alert_reason",
+                    "ai_alert_message",
+                    "depletion_window",
+                    "urgency_label",
+                    "depletion_tooltip",
                 ]
             ).to_csv(LOW_STOCK_OUTPUT_PATH, index=False)
         return low_stock_df
@@ -191,29 +137,17 @@ def get_low_stock_items(save_output: bool = True) -> pd.DataFrame:
     low_stock_df["recent_daily_sales_velocity"] = pd.to_numeric(
         low_stock_df.get("recent_daily_sales_velocity", 0), errors="coerce"
     ).fillna(0)
-    low_stock_df["suggested_reorder_quantity"] = low_stock_df.apply(
-        lambda row: suggest_reorder_quantity(
-            row.get("current_quantity", 0),
-            row.get("reorder_threshold", 0),
-            row.get("recent_daily_sales_velocity", 0),
-        ),
-        axis=1,
-    )
-    low_stock_df["priority"] = low_stock_df.apply(
-        lambda row: calculate_priority(
-            row.get("current_quantity", 0),
-            row.get("reorder_threshold", 0),
-        ),
-        axis=1,
-    )
+    low_stock_df["priority"] = low_stock_df["risk_category"].map(
+        {"Critical": "High", "High": "High", "Medium": "Medium", "Healthy": "Low"}
+    ).fillna("Medium")
 
     priority_rank = {"High": 0, "Medium": 1, "Low": 2}
     low_stock_df["_priority_rank"] = (
         low_stock_df["priority"].map(priority_rank).fillna(3)
     )
     low_stock_df = low_stock_df.sort_values(
-        ["_priority_rank", "shortage_quantity", "current_quantity"],
-        ascending=[True, False, True],
+        ["_priority_rank", "predicted_days_remaining", "risk_score"],
+        ascending=[True, True, False],
     )
 
     preferred_columns = [
@@ -231,6 +165,26 @@ def get_low_stock_items(save_output: bool = True) -> pd.DataFrame:
         "suggested_reorder_quantity",
         "recent_daily_sales_velocity",
         "priority",
+        "avg_daily_sales",
+        "moving_avg_daily_sales",
+        "predicted_days_remaining",
+        "demand_trend",
+        "demand_spike",
+        "risk_score",
+        "risk_category",
+        "confidence_level",
+        "suggested_reorder_qty",
+        "supplier_lead_time_days",
+        "suggested_transfer_branch",
+        "suggested_transfer_branch_id",
+        "suggested_transfer_qty",
+        "transfer_recommendation",
+        "alert_reason",
+        "ai_alert_message",
+        "depletion_window",
+        "urgency_label",
+        "depletion_tooltip",
+        "fallback_threshold_alert",
     ]
     available_columns = [column for column in preferred_columns if column in low_stock_df.columns]
     low_stock_df = low_stock_df[available_columns].reset_index(drop=True)

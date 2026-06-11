@@ -8,3 +8,4 @@ MEMDEC000006,2026-04-27T14:34:59,REC00109,reorder,P102,Bread,S3,approved,procure
 MEMDEC000007,2026-04-27T14:35:10,REC00110,reorder,P107,Soft Drink 1L,S1,approved,procurement_agent
 MEMDEC000008,2026-04-27T14:35:21,REC00111,reorder,P109,Curd,S3,approved,procurement_agent
 MEMDEC000009,2026-04-27T14:35:30,REC00112,reorder,P111,Cheese,S3,approved,procurement_agent
+MEMDEC000010,2026-05-28T15:38:25,REC00002,discount,P102,Bread,S2,approved,pricing_agent
