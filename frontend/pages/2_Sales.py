@@ -28,8 +28,11 @@ from frontend.utils.page_helpers import (  # noqa: E402
     CHART_PALETTE,
     apply_chart_theme,
     apply_page_style,
+    clean_display_df,
     load_data_or_stop,
+    render_ai_insight_panel,
     render_chart_card,
+    render_kpi_card,
     render_page_header,
     style_bar_chart,
     style_donut_chart,
@@ -71,29 +74,22 @@ def build_sales_view(
 
 
 def money(value: float) -> str:
-    return f"{float(value):,.0f}"
-
-
-def compact(value: str, max_len: int = 28) -> str:
-    value = str(value or "")
-    return value if len(value) <= max_len else f"{value[: max_len - 1]}..."
+    return f"${float(value):,.0f}"
 
 
 def render_sales_kpis(metrics: dict) -> None:
     cards = [
-        ("Total Sales", money(metrics["total_sales"]), "Revenue from filtered sales"),
-        ("Total Orders", f"{int(metrics['total_orders']):,}", "Distinct sales records"),
-        ("Top Selling Product", compact(metrics["top_product"]), "By units sold"),
-        ("Least Selling Product", compact(metrics["least_product"]), "Lowest unit movement"),
-        ("Revenue Trend", metrics["revenue_trend"], "Recent vs early period"),
-        ("Fastest Moving Product", compact(metrics["fastest_moving_product"]), "Recent velocity leader"),
+        ("Total Sales", money(metrics["total_sales"]), "Revenue from filtered sales", "blue", "💰"),
+        ("Total Orders", f"{int(metrics['total_orders']):,}", "Distinct sales records", "purple", "🧾"),
+        ("Top Selling Product", str(metrics["top_product"]), "By units sold", "green", "🏆"),
+        ("Least Selling Product", str(metrics["least_product"]), "Lowest unit movement", "orange", "🐢"),
+        ("Revenue Trend", str(metrics["revenue_trend"]), "Recent vs early period", "blue", "📈"),
+        ("Fastest Moving Product", str(metrics["fastest_moving_product"]), "Recent velocity leader", "green", "⚡"),
     ]
     columns = st.columns(6, gap="small")
-    for column, (label, value, note) in zip(columns, cards):
+    for column, (label, value, note, color, icon) in zip(columns, cards):
         with column:
-            with st.container(border=True):
-                st.metric(label, value)
-                st.caption(note)
+            render_kpi_card(label, value, note, color, icon=icon)
 
 
 def make_branch_bar(branch_df: pd.DataFrame):
@@ -107,7 +103,7 @@ def make_branch_bar(branch_df: pd.DataFrame):
         text="sales_value",
         labels={"branch_label": "Branch", "sales_value": "Total Sales"},
     )
-    chart.update_traces(texttemplate="%{text:,.0f}", textposition="outside")
+    chart.update_traces(texttemplate="$%{text:,.0f}", textposition="outside")
     return style_bar_chart(chart, "blue")
 
 
@@ -149,7 +145,7 @@ def make_category_chart(category_df: pd.DataFrame):
         color_discrete_sequence=CHART_PALETTE,
     )
     chart = style_donut_chart(chart)
-    chart.update_traces(hovertemplate="<b>%{label}</b><br>Sales: %{value:,.0f}<extra></extra>")
+    chart.update_traces(hovertemplate="<b>%{label}</b><br>Sales: $%{value:,.0f}<extra></extra>")
     return chart
 
 
@@ -173,8 +169,8 @@ apply_page_style()
 apply_sales_styles()
 
 render_page_header(
-    "Sales Analytics",
-    "Branch-wise sales performance, product movement, category mix, and inventory pressure from sales.csv.",
+    "💹 Sales Intelligence Center",
+    "Branch-wise revenue performance, product movement, category mix, and inventory pressure — with executive AI insights.",
 )
 
 data = load_data_or_stop()
@@ -324,7 +320,7 @@ else:
                 "top_product_units": "Top Product Units",
                 "low_stock_risk": "Low Stock Risk",
             }
-        ),
+        ).pipe(clean_display_df),
         use_container_width=True,
         hide_index=True,
     )
@@ -363,8 +359,7 @@ st.divider()
 
 st.subheader("AI Insights")
 insights = generate_sales_insights(filtered_sales, sales_view, comparison_df)
-for insight in insights:
-    st.info(insight)
+render_ai_insight_panel(insights, title="Sales Intelligence Insights", icon="💹")
 
 with st.expander("Filtered sales records"):
-    st.dataframe(filtered_sales, use_container_width=True, hide_index=True)
+    st.dataframe(clean_display_df(filtered_sales), use_container_width=True, hide_index=True)

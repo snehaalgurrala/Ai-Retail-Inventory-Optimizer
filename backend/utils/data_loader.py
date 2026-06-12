@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from backend.db import repository
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
@@ -90,7 +92,7 @@ def _load_csv(dataset_name: str) -> pd.DataFrame:
     if not file_path.exists():
         raise FileNotFoundError(f"Missing data file: {file_path}")
 
-    df = pd.read_csv(file_path)
+    df = repository.load_raw(dataset_name)
 
     missing_columns = [
         column

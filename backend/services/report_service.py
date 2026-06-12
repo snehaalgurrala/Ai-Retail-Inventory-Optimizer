@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime
 from html import escape
 from pathlib import Path
@@ -7,11 +8,15 @@ from typing import Any
 
 import pandas as pd
 
+from backend.db import repository
+from backend.db.config import get_data_backend
 from backend.services.depletion_formatter import (
     depletion_urgency_label,
     exact_depletion_tooltip,
     format_depletion_window,
 )
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
@@ -37,18 +42,44 @@ def _read_csv(path: Path) -> pd.DataFrame:
 
 
 def _load_report_data() -> dict[str, pd.DataFrame]:
+    """Load every dataset the reports need through the data repository.
+
+    All reads route through ``backend.db.repository`` so that when
+    ``DATA_BACKEND=oracle`` the raw tables (inventory, sales, products, stores,
+    suppliers) come straight from the Bunzl Oracle schema instead of the legacy
+    on-disk retail CSVs that this module used to read directly. ``safe=True``
+    keeps the email flow resilient: a missing optional processed dataset yields
+    an empty frame instead of raising, matching the old ``_read_csv`` behavior.
+    """
     return {
-        "inventory": _read_csv(RAW_DATA_DIR / "inventory.csv"),
-        "sales": _read_csv(RAW_DATA_DIR / "sales.csv"),
-        "products": _read_csv(RAW_DATA_DIR / "products.csv"),
-        "stores": _read_csv(RAW_DATA_DIR / "stores.csv"),
-        "suppliers": _read_csv(RAW_DATA_DIR / "suppliers.csv"),
-        "recommendations": _read_csv(PROCESSED_DATA_DIR / "recommendations.csv"),
-        "agent_outputs": _read_csv(PROCESSED_DATA_DIR / "agent_outputs.csv"),
-        "orchestrator_summary": _read_csv(PROCESSED_DATA_DIR / "orchestrator_summary.csv"),
-        "overstock": _read_csv(PROCESSED_DATA_DIR / "overstock_items.csv"),
-        "low_stock": _read_csv(PROCESSED_DATA_DIR / "low_stock_alerts.csv"),
+        "inventory": repository.load_inventory(safe=True),
+        "sales": repository.load_sales(safe=True),
+        "products": repository.load_products(safe=True),
+        "stores": repository.load_stores(safe=True),
+        "suppliers": repository.load_suppliers(safe=True),
+        "recommendations": repository.load_processed("recommendations", safe=True),
+        "agent_outputs": repository.load_processed("agent_outputs", safe=True),
+        "orchestrator_summary": repository.load_processed("orchestrator_summary", safe=True),
+        "overstock": repository.load_processed("overstock_items", safe=True),
+        "low_stock": repository.load_processed("low_stock_alerts", safe=True),
     }
+
+
+def _log_report_sources(report_name: str, data: dict[str, pd.DataFrame]) -> None:
+    """Emit Oracle row counts so we can verify the report uses live data.
+
+    Logs the four primary raw tables (products, inventory, stores, sales) along
+    with the active data backend, e.g. ``oracle`` vs ``csv``.
+    """
+    logger.info(
+        "%s [backend=%s]:\nproducts=%d\ninventory=%d\nstores=%d\nsales=%d",
+        report_name,
+        get_data_backend(),
+        len(data.get("products", pd.DataFrame())),
+        len(data.get("inventory", pd.DataFrame())),
+        len(data.get("stores", pd.DataFrame())),
+        len(data.get("sales", pd.DataFrame())),
+    )
 
 
 def _normalize_date(value: Any) -> pd.Timestamp | None:
@@ -155,8 +186,23 @@ def _store_label(branch_filter: str, stores: pd.DataFrame) -> str:
     return f"{row.get('store_name', branch_filter)} ({resolved_store_id}{suffix})"
 
 
+def _normalize_join_keys(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize merge/join keys to string dtype so joins are Oracle-compatible.
+
+    Oracle-backed sources may return numeric ids while CSV/processed sources
+    return strings; merging across dtypes raises a ValueError. Coerce the known
+    join keys to ``str`` on whichever columns exist before merging.
+    """
+    for key in ("product_id", "store_id", "supplier_id"):
+        if key in df.columns:
+            df[key] = df[key].astype(str)
+    return df
+
+
 def _enrich(df: pd.DataFrame, products: pd.DataFrame, stores: pd.DataFrame) -> pd.DataFrame:
-    enriched = df.copy()
+    enriched = _normalize_join_keys(df.copy())
+    products = _normalize_join_keys(products.copy())
+    stores = _normalize_join_keys(stores.copy())
     if not products.empty and "product_id" in enriched.columns and "product_id" in products.columns:
         product_columns = [
             column
@@ -181,7 +227,18 @@ def _numeric(series: pd.Series | None) -> pd.Series:
 
 
 def _money(value: float) -> str:
-    return f"Rs. {float(value):,.2f}"
+    return f"${float(value):,.0f}"
+
+
+def _format_money_columns(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    """Return a display copy with the given numeric columns rendered as USD."""
+    if df.empty:
+        return df
+    display = df.copy()
+    for column in columns:
+        if column in display.columns:
+            display[column] = _numeric(display[column]).map(_money)
+    return display
 
 
 def _save_attachment(df: pd.DataFrame, report_type: str) -> Path | None:
@@ -774,11 +831,11 @@ def build_sales_report_html(report: dict[str, Any]) -> str:
     )
     sections = "".join(
         [
-            _section("Top Selling Products", _table_html(report["top_selling"], ["product_name", "category", "quantity_sold", "revenue"])),
-            _section("Least Selling Products", _table_html(report["least_selling"], ["product_name", "category", "quantity_sold", "revenue"])),
-            _section("Category-wise Sales Summary", _table_html(report["category_summary"], ["category", "quantity_sold", "revenue"])),
-            _section("Branch-wise Sales Summary", _table_html(report["branch_summary"], ["store_name", "city", "quantity_sold", "revenue"]) if report["include_branch_summary"] else "<p style='margin:0;color:#476C8B;'>Single branch selected.</p>"),
-            _section("Sales Trend Summary", _table_html(report["trend_summary"], ["date", "quantity_sold", "revenue"], limit=12)),
+            _section("Top Selling Products", _table_html(_format_money_columns(report["top_selling"], ["revenue"]), ["product_name", "category", "quantity_sold", "revenue"])),
+            _section("Least Selling Products", _table_html(_format_money_columns(report["least_selling"], ["revenue"]), ["product_name", "category", "quantity_sold", "revenue"])),
+            _section("Category-wise Sales Summary", _table_html(_format_money_columns(report["category_summary"], ["revenue"]), ["category", "quantity_sold", "revenue"])),
+            _section("Branch-wise Sales Summary", _table_html(_format_money_columns(report["branch_summary"], ["revenue"]), ["store_name", "city", "quantity_sold", "revenue"]) if report["include_branch_summary"] else "<p style='margin:0;color:#476C8B;'>Single branch selected.</p>"),
+            _section("Sales Trend Summary", _table_html(_format_money_columns(report["trend_summary"], ["revenue"]), ["date", "quantity_sold", "revenue"], limit=12)),
             _section("AI Insight", f"<p style='margin:0;line-height:1.6;'>{escape(report['ai_insight'])}</p>"),
         ]
     )
@@ -788,6 +845,7 @@ def build_sales_report_html(report: dict[str, Any]) -> str:
 
 def generate_inventory_report(branch_filter, start_date, end_date) -> dict[str, Any]:
     data = _load_report_data()
+    _log_report_sources("Inventory Report", data)
     resolved_branch_filter = _resolve_store_id(str(branch_filter), data["stores"])
     inventory = data["inventory"].copy()
     report_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -842,6 +900,8 @@ def generate_inventory_report(branch_filter, start_date, end_date) -> dict[str, 
             ]
             if column in processed_low_stock.columns
         ]
+        low_stock = _normalize_join_keys(low_stock)
+        processed_low_stock = _normalize_join_keys(processed_low_stock)
         low_stock = low_stock.merge(
             processed_low_stock[display_columns].drop_duplicates(["product_id", "store_id"]),
             on=["product_id", "store_id"],
@@ -999,6 +1059,7 @@ def generate_inventory_report(branch_filter, start_date, end_date) -> dict[str, 
 
 def generate_sales_report(branch_filter, start_date, end_date) -> dict[str, Any]:
     data = _load_report_data()
+    _log_report_sources("Sales Report", data)
     sales = _filter_branch(data["sales"], str(branch_filter))
     sales = _filter_date_range(sales, "date", start_date, end_date)
     enriched = _enrich(sales, data["products"], data["stores"])

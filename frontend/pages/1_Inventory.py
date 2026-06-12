@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 import sys
 
@@ -25,12 +26,19 @@ from backend.services.store_inventory_service import (  # noqa: E402
 from frontend.utils.page_helpers import (  # noqa: E402
     apply_chart_theme,
     apply_page_style,
+    clean_display_df,
+    render_ai_insight_panel,
     render_chart_card,
     render_kpi_card,
     render_page_header,
     style_bar_chart,
     style_donut_chart,
 )
+from backend.db import repository  # noqa: E402
+from backend.db.config import get_data_backend  # noqa: E402
+
+
+logger = logging.getLogger(__name__)
 
 
 st.set_page_config(
@@ -42,13 +50,35 @@ st.set_page_config(
 apply_page_style()
 
 
-@st.cache_data
+# In Oracle mode, cap the cache lifetime so a result captured during an Oracle
+# startup failure cannot survive indefinitely. CSV mode keeps the long-lived
+# cache (None == no expiry).
+_INVENTORY_CACHE_TTL = 60 if get_data_backend() == "oracle" else None
+
+
+@st.cache_data(ttl=_INVENTORY_CACHE_TTL)
 def load_inventory_dashboard_data() -> dict[str, pd.DataFrame]:
-    return load_store_inventory_inputs()
+    frames = load_store_inventory_inputs()
+    # Read inventory strictly so a backend (e.g. Oracle) failure raises here
+    # instead of being swallowed into an empty frame by safe=True. A raised
+    # exception is NOT stored by st.cache_data, so the next rerun retries once
+    # the backend recovers — the stale-empty-forever case can no longer happen.
+    try:
+        inventory = repository.load_inventory(safe=False)
+    except Exception:
+        logger.exception("Inventory read failed; not caching an empty result.")
+        raise
+    frames["inventory"] = inventory
+    if get_data_backend() == "oracle" and inventory.empty:
+        # Treat an empty Oracle inventory as a load failure so the empty result
+        # is not cached (prevents a stale empty page after a failed startup).
+        logger.warning("Oracle returned 0 inventory rows; refusing to cache empty result.")
+        raise RuntimeError("Oracle returned 0 inventory rows; not caching empty result.")
+    return frames
 
 
 def money(value: float) -> str:
-    return f"{float(value or 0):,.2f}"
+    return f"${float(value or 0):,.2f}"
 
 
 def format_table(df: pd.DataFrame, columns: list[str], rename_map: dict[str, str]) -> pd.DataFrame:
@@ -147,7 +177,7 @@ def render_store_comparison(view: pd.DataFrame) -> None:
                 "overstock_count": "Overstock",
                 "inventory_value": "Inventory Value",
             }
-        ),
+        ).pipe(clean_display_df),
         use_container_width=True,
         hide_index=True,
     )
@@ -215,16 +245,24 @@ def render_store_comparison(view: pd.DataFrame) -> None:
 
 
 render_page_header(
-    "📦 Inventory Intelligence",
-    "Store-wise inventory health, stock status, and manager-ready actions.",
+    "📦 Inventory Control Center",
+    "Store-wise inventory health, stock-risk indicators, and manager-ready actions — sourced live from the inventory backend.",
 )
 
 try:
     frames = load_inventory_dashboard_data()
 except Exception as error:
-    st.error("Could not load inventory dashboard data.")
-    st.exception(error)
+    logger.exception("Inventory dashboard data load failed.")
+    st.warning(
+        "Inventory data could not be loaded from the data source right now. "
+        "This is usually transient (e.g. the database is still starting up) — "
+        "please retry in a moment."
+    )
+    with st.expander("Error details"):
+        st.code(f"{type(error).__name__}: {error}")
     st.stop()
+
+logger.info("Inventory Rows Loaded: %s", len(frames["inventory"]))
 
 inventory_view = build_store_inventory_view(
     frames["inventory"],
@@ -263,19 +301,64 @@ else:
     st.caption("All branches are included. Store comparison mode is active.")
 
 kpis = build_store_kpis(selected_view)
+
+# Inventory health score: a display-only summary of how much of the assortment is
+# at risk (low-stock or slow/dead). Derived from the existing KPI counts only — no
+# backend or business-logic change.
+total_products_for_health = max(int(kpis["product_count"]), 1)
+risk_rows = int(kpis["low_stock_count"]) + int(kpis["slow_dead_count"])
+health_score = int(max(0, min(100, round(100 - (risk_rows / total_products_for_health) * 100))))
+if health_score >= 80:
+    health_label, health_color, health_bg = "Excellent", "#166534", "#dcfce7"
+elif health_score >= 60:
+    health_label, health_color, health_bg = "Stable", "#183F5F", "#EAF1F7"
+elif health_score >= 40:
+    health_label, health_color, health_bg = "Watch", "#9a3412", "#ffedd5"
+else:
+    health_label, health_color, health_bg = "Critical", "#991b1b", "#fee2e2"
+
+with st.container(border=True):
+    health_left, health_right = st.columns([1.1, 3], gap="large")
+    with health_left:
+        st.markdown(
+            f"<div style='font-size:0.74rem;text-transform:uppercase;letter-spacing:0.05em;"
+            f"font-weight:800;color:rgba(10,31,51,0.6);'>Inventory Health Score</div>"
+            f"<div style='display:flex;align-items:baseline;gap:0.5rem;margin-top:0.2rem;'>"
+            f"<span style='font-size:2.4rem;font-weight:800;color:var(--airio-primary-navy,#183F5F);'>{health_score}</span>"
+            f"<span style='font-size:1rem;color:rgba(10,31,51,0.5);'>/ 100</span>"
+            f"<span style='display:inline-flex;padding:0.18rem 0.6rem;border-radius:999px;"
+            f"font-size:0.76rem;font-weight:700;color:{health_color};background:{health_bg};'>{health_label}</span>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+    with health_right:
+        st.markdown("<div style='height:0.5rem;'></div>", unsafe_allow_html=True)
+        st.progress(health_score / 100)
+        st.caption(
+            f"{risk_rows:,} of {total_products_for_health:,} products flagged "
+            f"({kpis['low_stock_count']:,} low-stock · {kpis['slow_dead_count']:,} slow/dead). "
+            "Higher is healthier."
+        )
+
 kpi_cols = st.columns(6, gap="medium")
 with kpi_cols[0]:
-    render_kpi_card("Inventory Qty", f"{kpis['total_quantity']:,}", "Total units", "blue")
+    render_kpi_card("Inventory Qty", f"{kpis['total_quantity']:,}", "Total units on hand", "blue", icon="📦")
 with kpi_cols[1]:
-    render_kpi_card("Products", f"{kpis['product_count']:,}", "Unique products", "purple")
+    render_kpi_card("Products", f"{kpis['product_count']:,}", "Unique SKUs", "purple", icon="🏷️")
 with kpi_cols[2]:
-    render_kpi_card("Low Stock", f"{kpis['low_stock_count']:,}", "Predictive depletion risk", "orange")
+    render_kpi_card(
+        "Low Stock", f"{kpis['low_stock_count']:,}", "Predictive depletion risk", "orange",
+        icon="⚠️", support="Needs reorder review" if kpis["low_stock_count"] else "All healthy",
+    )
 with kpi_cols[3]:
-    render_kpi_card("Overstock", f"{kpis['overstock_count']:,}", "High stock rows", "green")
+    render_kpi_card("Overstock", f"{kpis['overstock_count']:,}", "High stock rows", "green", icon="📈")
 with kpi_cols[4]:
-    render_kpi_card("Slow / Dead", f"{kpis['slow_dead_count']:,}", "No recent movement", "red")
+    render_kpi_card(
+        "Slow / Dead", f"{kpis['slow_dead_count']:,}", "No recent movement", "red",
+        icon="🛑", support="Clearance candidates" if kpis["slow_dead_count"] else "None flagged",
+    )
 with kpi_cols[5]:
-    render_kpi_card("Inventory Value", money(kpis["inventory_value"]), "Qty × selling price", "green")
+    render_kpi_card("Inventory Value", money(kpis["inventory_value"]), "Qty × selling price", "green", icon="💰")
 
 st.divider()
 
@@ -286,7 +369,11 @@ if selected_store_id == "All Stores":
 st.subheader("AI Inventory Insight")
 store_summary_label = selected_label if selected_store_id != "All Stores" else "All stores"
 store_recommendations = filter_recommendations_for_store(frames["recommendations"], selected_store_id)
-st.info(build_store_inventory_summary(selected_view, store_summary_label, store_recommendations))
+render_ai_insight_panel(
+    [build_store_inventory_summary(selected_view, store_summary_label, store_recommendations)],
+    title="AI Inventory Insight",
+    icon="📦",
+)
 
 st.subheader("Store-wise Inventory Table")
 inventory_table = format_table(
@@ -320,7 +407,7 @@ inventory_table = format_table(
         "supplier_name": "Supplier",
     },
 )
-st.dataframe(inventory_table, use_container_width=True, hide_index=True)
+st.dataframe(clean_display_df(inventory_table), use_container_width=True, hide_index=True)
 
 st.divider()
 
@@ -366,7 +453,7 @@ with left_section:
                     "priority": "Priority",
                     "ai_recommendation": "AI Recommendation",
                 },
-            ),
+            ).pipe(clean_display_df),
             use_container_width=True,
             hide_index=True,
         )
@@ -399,7 +486,7 @@ with right_section:
                     "suggested_action": "Suggested Action",
                     "ai_recommendation": "AI Recommendation",
                 },
-            ),
+            ).pipe(clean_display_df),
             use_container_width=True,
             hide_index=True,
         )

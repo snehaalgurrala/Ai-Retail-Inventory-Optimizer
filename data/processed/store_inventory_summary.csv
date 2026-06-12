@@ -1,4 +1,6 @@
 store_id,store_name,city,capacity,total_inventory,remaining_capacity,capacity_used_percent
-S1,Hyderabad Central,Hyderabad,1200,1649,-449,137.41666666666669
-S2,Vijayawada Branch,Vijayawada,900,817,83,90.77777777777779
-S3,Guntur Branch,Guntur,850,656,194,77.17647058823529
+1,Mock Distribution Branch - Dallas,Dallas,10000,1174,8826,11.74
+2,Mock Distribution Branch - Plano,Plano,9000,1370,7630,15.222222222222223
+3,Mock Distribution Branch - Irving,Irving,8500,1399,7101,16.458823529411763
+4,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000,1475,9525,13.40909090909091
+5,Mock Distribution Branch - Chicago,Chicago,9500,1752,7748,18.442105263157895

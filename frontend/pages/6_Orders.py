@@ -16,7 +16,11 @@ from backend.services.order_service import (  # noqa: E402
     place_order,
     validate_order,
 )
-from frontend.utils.page_helpers import apply_page_style, render_page_header  # noqa: E402
+from frontend.utils.page_helpers import (  # noqa: E402
+    apply_page_style,
+    clean_display_df,
+    render_page_header,
+)
 
 
 ORDER_COLUMNS = [
@@ -146,7 +150,7 @@ with store_right:
                         "stock_level": "available_quantity",
                         "selling_price": "unit_price",
                     }
-                ),
+                ).pipe(clean_display_df),
                 use_container_width=True,
                 hide_index=True,
             )
@@ -254,4 +258,4 @@ if orders.empty:
     st.info("No customer orders have been placed yet.")
 else:
     recent_orders = orders.sort_values("order_date", ascending=False).head(20)
-    st.dataframe(recent_orders, use_container_width=True, hide_index=True)
+    st.dataframe(clean_display_df(recent_orders), use_container_width=True, hide_index=True)

@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from backend.db import repository
 from backend.services.low_stock_service import get_low_stock_items
 
 
@@ -14,15 +15,6 @@ STORES_PATH = RAW_DATA_DIR / "stores.csv"
 
 
 SURPLUS_MULTIPLIER = 2
-
-
-def _safe_read_csv(path: Path) -> pd.DataFrame:
-    if not path.exists():
-        return pd.DataFrame()
-    try:
-        return pd.read_csv(path)
-    except Exception:
-        return pd.DataFrame()
 
 
 def _number_column(df: pd.DataFrame, column: str) -> pd.Series:
@@ -40,9 +32,9 @@ def _text(value, fallback: str = "") -> str:
 
 def _load_frames() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     return (
-        _safe_read_csv(INVENTORY_PATH),
-        _safe_read_csv(PRODUCTS_PATH),
-        _safe_read_csv(STORES_PATH),
+        repository.load_inventory(safe=True),
+        repository.load_products(safe=True),
+        repository.load_stores(safe=True),
     )
 
 

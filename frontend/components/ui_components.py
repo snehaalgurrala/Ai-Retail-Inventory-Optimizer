@@ -426,12 +426,92 @@ def render_kpi_card(
     value: str,
     subtext: str,
     color: str,
+    icon: str = "",
+    support: str = "",
 ) -> None:
-    """Compatibility helper for KPI cards with native metric text."""
-    with st.container(border=True):
-        st.metric(str(title), str(value))
-        if subtext:
-            st.caption(str(subtext))
+    """KPI card that always shows the full label and value.
+
+    Rendered as custom HTML (not ``st.metric``) so long values wrap instead of
+    being clipped with an ellipsis. Styling lives in ``DASHBOARD_CSS``
+    (``.airio-kpi-*`` classes) and matches the Customer Intelligence cards.
+
+    ``icon`` renders a small tinted glyph next to the title. ``support`` adds a
+    highlighted secondary metric line (e.g. "3 critical") beneath the value. Both
+    are optional so every existing positional call site keeps working unchanged.
+    """
+    color_class = color if color in {"blue", "purple", "orange", "green", "red"} else "blue"
+    icon_html = (
+        f'<span class="airio-kpi-icon">{escape(str(icon))}</span>' if icon else ""
+    )
+    support_html = (
+        f'<div class="airio-kpi-support">{escape(str(support))}</div>' if support else ""
+    )
+    note_html = (
+        f'<div class="airio-kpi-note">{escape(str(subtext))}</div>' if subtext else ""
+    )
+    card = (
+        f'<div class="airio-kpi-card {color_class}">'
+        '<div class="airio-kpi-head">'
+        f"{icon_html}"
+        f'<div class="airio-kpi-kicker">{escape(str(title))}</div>'
+        "</div>"
+        f'<div class="airio-kpi-value">{escape(str(value))}</div>'
+        f"{support_html}"
+        f"{note_html}"
+        "</div>"
+    )
+    st.markdown(card, unsafe_allow_html=True)
+
+
+def render_ai_insight_panel(
+    insights: list[str],
+    title: str = "AI Insights",
+    icon: str = "🧠",
+) -> None:
+    """Branded AI insight panel — a premium replacement for ``st.info`` loops.
+
+    Renders a single bordered card with a green "AI" kicker and one bulleted line
+    per insight. Styling lives in ``apply_enterprise_theme`` (``.airio-insight-*``).
+    Falls back to a native info message when there are no insights to show.
+    """
+    cleaned = [str(item).strip() for item in (insights or []) if str(item).strip()]
+    if not cleaned:
+        st.info("No insights are available for the current selection.")
+        return
+
+    items_html = "".join(
+        f'<div class="airio-insight-item"><span class="airio-insight-dot"></span>'
+        f"<span>{escape(item)}</span></div>"
+        for item in cleaned
+    )
+    st.markdown(
+        f'<div class="airio-insight-panel">'
+        f'<div class="airio-insight-kicker">{escape(str(icon))} {escape(str(title))}</div>'
+        f"{items_html}"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def clean_display_df(df: pd.DataFrame, placeholder: str = "-") -> pd.DataFrame:
+    """Return a copy with blank / ``None`` / ``NaN`` cells replaced for display.
+
+    Display-only: never mutates the source frame or any backend data. Centralizes
+    the blank-cell handling so every table shows ``-`` instead of raw ``None`` /
+    ``NaN`` / ``"none"`` text.
+    """
+    if df is None or df.empty:
+        return df
+
+    display = df.copy()
+    for column in display.columns:
+        series = display[column]
+        # Only scrub object/string-like columns so numeric formatting is untouched.
+        if series.dtype == object or pd.api.types.is_string_dtype(series):
+            text = series.astype(str).str.strip().str.lower()
+            blank = series.isna() | text.isin(["", "none", "nan", "nat", "<na>"])
+            display[column] = series.where(~blank, placeholder)
+    return display
 
 
 @contextmanager

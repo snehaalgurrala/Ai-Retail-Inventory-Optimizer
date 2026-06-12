@@ -1,5 +1,6 @@
 import pandas as pd
 
+from backend.mcp import config as mcp_config
 from backend.services.chatbot_analytics import try_answer_analytical_question
 from backend.services.chatbot_intent import classify_user_intent
 from backend.services.location_validation import validate_requested_location
@@ -102,11 +103,37 @@ def _build_intent_payload(intent: str) -> dict:
     }
 
 
+def _route_via_mcp(
+    user_input: str,
+    chat_history=None,
+) -> tuple[str, dict, pd.DataFrame, list[dict]]:
+    """Answer strictly from Oracle through MCP tools (CHATBOT_ENGINE=mcp).
+
+    Greetings and clearly off-topic messages keep their friendly canned replies;
+    everything else goes to the MCP tool-calling orchestrator. RAG / vector
+    retrieval is never used on this path.
+    """
+    from backend.mcp.orchestrator import answer_with_mcp
+
+    classified = classify_user_intent(user_input)
+    intent = classified.get("intent", "unclear")
+    if intent in {"greeting", "irrelevant"}:
+        print(f"[chatbot] engine=mcp detected_intent={intent} is_follow_up=False")
+        return intent, _build_intent_payload(intent), pd.DataFrame(), []
+
+    payload, supporting_df, sources = answer_with_mcp(user_input, chat_history=chat_history)
+    print("[chatbot] engine=mcp detected_intent=business_query is_follow_up=False")
+    return "business_query", payload, supporting_df, sources
+
+
 def route_chatbot_request(
     user_input: str,
     chat_history=None,
 ) -> tuple[str, dict, pd.DataFrame, list[dict]]:
     """Route a chatbot request by intent and only run RAG for business queries."""
+    if mcp_config.chatbot_engine() == "mcp":
+        return _route_via_mcp(user_input, chat_history)
+
     location_validation = validate_requested_location(user_input)
     if not location_validation.is_available and location_validation.payload:
         print("[chatbot] detected_intent=unsupported_location is_follow_up=False")

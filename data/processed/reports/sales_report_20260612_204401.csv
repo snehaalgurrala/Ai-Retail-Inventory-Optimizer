@@ -1,0 +1,2 @@
+sale_id,date,product_id,store_id,quantity_sold,selling_price,product_name,category,cost_price,store_name,city,revenue
+SALE003250,2026-06-01,P115,S3,25,35.0,Potatoes,Vegetables,20,Guntur Branch,Guntur,875.0

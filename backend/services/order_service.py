@@ -3,6 +3,9 @@ from pathlib import Path
 
 import pandas as pd
 
+from backend.db import repository
+from backend.db.config import get_data_backend
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
@@ -65,20 +68,9 @@ ORDER_COLUMNS = [
 ]
 
 
-def _empty_df(columns: list[str]) -> pd.DataFrame:
-    return pd.DataFrame(columns=columns)
-
-
-def _read_csv(file_path: Path, columns: list[str]) -> pd.DataFrame:
-    """Read a CSV safely, returning an empty dataframe with the expected schema."""
-    if not file_path.exists():
-        return _empty_df(columns)
-
-    try:
-        df = pd.read_csv(file_path)
-    except Exception:
-        return _empty_df(columns)
-
+def _conform(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    """Return a copy with exactly the expected columns (missing ones left blank)."""
+    df = df.copy()
     for column in columns:
         if column not in df.columns:
             df[column] = ""
@@ -119,12 +111,14 @@ def _next_prefixed_id(existing_df: pd.DataFrame, column: str, prefix: str) -> st
 def _load_required_data() -> dict[str, pd.DataFrame]:
     """Load all datasets needed by the order service."""
     return {
-        "stores": _read_csv(STORES_FILE, STORE_COLUMNS),
-        "inventory": _read_csv(INVENTORY_FILE, INVENTORY_COLUMNS),
-        "products": _read_csv(PRODUCTS_FILE, PRODUCT_COLUMNS),
-        "sales": _read_csv(SALES_FILE, SALES_COLUMNS),
-        "transactions": _read_csv(TRANSACTIONS_FILE, TRANSACTION_COLUMNS),
-        "orders": _read_csv(ORDERS_FILE, ORDER_COLUMNS),
+        "stores": _conform(repository.load_stores(safe=True), STORE_COLUMNS),
+        "inventory": _conform(repository.load_inventory(safe=True), INVENTORY_COLUMNS),
+        "products": _conform(repository.load_products(safe=True), PRODUCT_COLUMNS),
+        "sales": _conform(repository.load_sales(safe=True), SALES_COLUMNS),
+        "transactions": _conform(
+            repository.load_transactions(safe=True), TRANSACTION_COLUMNS
+        ),
+        "orders": _conform(repository.load_customer_orders(safe=True), ORDER_COLUMNS),
     }
 
 
@@ -250,11 +244,74 @@ def validate_order(store_id: str, product_id: str, quantity: int) -> dict:
     }
 
 
+def _place_order_oracle(order_data: dict, quantity: int) -> dict:
+    """Place an order against Oracle: stock + sale + movement, one transaction.
+
+    Mirrors the CSV path's response contract exactly. The customer-order history
+    row is appended to the local view (no Oracle orders table yet) so the
+    read-only Orders page keeps working; Oracle holds the operational truth.
+    """
+    from backend.db import oracle_writer
+
+    order_data = order_data.copy()
+    order_date = datetime.now().isoformat(timespec="seconds")
+    try:
+        result = oracle_writer.place_order(
+            order_data["product_id"],
+            order_data["store_id"],
+            quantity,
+            float(order_data["unit_price"]),
+        )
+    except Exception as error:
+        return {
+            "success": False,
+            "message": f"Could not place the order: {error}",
+            "order_data": {
+                "store_id": str(order_data.get("store_id", "")),
+                "product_id": str(order_data.get("product_id", "")),
+            },
+        }
+
+    order_id = f"ORD{str(result['transaction_id']).zfill(6)}"
+    order_record = {
+        "order_id": order_id,
+        "order_date": order_date,
+        "store_id": order_data["store_id"],
+        "store_name": order_data["store_name"],
+        "city": order_data["city"],
+        "product_id": order_data["product_id"],
+        "product_name": order_data["product_name"],
+        "quantity_ordered": int(quantity),
+        "unit_price": float(order_data["unit_price"]),
+        "total_amount": float(order_data["total_amount"]),
+        "status": "placed",
+    }
+    try:
+        orders = _conform(repository.load_customer_orders(safe=True), ORDER_COLUMNS)
+        updated_orders = pd.concat([orders, pd.DataFrame([order_record])], ignore_index=True)
+        _write_csv(updated_orders, ORDERS_FILE, ORDER_COLUMNS)
+    except Exception:
+        pass  # history view is best-effort; the order is already committed in Oracle
+
+    order_response = order_record.copy()
+    order_response["sale_id"] = f"SALE{str(result['sale_id']).zfill(6)}"
+    order_response["transaction_id"] = f"TXN{str(result['transaction_id']).zfill(7)}"
+    order_response["remaining_stock"] = result["new_stock"]
+    return {
+        "success": True,
+        "message": f"Order {order_id} placed successfully.",
+        "order_data": order_response,
+    }
+
+
 def place_order(store_id: str, product_id: str, quantity: int) -> dict:
     """Place one order, update source CSVs, and return a structured response."""
     validation = validate_order(store_id, product_id, quantity)
     if not validation["success"]:
         return validation
+
+    if get_data_backend() == "oracle":
+        return _place_order_oracle(validation["order_data"], int(quantity))
 
     data = _load_required_data()
     stores = data["stores"]

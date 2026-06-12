@@ -319,16 +319,17 @@ st.set_page_config(
 apply_page_style()
 
 render_page_header(
-    "Chatbot",
-    "A grounded retail assistant for inventory, sales, recommendations, and agent insights.",
+    "🤖 AI Copilot",
+    "A grounded, enterprise AI assistant for inventory, sales, recommendations, and agent insights.",
 )
 
 with st.container(border=True):
     left_col, right_col = st.columns([3, 1])
     with left_col:
-        st.markdown("**Retail Decision Assistant**")
+        st.markdown("**🟢 Bunzl Retail Decision Assistant**")
         st.caption(
-            "Hello mate. How can I help you with inventory insights today?"
+            "Hello mate. How can I help you with inventory insights today? "
+            "Ask in plain language — answers are grounded in your live data."
         )
     with right_col:
         if st.button("Clear Chat", use_container_width=True):

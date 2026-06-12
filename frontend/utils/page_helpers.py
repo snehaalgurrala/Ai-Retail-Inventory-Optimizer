@@ -44,6 +44,116 @@ DASHBOARD_CSS = """
     padding-top: 2rem;
     padding-bottom: 2.5rem;
 }
+/* Custom KPI cards (render_kpi_card): wrap instead of clipping so the full
+   label and value are always visible. Matches the Customer Intelligence cards. */
+.airio-kpi-card {
+    position: relative;
+    border: 1px solid var(--airio-border, #D8E2EC);
+    border-top: 4px solid var(--airio-primary-navy, #183F5F);
+    border-radius: 16px;
+    background: linear-gradient(180deg, #FFFFFF 0%, #FCFDFE 100%);
+    box-shadow: 0 10px 22px rgba(10, 31, 51, 0.06);
+    padding: 0.95rem 1.05rem;
+    min-height: 128px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.airio-kpi-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 40px rgba(10, 31, 51, 0.13);
+}
+/* Faint accent wash that intensifies on hover for a premium feel. */
+.airio-kpi-card::after {
+    content: "";
+    position: absolute;
+    top: -40%;
+    right: -20%;
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(24,63,95,0.06), transparent 70%);
+    opacity: 0.8;
+    transition: opacity 0.18s ease;
+    pointer-events: none;
+}
+.airio-kpi-card:hover::after { opacity: 1; }
+.airio-kpi-card.blue { border-top-color: #183F5F; }
+.airio-kpi-card.purple { border-top-color: #6D4FB0; }
+.airio-kpi-card.orange { border-top-color: #C76A12; }
+.airio-kpi-card.green { border-top-color: #6CB33F; }
+.airio-kpi-card.red { border-top-color: #B42318; }
+.airio-kpi-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.3rem;
+}
+.airio-kpi-icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: var(--airio-soft-blue, #EAF1F7);
+    font-size: 1rem;
+    line-height: 1;
+}
+.airio-kpi-card.green .airio-kpi-icon { background: rgba(108, 179, 63, 0.16); }
+.airio-kpi-card.orange .airio-kpi-icon { background: var(--airio-soft-amber, #FFF7E8); }
+.airio-kpi-card.red .airio-kpi-icon { background: var(--airio-soft-red, #FFF1F2); }
+.airio-kpi-card.purple .airio-kpi-icon { background: rgba(109, 79, 176, 0.12); }
+.airio-kpi-kicker {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+    color: rgba(10, 31, 51, 0.6);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+.airio-kpi-value {
+    font-size: 1.62rem;
+    font-weight: 800;
+    color: var(--airio-deep-navy, #0A1F33);
+    line-height: 1.16;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+.airio-kpi-note {
+    margin-top: auto;
+    padding-top: 0.45rem;
+    font-size: 0.76rem;
+    color: rgba(10, 31, 51, 0.6);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+.airio-kpi-support {
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--airio-primary-navy, #183F5F);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+/* Native st.metric fallback: stop nowrap/ellipsis clipping for any remaining
+   metric cards (e.g. count tiles) so values stay fully visible. */
+div[data-testid="stMetric"] { overflow: visible !important; }
+div[data-testid="stMetricValue"],
+div[data-testid="stMetricValue"] > div,
+div[data-testid="stMetricLabel"],
+div[data-testid="stMetricLabel"] > div,
+div[data-testid="stMetricLabel"] p {
+    white-space: normal !important;
+    overflow: visible !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    text-overflow: clip !important;
+}
 </style>
 """
 
@@ -79,11 +189,31 @@ def render_kpi_card(
     value: str,
     subtext: str,
     color: str,
+    icon: str = "",
+    support: str = "",
 ) -> None:
     """Compatibility wrapper for the shared UI component."""
     from frontend.components.ui_components import render_kpi_card as component
 
-    component(title, value, subtext, color)
+    component(title, value, subtext, color, icon=icon, support=support)
+
+
+def render_ai_insight_panel(
+    insights: list[str],
+    title: str = "AI Insights",
+    icon: str = "🧠",
+) -> None:
+    """Compatibility wrapper for the shared AI insight panel component."""
+    from frontend.components.ui_components import render_ai_insight_panel as component
+
+    component(insights, title=title, icon=icon)
+
+
+def clean_display_df(df: pd.DataFrame, placeholder: str = "-") -> pd.DataFrame:
+    """Compatibility wrapper for the shared display-cleanup helper."""
+    from frontend.components.ui_components import clean_display_df as component
+
+    return component(df, placeholder=placeholder)
 
 
 def apply_chart_theme(chart, height: int | None = 360):

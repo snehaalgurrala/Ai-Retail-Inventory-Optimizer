@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from backend.db import repository
 from backend.services.inventory_prediction_service import (
     DEPLETION_ALERT_DAYS,
     DEFAULT_SUPPLIER_LEAD_DAYS,
@@ -21,15 +22,6 @@ STORES_PATH = RAW_DATA_DIR / "stores.csv"
 SALES_PATH = RAW_DATA_DIR / "sales.csv"
 SUPPLIERS_PATH = RAW_DATA_DIR / "suppliers.csv"
 LOW_STOCK_OUTPUT_PATH = PROCESSED_DATA_DIR / "low_stock_alerts.csv"
-
-
-def _safe_read_csv(path: Path) -> pd.DataFrame:
-    if not path.exists():
-        return pd.DataFrame()
-    try:
-        return pd.read_csv(path)
-    except Exception:
-        return pd.DataFrame()
 
 
 def calculate_priority(current_quantity: float, reorder_threshold: float) -> str:
@@ -70,11 +62,11 @@ def suggest_reorder_quantity(
 
 def get_low_stock_items(save_output: bool = True) -> pd.DataFrame:
     """Return predictive product-store inventory alerts with threshold fallback."""
-    inventory_df = _safe_read_csv(INVENTORY_PATH)
-    products_df = _safe_read_csv(PRODUCTS_PATH)
-    stores_df = _safe_read_csv(STORES_PATH)
-    sales_df = _safe_read_csv(SALES_PATH)
-    suppliers_df = _safe_read_csv(SUPPLIERS_PATH)
+    inventory_df = repository.load_inventory(safe=True)
+    products_df = repository.load_products(safe=True)
+    stores_df = repository.load_stores(safe=True)
+    sales_df = repository.load_sales(safe=True)
+    suppliers_df = repository.load_suppliers(safe=True)
 
     required_inventory_columns = {"product_id", "store_id", "stock_level"}
     if inventory_df.empty or not required_inventory_columns.issubset(inventory_df.columns):

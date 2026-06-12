@@ -1,0 +1,2 @@
+product_id,store_id,stock_level,reorder_threshold,last_updated,product_name,category,cost_price,selling_price,store_name,city,inventory_value
+P115,S3,5,25,2026-06-01,Potatoes,Vegetables,20,35.0,Guntur Branch,Guntur,175.0

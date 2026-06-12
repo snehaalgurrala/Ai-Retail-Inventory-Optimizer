@@ -28,6 +28,7 @@ from backend.services import agent_summary_service, email_service, report_servic
 from backend.utils.data_loader import load_all_data  # noqa: E402
 from frontend.components.ui_components import (  # noqa: E402
     apply_command_center_styles,
+    clean_display_df,
     render_agent_command_card,
     render_command_center_orchestrator_card,
     render_kpi_card,
@@ -269,6 +270,44 @@ def latest_recommendations_table(recommendations: pd.DataFrame) -> pd.DataFrame:
         )
         latest = latest.sort_values(["_priority_rank", "recommendation_id"])
 
+    # Fill display gaps so the table never shows raw Python ``None`` values.
+    def _blank_mask(series: pd.Series) -> pd.Series:
+        text = series.astype(str).str.strip().str.lower()
+        return series.isna() | text.isin(["", "none", "nan"])
+
+    # ``store_id`` is missing for store-agnostic recommendation types such as
+    # supplier_risk_alert. Show a readable placeholder instead of ``None``.
+    if "store_id" in latest.columns:
+        store = latest["store_id"].astype("object")
+        # Drop a trailing ``.0`` that float store ids pick up from the CSV.
+        store = store.map(
+            lambda value: str(value).strip()[:-2]
+            if isinstance(value, str) and str(value).strip().endswith(".0")
+            else value
+        )
+        store_numeric = pd.to_numeric(latest["store_id"], errors="coerce")
+        store = store.mask(store_numeric.notna(), store_numeric.astype("Int64").astype("object"))
+        latest["store_id"] = store.mask(_blank_mask(latest["store_id"]), "N/A").astype(str)
+
+    # ``urgency_label`` / ``depletion_window`` only apply to recommendations that
+    # carry a depletion prediction. Derive them when a prediction exists,
+    # otherwise show "N/A" rather than ``None``.
+    days = pd.to_numeric(latest.get("predicted_days_remaining"), errors="coerce")
+    if "depletion_window" in latest.columns:
+        derived_window = days.map(
+            lambda value: format_depletion_window(value) if pd.notna(value) else "N/A"
+        )
+        latest["depletion_window"] = latest["depletion_window"].mask(
+            _blank_mask(latest["depletion_window"]), derived_window
+        )
+    if "urgency_label" in latest.columns:
+        derived_urgency = days.map(
+            lambda value: depletion_urgency_label(value) if pd.notna(value) else "N/A"
+        )
+        latest["urgency_label"] = latest["urgency_label"].mask(
+            _blank_mask(latest["urgency_label"]), derived_urgency
+        )
+
     columns = [
         column
         for column in [
@@ -286,7 +325,11 @@ def latest_recommendations_table(recommendations: pd.DataFrame) -> pd.DataFrame:
         ]
         if column in latest.columns
     ]
-    return latest.head(10)[columns]
+    display = latest.head(10)[columns].copy()
+    # Final safety net: never surface raw ``None``/``NaN`` in any display column.
+    for column in display.columns:
+        display[column] = display[column].where(~_blank_mask(display[column]), "-")
+    return display
 
 
 def format_alert_display_table(alerts: pd.DataFrame) -> pd.DataFrame:
@@ -822,7 +865,7 @@ else:
             }
         )
         st.dataframe(
-            preview_df,
+            clean_display_df(preview_df),
             use_container_width=True,
             hide_index=True,
         )
@@ -884,6 +927,7 @@ with kpi_columns[0]:
         f"{total_sales_quantity:,}",
         f"{len(sales):,} sales rows in the current dataset",
         "blue",
+        icon="💰",
     )
 with kpi_columns[1]:
     render_kpi_card(
@@ -891,6 +935,7 @@ with kpi_columns[1]:
         f"{current_inventory_quantity:,}",
         inventory_source,
         "purple",
+        icon="📦",
     )
 with kpi_columns[2]:
     render_kpi_card(
@@ -898,6 +943,8 @@ with kpi_columns[2]:
         f"{low_stock_count:,}",
         "Predictive depletion alerts",
         "orange",
+        icon="⚠️",
+        support="Review reorders" if low_stock_count else "All healthy",
     )
 with kpi_columns[3]:
     render_kpi_card(
@@ -905,6 +952,7 @@ with kpi_columns[3]:
         f"{dead_stock_count:,}",
         "Candidates from processed analyzer output",
         "red",
+        icon="🛑",
     )
 
 st.caption(f"Current inventory source: {inventory_source}")

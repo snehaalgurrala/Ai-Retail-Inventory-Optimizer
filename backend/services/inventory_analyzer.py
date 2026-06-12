@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from backend.db import repository
 from backend.services.inventory_prediction_service import (
     DEPLETION_ALERT_DAYS,
     get_predictive_inventory_alerts,
@@ -41,16 +42,10 @@ def get_config(config: dict | None = None) -> dict:
 def load_processed_data() -> dict[str, pd.DataFrame]:
     """Load processed datasets created by data_processor.py."""
     return {
-        "current_inventory": pd.read_csv(
-            PROCESSED_DATA_DIR / "current_inventory.csv"
-        ),
-        "sales_summary": pd.read_csv(PROCESSED_DATA_DIR / "sales_summary.csv"),
-        "product_performance": pd.read_csv(
-            PROCESSED_DATA_DIR / "product_performance.csv"
-        ),
-        "store_inventory_summary": pd.read_csv(
-            PROCESSED_DATA_DIR / "store_inventory_summary.csv"
-        ),
+        "current_inventory": repository.load_current_inventory(),
+        "sales_summary": repository.load_sales_summary(),
+        "product_performance": repository.load_product_performance(),
+        "store_inventory_summary": repository.load_store_inventory_summary(),
     }
 
 
@@ -74,16 +69,6 @@ def _number_column(df: pd.DataFrame, column: str) -> pd.Series:
     return pd.to_numeric(df[column], errors="coerce").fillna(0)
 
 
-def _safe_read_raw_csv(filename: str) -> pd.DataFrame:
-    file_path = RAW_DATA_DIR / filename
-    if not file_path.exists():
-        return pd.DataFrame()
-    try:
-        return pd.read_csv(file_path)
-    except Exception:
-        return pd.DataFrame()
-
-
 def _merge_prediction_columns(df: pd.DataFrame, config: dict) -> pd.DataFrame:
     """Attach shared predictive inventory columns to analyzer base rows."""
     if df.empty:
@@ -98,8 +83,8 @@ def _merge_prediction_columns(df: pd.DataFrame, config: dict) -> pd.DataFrame:
         inventory_for_prediction,
         pd.DataFrame(),
         pd.DataFrame(),
-        _safe_read_raw_csv("sales.csv"),
-        _safe_read_raw_csv("suppliers.csv"),
+        repository.load_sales(safe=True),
+        repository.load_suppliers(safe=True),
         config={"depletion_alert_days": config.get("stockout_risk_days", DEPLETION_ALERT_DAYS)},
     )
     if predictive.empty:

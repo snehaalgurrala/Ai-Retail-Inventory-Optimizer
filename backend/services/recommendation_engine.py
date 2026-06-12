@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from backend.db import repository
 from backend.services.depletion_formatter import format_depletion_window
 from backend.services.transfer_analysis_service import (
     find_alternative_products_for_low_stock,
@@ -66,40 +67,22 @@ def get_config(config: dict | None = None) -> dict:
     return final_config
 
 
-def _read_processed_csv(filename: str) -> pd.DataFrame:
-    """Read one processed CSV, returning an empty dataframe if it is missing."""
-    file_path = PROCESSED_DATA_DIR / filename
-    if not file_path.exists():
-        return pd.DataFrame()
-    return pd.read_csv(file_path)
-
-
-def _read_raw_csv(filename: str) -> pd.DataFrame:
-    """Read one raw CSV, returning an empty dataframe if it is missing."""
-    file_path = RAW_DATA_DIR / filename
-    if not file_path.exists():
-        return pd.DataFrame()
-    return pd.read_csv(file_path)
-
-
 def load_recommendation_inputs() -> dict[str, pd.DataFrame]:
     """Load processed datasets, analyzer outputs, and supplier data."""
     return {
-        "current_inventory": _read_processed_csv("current_inventory.csv"),
-        "product_performance": _read_processed_csv("product_performance.csv"),
-        "low_stock_items": _read_processed_csv("low_stock_items.csv"),
-        "stockout_risk_items": _read_processed_csv("stockout_risk_items.csv"),
-        "overstock_items": _read_processed_csv("overstock_items.csv"),
-        "dead_stock_candidates": _read_processed_csv(
-            "dead_stock_candidates.csv"
-        ),
-        "high_demand_items": _read_processed_csv("high_demand_items.csv"),
-        "slow_moving_items": _read_processed_csv("slow_moving_items.csv"),
-        "suppliers": _read_raw_csv("suppliers.csv"),
-        "inventory": _read_raw_csv("inventory.csv"),
-        "products": _read_raw_csv("products.csv"),
-        "stores": _read_raw_csv("stores.csv"),
-        "sales": _read_raw_csv("sales.csv"),
+        "current_inventory": repository.load_current_inventory(safe=True),
+        "product_performance": repository.load_product_performance(safe=True),
+        "low_stock_items": repository.load_low_stock_items(safe=True),
+        "stockout_risk_items": repository.load_stockout_risk_items(safe=True),
+        "overstock_items": repository.load_overstock_items(safe=True),
+        "dead_stock_candidates": repository.load_dead_stock_candidates(safe=True),
+        "high_demand_items": repository.load_high_demand_items(safe=True),
+        "slow_moving_items": repository.load_slow_moving_items(safe=True),
+        "suppliers": repository.load_suppliers(safe=True),
+        "inventory": repository.load_inventory(safe=True),
+        "products": repository.load_products(safe=True),
+        "stores": repository.load_stores(safe=True),
+        "sales": repository.load_sales(safe=True),
     }
 
 

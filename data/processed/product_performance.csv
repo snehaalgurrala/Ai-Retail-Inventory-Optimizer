@@ -1,21 +1,17 @@
 product_id,product_name,category,cost_price,selling_price,shelf_life_days,reorder_threshold,supplier_id,total_quantity_sold,total_revenue,recent_7_day_quantity_sold,recent_30_day_quantity_sold,last_sale_date,current_stock_level,supplier_name,avg_delivery_days,reliability_score
-P101,Milk,Dairy,40,60.0,7,20,SUP1,1523,91380.0,0.0,0.0,2026-04-21,114,Fresh Dairy Suppliers,2,0.95
-P102,Bread,Bakery,20,31.5,3,15,SUP2,65,2275.0,0.0,0.0,2026-04-24,66,Daily Bakery Distributors,1,0.92
-P103,Rice 1kg,Grains,50,80.0,180,30,SUP3,318,25440.0,0.0,0.0,2026-04-21,380,Grain & Grocery Wholesale,4,0.9
-P104,Cooking Oil 1L,Grocery,120,180.0,365,10,SUP3,1029,185220.0,0.0,0.0,2026-04-21,75,Grain & Grocery Wholesale,4,0.9
-P105,Eggs (12 pack),Dairy,60,90.0,10,25,SUP1,959,86310.0,0.0,0.0,2026-04-21,290,Fresh Dairy Suppliers,2,0.95
-P106,Biscuits Pack,Snacks,10,20.0,120,40,SUP5,297,5940.0,0.0,50.0,2026-05-15,470,Snacks & Beverages Hub,3,0.91
-P107,Soft Drink 1L,Beverages,30,50.0,180,20,SUP5,1545,77250.0,0.0,0.0,2026-04-24,125,Snacks & Beverages Hub,3,0.91
-P108,Chocolates,Snacks,20,40.0,150,20,SUP5,804,32160.0,0.0,0.0,2026-04-24,144,Snacks & Beverages Hub,3,0.91
-P109,Curd,Dairy,30,50.0,5,15,SUP1,799,39950.0,0.0,0.0,2026-04-21,82,Fresh Dairy Suppliers,2,0.95
-P110,Butter,Dairy,80,120.0,20,20,SUP1,796,95520.0,0.0,15.0,2026-05-15,100,Fresh Dairy Suppliers,2,0.95
-P111,Cheese,Dairy,150,250.0,30,20,SUP1,754,188500.0,0.0,0.0,2026-04-21,119,Fresh Dairy Suppliers,2,0.95
-P112,Bananas,Fruits,20,40.0,4,10,SUP4,796,31840.0,0.0,25.0,2026-05-15,30,Farm Fresh Produce,2,0.88
-P113,Apples,Fruits,60,120.0,10,15,SUP4,817,98040.0,0.0,0.0,2026-04-28,37,Farm Fresh Produce,2,0.88
-P114,Tomatoes,Vegetables,15,30.0,3,10,SUP4,38,1140.0,0.0,0.0,2026-04-20,34,Farm Fresh Produce,2,0.88
-P115,Potatoes,Vegetables,20,35.0,15,25,SUP4,808,28280.0,25.0,25.0,2026-06-01,130,Farm Fresh Produce,2,0.88
-P116,Noodles Pack,Snacks,20,40.0,180,30,SUP5,331,13240.0,0.0,0.0,2026-04-21,205,Snacks & Beverages Hub,3,0.91
-P117,Chips,Snacks,10,20.0,90,25,SUP5,233,4660.0,0.0,0.0,2026-04-21,185,Snacks & Beverages Hub,3,0.91
-P118,Ice Cream,Frozen,100,180.0,30,10,SUP6,761,136980.0,0.0,0.0,2026-04-21,46,Frozen Foods Distributor,5,0.86
-P119,Tea Powder,Grocery,200,300.0,365,20,SUP3,794,238200.0,0.0,0.0,2026-04-21,255,Grain & Grocery Wholesale,4,0.9
-P120,Coffee Powder,Grocery,250,400.0,365,15,SUP3,757,302800.0,0.0,0.0,2026-04-21,235,Grain & Grocery Wholesale,4,0.9
+101,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,62.5,0,0,2,2510.0,150635.0,784.0,2510.0,2026-06-12,774,Premier Distribution,5,0.91
+102,16 oz Clear Cold Cups Case,Foodservice Disposables,42.0,68.0,0,0,3,1.0,68.0,1.0,1.0,2026-06-12,646,FastTrack Logistics,2,0.98
+103,9 inch Paper Plates Case,Foodservice Disposables,24.0,39.95,0,0,4,0.0,0.0,0.0,0.0,,552,National Wholesale,6,0.87
+104,Compostable Takeout Containers Case,Foodservice Disposables,48.0,79.99,0,0,5,1183.0,90764.17,349.0,1183.0,2026-06-09,412,Metro Supply Hub,4,0.93
+201,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,34.99,0,0,2,1598.0,53646.020000000004,460.0,1598.0,2026-06-09,391,Premier Distribution,5,0.91
+202,Multi-Surface Cleaner Gallon Case,Janitorial Supplies,24.0,42.0,0,0,3,0.0,0.0,0.0,0.0,,436,FastTrack Logistics,2,0.98
+203,Disinfectant Wipes Bucket,Janitorial Supplies,28.0,49.5,0,0,4,0.0,0.0,0.0,0.0,,513,National Wholesale,6,0.87
+204,Hardwound Paper Towels Case,Janitorial Supplies,32.0,55.0,0,0,5,0.0,0.0,0.0,0.0,,400,Metro Supply Hub,4,0.93
+301,Nitrile Gloves Medium Case,Safety and PPE,52.0,87.5,0,0,2,1103.0,92212.75,502.0,1103.0,2026-06-09,424,Premier Distribution,5,0.91
+302,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,0.0,0.0,0.0,0.0,,387,FastTrack Logistics,2,0.98
+303,Disposable Face Masks Case,Safety and PPE,35.0,58.0,0,0,4,0.0,0.0,0.0,0.0,,299,National Wholesale,6,0.87
+304,High Visibility Safety Vest Pack,Safety and PPE,44.0,74.0,0,0,5,0.0,0.0,0.0,0.0,,366,Metro Supply Hub,4,0.93
+401,Bottled Water 24 Pack Case,Breakroom Supplies,4.8,8.99,0,0,2,0.0,0.0,0.0,0.0,,558,Premier Distribution,5,0.91
+402,Coffee Pods Box,Breakroom Supplies,21.0,38.0,0,0,3,0.0,0.0,0.0,0.0,,505,FastTrack Logistics,2,0.98
+403,Copy Paper Case,Office Supplies,34.0,58.99,0,0,4,0.0,0.0,0.0,0.0,,271,National Wholesale,6,0.87
+404,Pallet Stretch Film Case,Packaging Supplies,52.0,88.0,0,0,5,974.0,82111.04000000001,413.0,974.0,2026-06-09,236,Metro Supply Hub,4,0.93

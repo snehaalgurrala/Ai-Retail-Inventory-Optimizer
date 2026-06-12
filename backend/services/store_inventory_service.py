@@ -3,6 +3,7 @@ from typing import Any
 
 import pandas as pd
 
+from backend.db import repository
 from backend.services.inventory_prediction_service import build_predictive_inventory_view
 from backend.services.depletion_formatter import (
     depletion_urgency_label,
@@ -15,15 +16,6 @@ from backend.services.llm_reasoner import humanize_analytics_payload, llm_is_con
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
 PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
-
-
-def _safe_read_csv(path: Path) -> pd.DataFrame:
-    if not path.exists():
-        return pd.DataFrame()
-    try:
-        return pd.read_csv(path)
-    except Exception:
-        return pd.DataFrame()
 
 
 def _number_column(df: pd.DataFrame, column: str) -> pd.Series:
@@ -42,13 +34,13 @@ def _text(value: Any, fallback: str = "") -> str:
 def load_store_inventory_inputs() -> dict[str, pd.DataFrame]:
     """Load raw inventory context and processed recommendation context."""
     return {
-        "inventory": _safe_read_csv(RAW_DATA_DIR / "inventory.csv"),
-        "products": _safe_read_csv(RAW_DATA_DIR / "products.csv"),
-        "stores": _safe_read_csv(RAW_DATA_DIR / "stores.csv"),
-        "sales": _safe_read_csv(RAW_DATA_DIR / "sales.csv"),
-        "suppliers": _safe_read_csv(RAW_DATA_DIR / "suppliers.csv"),
-        "recommendations": _safe_read_csv(PROCESSED_DATA_DIR / "recommendations.csv"),
-        "agent_outputs": _safe_read_csv(PROCESSED_DATA_DIR / "agent_outputs.csv"),
+        "inventory": repository.load_inventory(safe=True),
+        "products": repository.load_products(safe=True),
+        "stores": repository.load_stores(safe=True),
+        "sales": repository.load_sales(safe=True),
+        "suppliers": repository.load_suppliers(safe=True),
+        "recommendations": repository.load_recommendations(safe=True),
+        "agent_outputs": repository.load_processed("agent_outputs", safe=True),
     }
 
 

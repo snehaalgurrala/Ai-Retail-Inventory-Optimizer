@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from backend.db import repository
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
@@ -20,10 +22,7 @@ RAW_FILES = {
 
 def load_raw_data() -> dict[str, pd.DataFrame]:
     """Load all raw retail CSV files."""
-    return {
-        name: pd.read_csv(RAW_DATA_DIR / filename)
-        for name, filename in RAW_FILES.items()
-    }
+    return repository.load_all_raw()
 
 
 def _to_datetime(df: pd.DataFrame, column: str) -> pd.DataFrame:

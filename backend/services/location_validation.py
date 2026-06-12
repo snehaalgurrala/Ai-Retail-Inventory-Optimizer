@@ -7,6 +7,8 @@ from typing import Any
 
 import pandas as pd
 
+from backend.db import repository
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
@@ -118,15 +120,6 @@ def _normalize(text: Any) -> str:
         return ""
     words = [TYPO_REPLACEMENTS.get(word, word) for word in normalized.split()]
     return " ".join(words)
-
-
-def _read_csv(file_path: Path) -> pd.DataFrame:
-    if not file_path.exists():
-        return pd.DataFrame()
-    try:
-        return pd.read_csv(file_path)
-    except Exception:
-        return pd.DataFrame()
 
 
 def _unique_clean_values(values: list[Any]) -> list[str]:
@@ -315,8 +308,8 @@ def validate_requested_location(question: str) -> LocationValidation:
     if not text:
         return LocationValidation()
 
-    stores = _read_csv(STORES_FILE)
-    products = _read_csv(PRODUCTS_FILE)
+    stores = repository.load_stores(safe=True)
+    products = repository.load_products(safe=True)
     available_locations = _available_cities(stores)
     store_aliases = _store_aliases(stores)
     product_aliases = _product_aliases(products)

@@ -1,29 +1,20 @@
+# Bunzl enterprise light theme. Locked to light so the white/navy/green look is
+# consistent for every viewer regardless of OS preference. Tokens mirror the
+# palette in frontend/components/theme.py (PRIMARY_NAVY / ACCENT_GREEN / BORDER).
 [theme]
-primaryColor = "#0ea5e9"
+base = "light"
+primaryColor = "#183F5F"
 font = "sans serif"
-baseRadius = "0.75rem"
-buttonRadius = "0.75rem"
+baseRadius = "0.85rem"
+buttonRadius = "0.7rem"
 showWidgetBorder = true
 showSidebarBorder = true
 
-[theme.light]
-primaryColor = "#0284c7"
-backgroundColor = "#f8fafc"
-secondaryBackgroundColor = "#ffffff"
-textColor = "#0f172a"
-borderColor = "#dbe4ef"
-linkColor = "#0369a1"
-codeBackgroundColor = "#eef6ff"
-dataframeHeaderBackgroundColor = "#eef6ff"
-dataframeBorderColor = "#dbe4ef"
-
-[theme.dark]
-primaryColor = "#38bdf8"
-backgroundColor = "#0f172a"
-secondaryBackgroundColor = "#111827"
-textColor = "#e5e7eb"
-borderColor = "#334155"
-linkColor = "#7dd3fc"
-codeBackgroundColor = "#1e293b"
-dataframeHeaderBackgroundColor = "#1e293b"
-dataframeBorderColor = "#334155"
+backgroundColor = "#F5F8FB"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#0A1F33"
+borderColor = "#D8E2EC"
+linkColor = "#183F5F"
+codeBackgroundColor = "#EAF1F7"
+dataframeHeaderBackgroundColor = "#183F5F"
+dataframeBorderColor = "#D8E2EC"

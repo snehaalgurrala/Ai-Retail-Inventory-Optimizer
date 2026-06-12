@@ -63,8 +63,10 @@ FRONTEND_PAGES = [
     "frontend/app.py",
     "frontend/pages/1_Inventory.py",
     "frontend/pages/2_Sales.py",
-    "frontend/pages/3_Recommendations.py",
-    "frontend/pages/4_Chatbot.py",
+    "frontend/pages/3_Customer_Intelligence.py",
+    "frontend/pages/4_Recommendations.py",
+    "frontend/pages/5_Chatbot.py",
+    "frontend/pages/6_Orders.py",
 ]
 
 

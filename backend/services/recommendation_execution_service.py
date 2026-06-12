@@ -8,6 +8,8 @@ from uuid import uuid4
 
 import pandas as pd
 
+from backend.db import repository
+from backend.db.config import get_data_backend
 from backend.memory.memory_store import save_decision_record, save_outcome_record
 from backend.services.data_processor import build_processed_datasets
 from backend.services.depletion_formatter import (
@@ -140,15 +142,16 @@ def _new_id(prefix: str) -> str:
 
 
 def _read_csv(file_path: Path, columns: list[str] | None = None) -> pd.DataFrame:
-    if not file_path.exists():
-        return pd.DataFrame(columns=columns or [])
+    # Reads are routed through the data access layer; writers still own paths.
+    if file_path.parent == RAW_DATA_DIR:
+        df = repository.load_raw(file_path.stem, safe=True)
+    else:
+        df = repository.load_processed(file_path.stem, safe=True)
 
-    df = pd.read_csv(file_path)
     if columns:
         for column in columns:
             if column not in df.columns:
                 df[column] = ""
-        return df
     return df
 
 
@@ -767,7 +770,12 @@ def execute_discount_action(
         raise ValueError("Discounted price must remain above zero.")
 
     products.loc[mask, "selling_price"] = new_price
-    _atomic_write_csv(products, PRODUCTS_FILE)
+    if get_data_backend() == "oracle":
+        from backend.db import oracle_writer
+
+        oracle_writer.set_product_price(product_id, new_price)
+    else:
+        _atomic_write_csv(products, PRODUCTS_FILE)
 
     _append_row(
         PRICE_UPDATES_FILE,
@@ -887,25 +895,50 @@ def execute_transfer_action(
             ignore_index=True,
         )
 
-    _atomic_write_csv(inventory, INVENTORY_FILE)
-    _append_transactions(
-        [
-            {
-                "transaction_type": "transfer_out",
-                "product_id": product_id,
-                "store_id": source_store_id,
-                "quantity": quantity,
-                "remarks": f"Approved transfer to {target_store_id} for recommendation {recommendation.get('recommendation_id', '')}",
-            },
-            {
-                "transaction_type": "transfer_in",
-                "product_id": product_id,
-                "store_id": target_store_id,
-                "quantity": quantity,
-                "remarks": f"Approved transfer from {source_store_id} for recommendation {recommendation.get('recommendation_id', '')}",
-            },
-        ]
-    )
+    transfer_movements = [
+        {
+            "transaction_type": "transfer_out",
+            "product_id": product_id,
+            "store_id": source_store_id,
+            "quantity": quantity,
+            "remarks": f"Approved transfer to {target_store_id} for recommendation {recommendation.get('recommendation_id', '')}",
+        },
+        {
+            "transaction_type": "transfer_in",
+            "product_id": product_id,
+            "store_id": target_store_id,
+            "quantity": quantity,
+            "remarks": f"Approved transfer from {source_store_id} for recommendation {recommendation.get('recommendation_id', '')}",
+        },
+    ]
+    if get_data_backend() == "oracle":
+        from backend.db import oracle_writer
+
+        oracle_writer.apply_movements(
+            [
+                {
+                    "product_id": product_id,
+                    "store_id": source_store_id,
+                    "delta": -quantity,
+                    "txn_type": "transfer_out",
+                    "quantity": quantity,
+                    "remarks": transfer_movements[0]["remarks"],
+                },
+                {
+                    "product_id": product_id,
+                    "store_id": target_store_id,
+                    "delta": quantity,
+                    "txn_type": "transfer_in",
+                    "quantity": quantity,
+                    "allow_create": True,
+                    "threshold": _to_int(context["product_row"].get("reorder_threshold"), 0),
+                    "remarks": transfer_movements[1]["remarks"],
+                },
+            ]
+        )
+    else:
+        _atomic_write_csv(inventory, INVENTORY_FILE)
+        _append_transactions(transfer_movements)
     _append_row(
         TRANSFER_ACTIONS_FILE,
         {
@@ -973,18 +1006,37 @@ def execute_reorder_action(
             ignore_index=True,
         )
 
-    _atomic_write_csv(inventory, INVENTORY_FILE)
-    _append_transactions(
-        [
-            {
-                "transaction_type": "procurement",
-                "product_id": product_id,
-                "store_id": store_id,
-                "quantity": quantity,
-                "remarks": f"Approved reorder for recommendation {recommendation.get('recommendation_id', '')}",
-            }
-        ]
-    )
+    reorder_remarks = f"Approved reorder for recommendation {recommendation.get('recommendation_id', '')}"
+    if get_data_backend() == "oracle":
+        from backend.db import oracle_writer
+
+        oracle_writer.apply_movements(
+            [
+                {
+                    "product_id": product_id,
+                    "store_id": store_id,
+                    "delta": quantity,
+                    "txn_type": "procurement",
+                    "quantity": quantity,
+                    "allow_create": True,
+                    "threshold": context["threshold"],
+                    "remarks": reorder_remarks,
+                }
+            ]
+        )
+    else:
+        _atomic_write_csv(inventory, INVENTORY_FILE)
+        _append_transactions(
+            [
+                {
+                    "transaction_type": "procurement",
+                    "product_id": product_id,
+                    "store_id": store_id,
+                    "quantity": quantity,
+                    "remarks": reorder_remarks,
+                }
+            ]
+        )
     _append_row(
         PROCUREMENT_ORDERS_FILE,
         {

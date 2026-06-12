@@ -17,3 +17,5 @@ google-genai
 openai
 python-dotenv
 pydantic
+oracledb
+mcp>=1.2.0
