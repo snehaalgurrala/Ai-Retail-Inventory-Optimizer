@@ -216,6 +216,24 @@ def clean_display_df(df: pd.DataFrame, placeholder: str = "-") -> pd.DataFrame:
     return component(df, placeholder=placeholder)
 
 
+def render_table(
+    df: pd.DataFrame,
+    *,
+    max_height: int = 460,
+    empty_message: str = "No data to display.",
+    formatters: dict | None = None,
+) -> None:
+    """Compatibility wrapper for the shared branded HTML table component."""
+    from frontend.components.ui_components import render_table as component
+
+    component(
+        df,
+        max_height=max_height,
+        empty_message=empty_message,
+        formatters=formatters,
+    )
+
+
 def apply_chart_theme(chart, height: int | None = 360):
     """Apply a light-touch Plotly style that still respects Streamlit themes."""
     if chart is None:

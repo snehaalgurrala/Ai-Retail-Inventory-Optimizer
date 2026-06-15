@@ -18,8 +18,8 @@ from backend.services.order_service import (  # noqa: E402
 )
 from frontend.utils.page_helpers import (  # noqa: E402
     apply_page_style,
-    clean_display_df,
     render_page_header,
+    render_table,
 )
 
 
@@ -132,7 +132,7 @@ with store_right:
         if store_inventory_view.empty:
             st.caption("No inventory rows are available for this store.")
         else:
-            st.dataframe(
+            render_table(
                 store_inventory_view[
                     [
                         column
@@ -150,9 +150,8 @@ with store_right:
                         "stock_level": "available_quantity",
                         "selling_price": "unit_price",
                     }
-                ).pipe(clean_display_df),
-                use_container_width=True,
-                hide_index=True,
+                ),
+                max_height=420,
             )
 
 st.divider()
@@ -258,4 +257,4 @@ if orders.empty:
     st.info("No customer orders have been placed yet.")
 else:
     recent_orders = orders.sort_values("order_date", ascending=False).head(20)
-    st.dataframe(clean_display_df(recent_orders), use_container_width=True, hide_index=True)
+    render_table(recent_orders, max_height=480)

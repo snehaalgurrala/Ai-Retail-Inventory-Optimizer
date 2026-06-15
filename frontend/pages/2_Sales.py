@@ -28,12 +28,12 @@ from frontend.utils.page_helpers import (  # noqa: E402
     CHART_PALETTE,
     apply_chart_theme,
     apply_page_style,
-    clean_display_df,
     load_data_or_stop,
     render_ai_insight_panel,
     render_chart_card,
     render_kpi_card,
     render_page_header,
+    render_table,
     style_bar_chart,
     style_donut_chart,
     style_sales_trend_chart,
@@ -310,7 +310,7 @@ comparison_df = branch_comparison(sales_view, inventory, selected_compare_ids)
 if comparison_df.empty:
     st.info("No branch comparison data is available.")
 else:
-    st.dataframe(
+    render_table(
         comparison_df.rename(
             columns={
                 "branch_label": "Branch",
@@ -320,9 +320,8 @@ else:
                 "top_product_units": "Top Product Units",
                 "low_stock_risk": "Low Stock Risk",
             }
-        ).pipe(clean_display_df),
-        use_container_width=True,
-        hide_index=True,
+        ),
+        empty_message="No branch comparison data is available.",
     )
 
 st.divider()
@@ -362,4 +361,4 @@ insights = generate_sales_insights(filtered_sales, sales_view, comparison_df)
 render_ai_insight_panel(insights, title="Sales Intelligence Insights", icon="💹")
 
 with st.expander("Filtered sales records"):
-    st.dataframe(clean_display_df(filtered_sales), use_container_width=True, hide_index=True)
+    render_table(filtered_sales, max_height=420)

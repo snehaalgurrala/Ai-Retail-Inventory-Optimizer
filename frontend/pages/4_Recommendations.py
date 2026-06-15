@@ -12,10 +12,10 @@ if str(PROJECT_ROOT) not in sys.path:
 from frontend.components.cards import render_summary_card  # noqa: E402
 from frontend.utils.page_helpers import (  # noqa: E402
     apply_page_style,
-    clean_display_df,
     render_page_header,
     render_kpi_card,
     render_section_header,
+    render_table,
 )
 from backend.services.llm_reasoner import llm_is_configured  # noqa: E402
 from backend.services.recommendation_execution_service import (  # noqa: E402
@@ -881,11 +881,7 @@ visible_columns = [column for column in table_columns if column in filtered_reco
 if filtered_recommendations.empty:
     st.info("No recommendations match the selected filters.")
 else:
-    st.dataframe(
-        clean_display_df(filtered_recommendations[visible_columns]),
-        use_container_width=True,
-        hide_index=True,
-    )
+    render_table(filtered_recommendations[visible_columns], max_height=520)
 
     for _, recommendation in filtered_recommendations.iterrows():
         render_recommendation_execution_card(recommendation)

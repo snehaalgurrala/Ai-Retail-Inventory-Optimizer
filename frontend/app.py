@@ -28,11 +28,11 @@ from backend.services import agent_summary_service, email_service, report_servic
 from backend.utils.data_loader import load_all_data  # noqa: E402
 from frontend.components.ui_components import (  # noqa: E402
     apply_command_center_styles,
-    clean_display_df,
     render_agent_command_card,
     render_command_center_orchestrator_card,
     render_kpi_card,
     render_low_stock_alert_card,
+    render_table,
 )
 from frontend.utils.page_helpers import (  # noqa: E402
     apply_page_style,
@@ -864,11 +864,7 @@ else:
                 "exact_estimate": "Exact Estimate",
             }
         )
-        st.dataframe(
-            clean_display_df(preview_df),
-            use_container_width=True,
-            hide_index=True,
-        )
+        render_table(preview_df, max_height=320)
         if "risk_score" in low_stock_alerts.columns:
             st.caption("Predictive risk indicators")
             for _, row in display_alerts.head(3).iterrows():
@@ -909,11 +905,7 @@ if not has_agent_run or recommendations.empty:
     st.info('No agent run found. Click Run / Refresh Agents.')
 else:
     with st.container(border=True):
-        st.dataframe(
-            latest_recommendations_table(recommendations),
-            use_container_width=True,
-            hide_index=True,
-        )
+        render_table(latest_recommendations_table(recommendations))
 
 st.divider()
 

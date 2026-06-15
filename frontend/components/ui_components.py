@@ -514,6 +514,71 @@ def clean_display_df(df: pd.DataFrame, placeholder: str = "-") -> pd.DataFrame:
     return display
 
 
+def render_table(
+    df: pd.DataFrame,
+    *,
+    max_height: int = 460,
+    empty_message: str = "No data to display.",
+    formatters: dict | None = None,
+) -> None:
+    """Render a DataFrame as a native, interactive Streamlit table.
+
+    Uses ``st.dataframe`` so users keep the full native grid: column sorting,
+    horizontal scrolling, column resizing, the built-in search/download/fullscreen
+    toolbar, and normal copy/paste — none of which a static HTML table provides.
+
+    The Bunzl theme is preserved through ``.streamlit/config.toml`` (light navy-tinted
+    ``dataframeHeaderBackgroundColor`` and matching border) plus the rounded, bordered
+    container styling in ``theme.py``. The grid is canvas-rendered and draws header
+    text in a faded body-text color with no header-text-color option, so a light
+    header background is used to keep headers high-contrast and clearly visible
+    (dark navy header text would otherwise be unreadable on a dark header).
+
+    Display-only: never mutates the source frame. ``formatters`` maps a column name
+    to a callable used to format each non-null cell; formatting is applied through a
+    pandas ``Styler`` so the *displayed* value is formatted while the *underlying*
+    value stays intact, keeping numeric columns correctly sortable. The grid scrolls
+    within ``max_height`` (a pixel cap) when the data is taller than that, and shrinks
+    to fit when it is shorter.
+    """
+    if df is None or getattr(df, "empty", True):
+        st.caption(empty_message)
+        return
+
+    display = clean_display_df(df).copy()
+
+    styler = display.style.hide(axis="index")
+    if formatters:
+        for column, formatter in formatters.items():
+            if column not in display.columns:
+                continue
+
+            def _format(value, _formatter=formatter):
+                if pd.isna(value):
+                    return "-"
+                try:
+                    return _formatter(value)
+                except Exception:
+                    return str(value)
+
+            styler = styler.format(_format, subset=[column], na_rep="-")
+    else:
+        styler = styler.format(na_rep="-")
+
+    # Cap the grid at ``max_height`` so large datasets stay scrollable, but let
+    # small tables shrink instead of leaving a tall empty area. Roughly 35px per
+    # row plus the header band.
+    natural_height = 38 + len(display) * 35 + 3
+    height = min(int(max_height), natural_height)
+
+    st.dataframe(
+        styler,
+        width="stretch",
+        height=height,
+        hide_index=True,
+    )
+
+
 @contextmanager
 def render_content_container(
     title: str = "",

@@ -16,5 +16,9 @@ textColor = "#0A1F33"
 borderColor = "#D8E2EC"
 linkColor = "#183F5F"
 codeBackgroundColor = "#EAF1F7"
-dataframeHeaderBackgroundColor = "#183F5F"
+# The native dataframe grid is canvas-rendered and draws header text in a faded
+# body-text color (no header-text-color option exists), so a dark navy header
+# would render faded-dark-on-dark and be unreadable. A light navy-tinted header
+# keeps the Bunzl look while staying high-contrast and clearly visible.
+dataframeHeaderBackgroundColor = "#EAF1F7"
 dataframeBorderColor = "#D8E2EC"

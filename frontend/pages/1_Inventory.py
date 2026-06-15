@@ -26,11 +26,11 @@ from backend.services.store_inventory_service import (  # noqa: E402
 from frontend.utils.page_helpers import (  # noqa: E402
     apply_chart_theme,
     apply_page_style,
-    clean_display_df,
     render_ai_insight_panel,
     render_chart_card,
     render_kpi_card,
     render_page_header,
+    render_table,
     style_bar_chart,
     style_donut_chart,
 )
@@ -166,7 +166,7 @@ def render_store_comparison(view: pd.DataFrame) -> None:
         return
 
     st.subheader("Store Comparison")
-    st.dataframe(
+    render_table(
         comparison.rename(
             columns={
                 "store_name": "Store",
@@ -177,9 +177,8 @@ def render_store_comparison(view: pd.DataFrame) -> None:
                 "overstock_count": "Overstock",
                 "inventory_value": "Inventory Value",
             }
-        ).pipe(clean_display_df),
-        use_container_width=True,
-        hide_index=True,
+        ),
+        empty_message="No store comparison data is available.",
     )
 
     row1_left, row1_right = st.columns(2, gap="large")
@@ -302,44 +301,6 @@ else:
 
 kpis = build_store_kpis(selected_view)
 
-# Inventory health score: a display-only summary of how much of the assortment is
-# at risk (low-stock or slow/dead). Derived from the existing KPI counts only — no
-# backend or business-logic change.
-total_products_for_health = max(int(kpis["product_count"]), 1)
-risk_rows = int(kpis["low_stock_count"]) + int(kpis["slow_dead_count"])
-health_score = int(max(0, min(100, round(100 - (risk_rows / total_products_for_health) * 100))))
-if health_score >= 80:
-    health_label, health_color, health_bg = "Excellent", "#166534", "#dcfce7"
-elif health_score >= 60:
-    health_label, health_color, health_bg = "Stable", "#183F5F", "#EAF1F7"
-elif health_score >= 40:
-    health_label, health_color, health_bg = "Watch", "#9a3412", "#ffedd5"
-else:
-    health_label, health_color, health_bg = "Critical", "#991b1b", "#fee2e2"
-
-with st.container(border=True):
-    health_left, health_right = st.columns([1.1, 3], gap="large")
-    with health_left:
-        st.markdown(
-            f"<div style='font-size:0.74rem;text-transform:uppercase;letter-spacing:0.05em;"
-            f"font-weight:800;color:rgba(10,31,51,0.6);'>Inventory Health Score</div>"
-            f"<div style='display:flex;align-items:baseline;gap:0.5rem;margin-top:0.2rem;'>"
-            f"<span style='font-size:2.4rem;font-weight:800;color:var(--airio-primary-navy,#183F5F);'>{health_score}</span>"
-            f"<span style='font-size:1rem;color:rgba(10,31,51,0.5);'>/ 100</span>"
-            f"<span style='display:inline-flex;padding:0.18rem 0.6rem;border-radius:999px;"
-            f"font-size:0.76rem;font-weight:700;color:{health_color};background:{health_bg};'>{health_label}</span>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-    with health_right:
-        st.markdown("<div style='height:0.5rem;'></div>", unsafe_allow_html=True)
-        st.progress(health_score / 100)
-        st.caption(
-            f"{risk_rows:,} of {total_products_for_health:,} products flagged "
-            f"({kpis['low_stock_count']:,} low-stock · {kpis['slow_dead_count']:,} slow/dead). "
-            "Higher is healthier."
-        )
-
 kpi_cols = st.columns(6, gap="medium")
 with kpi_cols[0]:
     render_kpi_card("Inventory Qty", f"{kpis['total_quantity']:,}", "Total units on hand", "blue", icon="📦")
@@ -407,7 +368,7 @@ inventory_table = format_table(
         "supplier_name": "Supplier",
     },
 )
-st.dataframe(clean_display_df(inventory_table), use_container_width=True, hide_index=True)
+render_table(inventory_table, max_height=560)
 
 st.divider()
 
@@ -420,7 +381,7 @@ with left_section:
     if understock.empty:
         st.success("No understock items for this store selection.")
     else:
-        st.dataframe(
+        render_table(
             format_table(
                 understock,
                 [
@@ -453,9 +414,8 @@ with left_section:
                     "priority": "Priority",
                     "ai_recommendation": "AI Recommendation",
                 },
-            ).pipe(clean_display_df),
-            use_container_width=True,
-            hide_index=True,
+            ),
+            empty_message="No understock items for this store selection.",
         )
 
 with right_section:
@@ -467,7 +427,7 @@ with right_section:
         overstock_view["suggested_action"] = overstock_view["recent_daily_sales_velocity"].map(
             lambda velocity: "Discount / clearance review" if float(velocity or 0) <= 0.2 else "Transfer or promotion"
         )
-        st.dataframe(
+        render_table(
             format_table(
                 overstock_view,
                 [
@@ -486,9 +446,8 @@ with right_section:
                     "suggested_action": "Suggested Action",
                     "ai_recommendation": "AI Recommendation",
                 },
-            ).pipe(clean_display_df),
-            use_container_width=True,
-            hide_index=True,
+            ),
+            empty_message="No overstock items for this store selection.",
         )
 
 st.divider()

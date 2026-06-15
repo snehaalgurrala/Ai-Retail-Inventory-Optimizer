@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 import sys
 import importlib
@@ -13,9 +14,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
+from backend.mcp import config as mcp_config  # noqa: E402
 from backend.services import rag_service  # noqa: E402
 from backend.services.chatbot_router import route_chatbot_request  # noqa: E402
-from frontend.utils.page_helpers import apply_page_style, render_page_header  # noqa: E402
+from frontend.utils.page_helpers import (  # noqa: E402
+    apply_page_style,
+    render_page_header,
+    render_table,
+)
 
 
 MAX_CHAT_MEMORY_MESSAGES = 6
@@ -36,14 +42,98 @@ SAMPLE_QUESTIONS = [
     "What is the best way to increase sales based on our trends?",
 ]
 
+# Compact suggestion chips shown directly above the chat input.
+# Each entry is (short label shown on the chip, full question sent to the assistant).
+SUGGESTION_CHIPS = [
+    ("Low Stock", "Which products are low in stock?"),
+    ("Top Products", "What are the top selling products?"),
+    ("Abnormal Orders", "Show me any abnormal or unusual orders."),
+    ("Stockout Risk", "Which products are at risk of stockout?"),
+    ("Supplier Risk", "Which supplier is risky?"),
+    ("Transfer Opportunities", "Which store needs a stock transfer?"),
+]
+
+
+def _is_mcp_mode() -> bool:
+    """True when the Oracle-grounded MCP engine is active (the default)."""
+    try:
+        return mcp_config.chatbot_engine() == "mcp"
+    except Exception:
+        return True
+
+
+def _now_label() -> str:
+    """Return a short, human-friendly timestamp for chat bubbles."""
+    return datetime.now().strftime("%I:%M %p").lstrip("0")
+
+
+# Page-scoped styling: compact suggestion chips and a tidy clear-chat button.
+CHATBOT_CSS = """
+<style>
+/* Compact, pill-shaped suggestion chips (scoped to the chips container). */
+.st-key-chatbot_chips div[data-testid="stHorizontalBlock"] { gap: 0.4rem; }
+.st-key-chatbot_chips .stButton > button {
+    padding: 0.22rem 0.8rem;
+    min-height: 0;
+    font-size: 0.78rem;
+    font-weight: 650;
+    border-radius: 999px;
+    background: var(--airio-soft-blue);
+    color: var(--airio-primary-navy);
+    border: 1px solid var(--airio-border);
+    box-shadow: none;
+}
+.st-key-chatbot_chips .stButton > button:hover {
+    background: var(--airio-primary-navy);
+    color: #ffffff;
+    border-color: var(--airio-primary-navy);
+    transform: none;
+    box-shadow: 0 4px 10px rgba(24, 63, 95, 0.18);
+}
+/* Small, quiet clear-chat button in the top-right of the chat area. */
+.st-key-chatbot_clear .stButton > button {
+    padding: 0.22rem 0.7rem;
+    min-height: 0;
+    font-size: 0.78rem;
+    font-weight: 650;
+    border-radius: 10px;
+    background: var(--airio-card);
+    color: var(--airio-muted);
+    border: 1px solid var(--airio-border);
+    box-shadow: none;
+}
+.st-key-chatbot_clear .stButton > button:hover {
+    background: var(--airio-soft-red);
+    color: var(--airio-risk);
+    border-color: var(--airio-soft-red);
+    transform: none;
+    box-shadow: none;
+}
+/* User bubble: right-aligned Bunzl-blue; assistant: left-aligned white card. */
+div[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+    flex-direction: row-reverse;
+    text-align: left;
+}
+.airio-chat-time {
+    font-size: 0.7rem;
+    color: rgba(10, 31, 51, 0.45);
+    margin-top: 0.2rem;
+}
+</style>
+"""
+
 
 def _welcome_payload() -> dict:
-    """Return the first-time greeting for new chat sessions."""
+    """Return a single, concise first-time greeting for new chat sessions."""
     return {
-        "answer": "Hello mate. How can I help you with inventory insights today?",
-        "explanation": "I can help with stock movement, transfers, sales, supplier risk, and recommendations.",
+        "answer": (
+            "Hi! I'm your Bunzl AI Assistant. Ask me about inventory, sales, "
+            "customers, suppliers, recommendations, or stockout and supplier risks "
+            "— every answer is grounded in your live data."
+        ),
+        "explanation": "",
         "suggestions": [],
-        "follow_up_question": "Want store-wise detail or supplier risk first?",
+        "follow_up_question": "",
         "confidence": "high",
         "supporting_points": [],
         "cannot_answer": False,
@@ -184,7 +274,7 @@ def _display_supporting_data(df: pd.DataFrame) -> None:
         return
 
     st.caption("Supporting data")
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    render_table(df, max_height=360)
 
 
 def _stream_text(text: str):
@@ -303,11 +393,7 @@ def _render_assistant_message(
 
         if unique_sources:
             with st.expander("Sources", expanded=False):
-                st.dataframe(
-                    pd.DataFrame(unique_sources),
-                    use_container_width=True,
-                    hide_index=True,
-                )
+                render_table(pd.DataFrame(unique_sources), max_height=320)
 
 
 st.set_page_config(
@@ -317,24 +403,18 @@ st.set_page_config(
 )
 
 apply_page_style()
+st.markdown(CHATBOT_CSS, unsafe_allow_html=True)
 
+mcp_mode = _is_mcp_mode()
+
+# --- Single clean page header (merges old copilot banner + assistant card) ----
 render_page_header(
-    "🤖 AI Copilot",
-    "A grounded, enterprise AI assistant for inventory, sales, recommendations, and agent insights.",
+    "🤖 Bunzl AI Assistant",
+    "Ask questions about inventory, sales, customers, suppliers, recommendations, "
+    "stockout risks, abnormal orders, and demand trends.",
 )
 
-with st.container(border=True):
-    left_col, right_col = st.columns([3, 1])
-    with left_col:
-        st.markdown("**🟢 Bunzl Retail Decision Assistant**")
-        st.caption(
-            "Hello mate. How can I help you with inventory insights today? "
-            "Ask in plain language — answers are grounded in your live data."
-        )
-    with right_col:
-        if st.button("Clear Chat", use_container_width=True):
-            _reset_chat()
-
+# --- Status / diagnostics reads (kept; surfaced only where genuinely useful) --
 config_status = _chatbot_config_status()
 debug_status = _vector_debug_status()
 vector_env = _vector_rag_environment()
@@ -344,6 +424,7 @@ if last_retrieval_mode:
     debug_status["retrieval_mode"] = last_retrieval_mode
 if last_answer_path:
     debug_status["answer_path"] = last_answer_path
+
 rebuild_message = st.session_state.pop("chatbot_rebuild_message", "")
 rebuild_success = st.session_state.pop("chatbot_rebuild_success", False)
 if rebuild_message:
@@ -352,185 +433,218 @@ if rebuild_message:
     else:
         st.warning(rebuild_message)
 
+# Only the one status that blocks usage is surfaced on the page; everything else
+# lives in the sidebar Admin/Developer section to keep the chat the focus.
 if not config_status["configured"]:
-    st.warning(str(config_status.get("status_message", "LLM is not configured. Add OPENROUTER_API_KEY in .env.")))
-elif not bool(config_status.get("vector_rag_configured", False)):
+    st.warning(
+        str(config_status.get(
+            "status_message",
+            "LLM is not configured. Add OPENROUTER_API_KEY in .env.",
+        ))
+    )
+elif not mcp_mode and not bool(config_status.get("vector_rag_configured", False)):
     vector_message = str(config_status.get("vector_rag_message", "") or "").strip()
     if not _is_raw_vector_error(vector_message):
         st.info(vector_message or "Knowledge search is using fallback retrieval.")
-else:
-    if str(config_status.get("embedding_model", "")).strip():
-        st.caption(
-            f"Ready with `{config_status['chat_model']}` and `{config_status['embedding_model']}`."
-        )
-    else:
-        st.caption(f"Ready with `{config_status['chat_model']}`.")
-    vector_message = str(config_status.get("vector_rag_message", "") or "").strip()
-    if vector_message and not _is_raw_vector_error(vector_message):
-        st.caption(vector_message)
 
+# --- Sidebar: AI Assistant + Suggested Questions (+ collapsed admin tools) -----
 with st.sidebar:
-    st.header("Sample Questions")
-    status_text = str(config_status.get("status_message", "") or "")
-    if status_text:
-        if str(config_status.get("configured", False)).lower() == "true" or config_status.get("configured", False):
-            st.caption(status_text)
-        else:
-            st.warning(status_text)
-    if st.button("Rebuild Knowledge Index", use_container_width=True):
-        with st.spinner("Rebuilding the knowledge index..."):
-            result = _rebuild_knowledge_index()
-        st.cache_data.clear()
-        st.cache_resource.clear()
-        st.session_state["chatbot_rebuild_message"] = str(result.get("message", "Knowledge index rebuild finished."))
-        st.session_state["chatbot_rebuild_success"] = bool(result.get("success", False))
-        st.rerun()
-    vector_message = str(config_status.get("vector_rag_message", "") or "").strip()
-    if vector_message and not _is_raw_vector_error(vector_message):
-        st.caption(vector_message)
-    with st.expander("Chatbot Debug", expanded=False):
+    st.header("Bunzl AI Assistant")
+    st.caption("Ask about inventory, sales, customers, suppliers, recommendations, and risks.")
+
+    st.subheader("Suggested Questions")
+    for sample_question in SAMPLE_QUESTIONS:
+        if st.button(sample_question, use_container_width=True, key=f"side_{sample_question}"):
+            st.session_state["chatbot_question"] = sample_question
+
+    with st.expander("Admin / Developer", expanded=False):
+        # Knowledge-index rebuild and vector diagnostics only apply to the legacy
+        # RAG engine; they are hidden entirely when the MCP engine is active.
+        if not mcp_mode:
+            if st.button("Rebuild Knowledge Index", use_container_width=True):
+                with st.spinner("Rebuilding the knowledge index..."):
+                    result = _rebuild_knowledge_index()
+                st.cache_data.clear()
+                st.cache_resource.clear()
+                st.session_state["chatbot_rebuild_message"] = str(
+                    result.get("message", "Knowledge index rebuild finished.")
+                )
+                st.session_state["chatbot_rebuild_success"] = bool(result.get("success", False))
+                st.rerun()
+
+        st.markdown("**Chatbot Debug**")
+        st.write(f"Engine: {'mcp' if mcp_mode else 'legacy'}")
         st.write(f"LLM active: {'yes' if debug_status.get('llm_active') else 'no'}")
-        st.write(f"Embedding model loaded: {'yes' if debug_status.get('embedding_model_loaded') else 'no'}")
-        st.write(f"Vector index exists: {'yes' if debug_status.get('faiss_index_exists') else 'no'}")
-        st.write(f"Number of documents indexed: {int(debug_status.get('indexed_documents', 0) or 0)}")
         st.write(f"Retrieval mode: {debug_status.get('retrieval_mode', 'fallback')}")
         st.write(f"Answer path: {debug_status.get('answer_path', 'idle')}")
-        embedding_model = str(config_status.get("embedding_model", "") or "").strip()
-        if embedding_model:
-            st.write(f"Embedding model: {embedding_model}")
-        embedding_backend = str(debug_status.get("embedding_backend", "") or "").strip()
-        if embedding_backend:
-            st.write(f"Embedding backend: {embedding_backend}")
-        embedding_backend_error = str(debug_status.get("embedding_backend_error", "") or "").strip()
-        if embedding_backend_error:
-            st.caption(f"Embedding fallback detail: {embedding_backend_error}")
+        if not mcp_mode:
+            st.write(f"Embedding model loaded: {'yes' if debug_status.get('embedding_model_loaded') else 'no'}")
+            st.write(f"Vector index exists: {'yes' if debug_status.get('faiss_index_exists') else 'no'}")
+            st.write(f"Number of documents indexed: {int(debug_status.get('indexed_documents', 0) or 0)}")
+            embedding_model = str(config_status.get("embedding_model", "") or "").strip()
+            if embedding_model:
+                st.write(f"Embedding model: {embedding_model}")
+            embedding_backend = str(debug_status.get("embedding_backend", "") or "").strip()
+            if embedding_backend:
+                st.write(f"Embedding backend: {embedding_backend}")
+            embedding_backend_error = str(debug_status.get("embedding_backend_error", "") or "").strip()
+            if embedding_backend_error:
+                st.caption(f"Embedding fallback detail: {embedding_backend_error}")
         last_error = str(debug_status.get("last_error", "") or "").strip()
         if last_error and not _is_raw_vector_error(last_error):
             st.caption(f"Last vector error: {last_error}")
-    with st.expander("Vector RAG Diagnostics", expanded=False):
-        st.write(f"Python executable: `{vector_env.get('python_executable', '')}`")
-        st.write(f"Python version: `{vector_env.get('python_version', '')}`")
-        st.write(f"Current working directory: `{vector_env.get('current_working_directory', '')}`")
-        st.write(
-            "sentence_transformers import works: "
-            f"{'yes' if vector_env.get('sentence_transformers_available') else 'no'}"
-        )
-        sentence_error = str(vector_env.get("sentence_transformers_error", "") or "").strip()
-        if sentence_error:
-            st.error(f"sentence_transformers import failed: {sentence_error}")
-        st.write(
-            "langchain_community import works: "
-            f"{'yes' if vector_env.get('langchain_community_available') else 'no'}"
-        )
-        langchain_error = str(vector_env.get("langchain_community_error", "") or "").strip()
-        if langchain_error:
-            st.error(f"langchain_community import failed: {langchain_error}")
-        st.write(f"Embedding model: `{vector_env.get('embedding_model', '')}`")
-        st.write(f"Embedding model loaded: {'yes' if vector_env.get('embedding_model_loaded') else 'no'}")
-        embedding_error = str(vector_env.get("embedding_model_error", "") or "").strip()
-        if embedding_error:
-            st.error(f"Embedding model failed to load: {embedding_error}")
-        st.write(f"FAISS index exists: {'yes' if vector_env.get('faiss_index_exists') else 'no'}")
-        st.write(f"Can build FAISS index: {'yes' if vector_env.get('can_build_index') else 'no'}")
-        st.write(f"Retrieval mode: `{vector_env.get('retrieval_mode', 'fallback')}`")
-        fallback_reason = str(vector_env.get("fallback_reason", "") or "").strip()
-        if fallback_reason and not _is_raw_vector_error(fallback_reason):
-            st.warning(f"Fallback reason: {fallback_reason}")
-        if not vector_env.get("faiss_available") or not vector_env.get("sentence_transformers_available") or not vector_env.get("langchain_community_available"):
-            st.code(
-                "\n".join(
-                    [
-                        "python -m pip install faiss-cpu",
-                        "python -m pip install langchain-community sentence-transformers",
-                        "python -m streamlit run frontend/app.py",
-                    ]
-                ),
-                language="powershell",
+
+        # Vector RAG diagnostics are legacy-only; hidden in MCP mode.
+        if not mcp_mode:
+            st.divider()
+            st.markdown("**Vector RAG Diagnostics**")
+            st.write(f"Python executable: `{vector_env.get('python_executable', '')}`")
+            st.write(f"Python version: `{vector_env.get('python_version', '')}`")
+            st.write(f"Current working directory: `{vector_env.get('current_working_directory', '')}`")
+            st.write(
+                "sentence_transformers import works: "
+                f"{'yes' if vector_env.get('sentence_transformers_available') else 'no'}"
             )
-    st.caption("Choose a starter prompt or ask your own question below.")
-    st.divider()
-    for sample_question in SAMPLE_QUESTIONS:
-        if st.button(sample_question, use_container_width=True):
-            st.session_state["chatbot_question"] = sample_question
+            sentence_error = str(vector_env.get("sentence_transformers_error", "") or "").strip()
+            if sentence_error:
+                st.error(f"sentence_transformers import failed: {sentence_error}")
+            st.write(
+                "langchain_community import works: "
+                f"{'yes' if vector_env.get('langchain_community_available') else 'no'}"
+            )
+            langchain_error = str(vector_env.get("langchain_community_error", "") or "").strip()
+            if langchain_error:
+                st.error(f"langchain_community import failed: {langchain_error}")
+            st.write(f"Embedding model: `{vector_env.get('embedding_model', '')}`")
+            st.write(f"Embedding model loaded: {'yes' if vector_env.get('embedding_model_loaded') else 'no'}")
+            embedding_error = str(vector_env.get("embedding_model_error", "") or "").strip()
+            if embedding_error:
+                st.error(f"Embedding model failed to load: {embedding_error}")
+            st.write(f"FAISS index exists: {'yes' if vector_env.get('faiss_index_exists') else 'no'}")
+            st.write(f"Can build FAISS index: {'yes' if vector_env.get('can_build_index') else 'no'}")
+            st.write(f"Retrieval mode: `{vector_env.get('retrieval_mode', 'fallback')}`")
+            fallback_reason = str(vector_env.get("fallback_reason", "") or "").strip()
+            if fallback_reason and not _is_raw_vector_error(fallback_reason):
+                st.warning(f"Fallback reason: {fallback_reason}")
+            if (
+                not vector_env.get("faiss_available")
+                or not vector_env.get("sentence_transformers_available")
+                or not vector_env.get("langchain_community_available")
+            ):
+                st.code(
+                    "\n".join(
+                        [
+                            "python -m pip install faiss-cpu",
+                            "python -m pip install langchain-community sentence-transformers",
+                            "python -m streamlit run frontend/app.py",
+                        ]
+                    ),
+                    language="powershell",
+                )
 
-question = st.chat_input(
-    "Ask me anything about inventory, sales, or recommendations..."
-)
-
+# --- State ---------------------------------------------------------------------
 if "chatbot_question" not in st.session_state:
     st.session_state["chatbot_question"] = ""
 
 memory = _get_chat_memory()
 transcript = _get_chat_transcript()
 
+# Chat input is pinned to the bottom of the page by Streamlit regardless of where
+# it is called, so we read it early and render the chat window + chips above it.
+question = st.chat_input(
+    "Ask me anything about inventory, sales, customers, or recommendations..."
+)
 if question:
     st.session_state["chatbot_question"] = question
 
-for message in transcript:
-    with st.chat_message(message["role"]):
-        if message["role"] == "assistant":
-            _render_assistant_message(
-                message.get("payload", {}),
-                message.get("supporting_records", []),
-                message.get("sources", []),
-            )
-        else:
-            st.write(message.get("content", ""))
+# --- Clear control: small, quiet button at the top-right of the chat area ------
+head_left, head_right = st.columns([6, 1])
+with head_left:
+    st.markdown("##### Conversation")
+with head_right:
+    with st.container(key="chatbot_clear"):
+        if st.button("🗑 Clear", key="clear_chat", use_container_width=True):
+            _reset_chat()
+            st.rerun()
 
-if not st.session_state["chatbot_question"] and not transcript:
-    with st.chat_message("assistant"):
-        _render_assistant_message(_welcome_payload())
+# --- Large chat window (scrolls internally so it owns most of the screen) -------
+with st.container(height=560):
+    if not transcript and not st.session_state["chatbot_question"]:
+        with st.chat_message("assistant"):
+            _render_assistant_message(_welcome_payload())
 
-    st.caption("Here are a few good places to start.")
-    prompt_cols = st.columns(2)
-    for index, sample_question in enumerate(SAMPLE_QUESTIONS[:6]):
-        with prompt_cols[index % 2]:
-            if st.button(sample_question, key=f"main_sample_{index}", use_container_width=True):
-                st.session_state["chatbot_question"] = sample_question
-                st.rerun()
-elif st.session_state["chatbot_question"]:
-    user_question = st.session_state["chatbot_question"]
-    with st.chat_message("user"):
-        st.write(user_question)
+    for message in transcript:
+        with st.chat_message(message["role"]):
+            if message["role"] == "assistant":
+                _render_assistant_message(
+                    message.get("payload", {}),
+                    message.get("supporting_records", []),
+                    message.get("sources", []),
+                )
+            else:
+                st.write(message.get("content", ""))
+            timestamp = str(message.get("timestamp", "") or "")
+            if timestamp:
+                st.markdown(f"<div class='airio-chat-time'>{timestamp}</div>", unsafe_allow_html=True)
 
-    transcript.append({"role": "user", "content": user_question})
-    intent, answer_payload, supporting_df, sources = route_chatbot_request(
-        user_question,
-        chat_history=list(memory.messages),
-    )
-    st.session_state["chatbot_retrieval_mode"] = str(
-        answer_payload.get("_debug_retrieval_mode", "fallback")
-    )
-    st.session_state["chatbot_answer_path"] = str(
-        answer_payload.get("_debug_answer_path", "idle")
-    )
-    supporting_records = supporting_df.to_dict(orient="records")
+    if st.session_state["chatbot_question"]:
+        user_question = st.session_state["chatbot_question"]
+        asked_at = _now_label()
+        with st.chat_message("user"):
+            st.write(user_question)
+            st.markdown(f"<div class='airio-chat-time'>{asked_at}</div>", unsafe_allow_html=True)
 
-    with st.chat_message("assistant"):
-        _render_assistant_message(
-            answer_payload,
-            supporting_records,
-            sources,
-            stream_answer=True,
+        transcript.append({"role": "user", "content": user_question, "timestamp": asked_at})
+        intent, answer_payload, supporting_df, sources = route_chatbot_request(
+            user_question,
+            chat_history=list(memory.messages),
         )
+        st.session_state["chatbot_retrieval_mode"] = str(
+            answer_payload.get("_debug_retrieval_mode", "fallback")
+        )
+        st.session_state["chatbot_answer_path"] = str(
+            answer_payload.get("_debug_answer_path", "idle")
+        )
+        supporting_records = supporting_df.to_dict(orient="records")
 
-    transcript.append(
-        {
-            "role": "assistant",
-            "payload": answer_payload,
-            "supporting_records": supporting_records,
-            "sources": sources,
-        }
-    )
-    memory.add_message(HumanMessage(content=user_question))
-    memory.add_message(
-        AIMessage(
-            content=_assistant_memory_text(
+        answered_at = _now_label()
+        with st.chat_message("assistant"):
+            _render_assistant_message(
                 answer_payload,
                 supporting_records,
+                sources,
+                stream_answer=True,
+            )
+            st.markdown(f"<div class='airio-chat-time'>{answered_at}</div>", unsafe_allow_html=True)
+
+        transcript.append(
+            {
+                "role": "assistant",
+                "payload": answer_payload,
+                "supporting_records": supporting_records,
+                "sources": sources,
+                "timestamp": answered_at,
+            }
+        )
+        memory.add_message(HumanMessage(content=user_question))
+        memory.add_message(
+            AIMessage(
+                content=_assistant_memory_text(
+                    answer_payload,
+                    supporting_records,
+                )
             )
         )
-    )
-    _trim_chat_memory(memory)
-    st.session_state["chatbot_question"] = ""
+        _trim_chat_memory(memory)
+        st.session_state["chatbot_question"] = ""
+
+# --- Compact suggestion chips, placed directly above the chat input ------------
+with st.container(key="chatbot_chips"):
+    st.caption("Try one of these:")
+    chip_cols = st.columns(len(SUGGESTION_CHIPS))
+    for index, (chip_label, chip_question) in enumerate(SUGGESTION_CHIPS):
+        with chip_cols[index]:
+            if st.button(chip_label, key=f"chip_{index}", use_container_width=True):
+                st.session_state["chatbot_question"] = chip_question
+                st.rerun()
 

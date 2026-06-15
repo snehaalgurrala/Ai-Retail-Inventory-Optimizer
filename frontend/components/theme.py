@@ -187,8 +187,10 @@ def apply_enterprise_theme() -> None:
             box-shadow: 0 8px 22px rgba(10, 31, 51, 0.05);
             border: 1px solid var(--airio-border);
         }}
-        div[data-testid="stDataFrame"] [role="columnheader"],
-        div[data-testid="stDataFrame"] thead tr th,
+        /* st.table is HTML-based, so its header can be branded navy/white here.   */
+        /* st.dataframe is a canvas grid whose header background/border come from  */
+        /* the [theme] options in .streamlit/config.toml (dataframeHeaderBackground */
+        /* Color / dataframeBorderColor) — CSS cannot recolor its canvas text.     */
         div[data-testid="stTable"] thead tr th {{
             background: var(--airio-primary-navy) !important;
             color: #ffffff !important;
