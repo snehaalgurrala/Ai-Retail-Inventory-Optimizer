@@ -24,7 +24,13 @@ from backend.services.stock_alternative_service import (  # noqa: E402
     get_alternative_availability_for_low_stock,
     get_surplus_stock_items,
 )
-from backend.services import agent_summary_service, email_service, report_service  # noqa: E402
+from backend.services import (  # noqa: E402
+    abnormal_order_report,
+    agent_summary_service,
+    depletion_formatter,
+    email_service,
+    report_service,
+)
 from backend.utils.data_loader import load_all_data  # noqa: E402
 from frontend.components.ui_components import (  # noqa: E402
     apply_command_center_styles,
@@ -60,7 +66,16 @@ def _get_agent_summary_service():
 
 
 def _get_email_service():
-    """Reload email helpers safely during Streamlit hot reloads."""
+    """Reload email helpers safely during Streamlit hot reloads.
+
+    ``importlib.reload`` does not reload a module's dependencies, so we refresh
+    the upstream modules ``email_service`` imports from first. Otherwise a
+    reloaded ``email_service`` re-binds against a stale cached
+    ``depletion_formatter``/``report_service`` in ``sys.modules`` and raises
+    ``ImportError`` for symbols added since that cached version was loaded.
+    """
+    importlib.reload(depletion_formatter)
+    importlib.reload(report_service)
     return importlib.reload(email_service)
 
 
@@ -418,6 +433,81 @@ def send_dashboard_report(report_type: str, branch_filter: str, start_date, end_
         st.session_state["report_email_error"] = str(email_result.get("message", "Report email could not be sent."))
 
 
+def send_abnormal_order_report(period: str, target_date: date | None = None) -> None:
+    """Build and email the executive Abnormal Order Intelligence Report.
+
+    Reuses the shared abnormal-order pipeline (same risk bands, scores, AI
+    narrative and inventory scope as the Customer Intelligence page) for the
+    requested day, then routes the outcome through the existing report-email
+    status banners.
+    """
+    result = abnormal_order_report.send_abnormal_order_report_email(period, target_date)
+    message = str(result.get("message", "") or "")
+    if result.get("success"):
+        st.session_state["report_email_success"] = message or "Abnormal Order Intelligence Report sent."
+    elif result.get("email_sent") is False and "No abnormal orders" in message:
+        st.session_state["report_email_warning"] = message
+    else:
+        st.session_state["report_email_error"] = message or "Abnormal Order Intelligence Report could not be sent."
+
+
+def render_abnormal_order_report_section() -> None:
+    """New section under the Report Email Center for executive abnormal-order reports."""
+    st.markdown('<div style="height:0.4rem"></div>', unsafe_allow_html=True)
+    st.divider()
+    st.markdown(
+        '<div class="report-center-title">🚨 Abnormal Order Intelligence Reports</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="report-center-subtitle">Send a premium executive report of the abnormal '
+        'customer orders detected on a single day — same risk classifications, AI investigation '
+        'and network inventory scope as the Customer Intelligence page.</div>',
+        unsafe_allow_html=True,
+    )
+
+    abn_cols = st.columns([1.5, 1.25, 1.25, 1.35], gap="small")
+    with abn_cols[0]:
+        selected_abnormal_date = st.date_input(
+            "Report Date",
+            value=datetime.now().date(),
+            max_value=datetime.now().date(),
+            key="abnormal_report_date",
+            help="Used by the 'Send Selected Date' button. Today / Yesterday ignore this field.",
+        )
+    with abn_cols[1]:
+        st.write("")
+        send_today = st.button(
+            "Send Today's Abnormal Orders Report",
+            use_container_width=True,
+            key="send_abnormal_today",
+        )
+    with abn_cols[2]:
+        st.write("")
+        send_yesterday = st.button(
+            "Send Yesterday's Abnormal Orders Report",
+            use_container_width=True,
+            key="send_abnormal_yesterday",
+        )
+    with abn_cols[3]:
+        st.write("")
+        send_selected = st.button(
+            "Send Selected Date Report",
+            use_container_width=True,
+            key="send_abnormal_selected",
+        )
+
+    if send_today:
+        send_abnormal_order_report("today")
+        st.rerun()
+    if send_yesterday:
+        send_abnormal_order_report("yesterday")
+        st.rerun()
+    if send_selected:
+        send_abnormal_order_report("date", selected_abnormal_date)
+        st.rerun()
+
+
 def render_report_email_center(
     sales_df: pd.DataFrame,
     inventory_df: pd.DataFrame,
@@ -525,6 +615,8 @@ def render_report_email_center(
         if send_sales_report:
             send_dashboard_report("sales", branch_filter, selected_start_date, selected_end_date)
             st.rerun()
+
+        render_abnormal_order_report_section()
 
 
 apply_page_style()

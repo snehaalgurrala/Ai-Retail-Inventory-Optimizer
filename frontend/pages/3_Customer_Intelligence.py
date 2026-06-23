@@ -15,6 +15,20 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.db import repository  # noqa: E402
 from backend.services import customer_intelligence_service as cis  # noqa: E402
+from backend.services import inventory_scope  # noqa: E402
+from backend.services.abnormal_order_intelligence import (  # noqa: E402
+    RISK_ASSESSMENT_STYLE,
+    _RISK_PRIORITY,
+    _customer_behaviour_assessment,
+    _deep_actions,
+    _demand_trend,
+    _ensure_assessment,
+    _executive_summary,
+    _inventory_impact_narrative,
+    _product_demand_context,
+    _what_happened,
+    build_abnormal_cards,
+)
 from frontend.utils.page_helpers import (  # noqa: E402
     CHART_COLORS,
     apply_page_style,
@@ -100,6 +114,17 @@ SPOTLIGHT_CSS = """
     border: 1px solid rgba(108, 179, 63, 0.25);
 }
 .ci-badge.tier { background: #F0F4F8; color: #183F5F; border-color: #D8E2EC; }
+.ci-threshold-pill {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    margin-top: 1.85rem;
+    padding: 0.5rem 0.95rem;
+    border-radius: 999px;
+    background: rgba(108, 179, 63, 0.14);
+    border: 1px solid rgba(108, 179, 63, 0.35);
+    color: var(--airio-primary-navy, #183F5F);
+    font-size: 0.9rem; font-weight: 700;
+}
+.ci-threshold-pill b { color: var(--airio-deep-navy, #0A1F33); font-weight: 800; }
 div[data-testid="stMetric"] { min-height: 92px; }
 div[data-testid="stMetric"] label {
     color: color-mix(in srgb, var(--text-color) 62%, transparent);
@@ -293,6 +318,7 @@ def render_executive_kpis(
     abnormal_df: pd.DataFrame,
     impact_df: pd.DataFrame,
     dormant_df: pd.DataFrame,
+    threshold_pct: float = 50.0,
 ) -> None:
     """Render the 5 KPI flip cards. Reuses already-computed values only."""
     # 1) Top Customer
@@ -331,14 +357,14 @@ def render_executive_kpis(
         worst = abnormal_df.iloc[0]
         abnormal_lines = [
             ("Flagged lines", f"{len(abnormal_df)}"),
+            ("Threshold", f"≥ +{int(threshold_pct)}% over baseline"),
             ("Severity", f"{high} High · {medium} Medium"),
             ("Largest", f"{worst['customer_name']} (+{worst['deviation_pct']:.0f}%)"),
             ("Product", f"{worst['product_name']} — {int(worst['current_quantity'])} vs {worst['historical_avg']:.0f} avg"),
-            ("", "Per-product baseline method."),
         ]
     else:
         abnormal_lines = [
-            ("", "No lines exceed the per-product baseline."),
+            ("", f"No lines exceed the +{int(threshold_pct)}% deviation threshold."),
             ("", "Method: per-product average quantity."),
         ]
 
@@ -377,7 +403,7 @@ def render_executive_kpis(
         _kpi_card("Highest Growth", kpis["growth_customer_name"], "name",
                   growth_note, "Growth — detail", growth_lines),
         _kpi_card("Abnormal Orders", f"{kpis['abnormal_orders']:,}", "num",
-                  "Lines above product baseline", "Abnormal Orders — detail", abnormal_lines),
+                  f"Lines ≥ +{int(threshold_pct)}% over baseline", "Abnormal Orders — detail", abnormal_lines),
         _kpi_card("Stockout-Risk Customers", f"{kpis['stockout_risk_customers']:,}", "num",
                   "Ordering at-risk products", "Inventory Pressure — detail", impact_lines),
         _kpi_card("Dormant Accounts", f"{kpis['dormant_accounts']:,}", "num",
@@ -558,6 +584,16 @@ HERO_CSS = """
     letter-spacing: 0.01em; margin-top: 0.1rem; overflow-wrap: anywhere;
 }
 .ci-deep-latest { font-size: 0.92rem; font-weight: 800; color: #B42318; margin-top: 0.1rem; }
+/* Subtle pulse/glow on the latest abnormal bar — scoped to the demand-history
+   charts only (keyed "trend_*") so other Plotly charts are unaffected. The final
+   bar in the trace is always the latest order. */
+@keyframes ciLatestPulse {
+    0%, 100% { filter: drop-shadow(0 0 0px rgba(180, 35, 24, 0.0)); }
+    50% { filter: drop-shadow(0 0 7px rgba(180, 35, 24, 0.92)); }
+}
+[class*="st-key-trend_"] g.points > g.point:last-of-type path {
+    animation: ciLatestPulse 1.7s ease-in-out infinite;
+}
 
 /* --- Section 4: AI alert feed --- */
 .ci-alert {
@@ -579,6 +615,115 @@ HERO_CSS = """
     font-size: 0.76rem; font-weight: 800; padding: 0.22rem 0.6rem; border-radius: 999px;
     background: var(--airio-soft-blue, #EAF1F7); color: var(--airio-primary-navy, #183F5F);
 }
+
+/* --- Executive investigation panels (full-width abnormal-order cards) --- */
+.ci-risk-summary {
+    display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0.2rem 0 0.9rem 0;
+}
+.ci-risk-chip {
+    flex: 1 1 0; min-width: 140px;
+    display: flex; align-items: center; gap: 0.6rem;
+    border: 1px solid var(--airio-border, #D8E2EC);
+    border-left: 5px solid var(--chip-color, #183F5F);
+    border-radius: 12px; padding: 0.55rem 0.85rem;
+    background: var(--airio-card, #FFFFFF);
+    box-shadow: 0 6px 14px rgba(10, 31, 51, 0.05);
+}
+.ci-risk-chip .dot { font-size: 1.05rem; line-height: 1; }
+.ci-risk-chip .body { display: flex; flex-direction: column; line-height: 1.1; }
+.ci-risk-chip .k {
+    font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.04em;
+    font-weight: 700; color: rgba(10, 31, 51, 0.6);
+}
+.ci-risk-chip .v { font-size: 1.32rem; font-weight: 800; color: var(--chip-color, #183F5F); }
+
+.ci-exec-card {
+    position: relative; overflow: hidden; width: 100%;
+    border-radius: 18px;
+    border: 1px solid var(--airio-border, #D8E2EC);
+    border-left: 7px solid var(--risk-color, #183F5F);
+    background: linear-gradient(180deg, #FFFFFF 0%, #FBFDFE 100%);
+    box-shadow: 0 12px 30px rgba(10, 31, 51, 0.09);
+    padding: 1.15rem 1.4rem 1.25rem 1.4rem;
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+.ci-exec-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 26px 50px rgba(10, 31, 51, 0.15);
+}
+.ci-exec-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 1.2rem; flex-wrap: wrap;
+}
+.ci-exec-headl { min-width: 0; flex: 1 1 60%; }
+.ci-exec-rank {
+    font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.05em; color: rgba(10, 31, 51, 0.5);
+}
+.ci-exec-name {
+    font-size: 1.5rem; font-weight: 800; color: var(--airio-deep-navy, #0A1F33);
+    line-height: 1.15; margin-top: 0.15rem; overflow-wrap: anywhere;
+}
+.ci-exec-prod {
+    font-size: 0.95rem; color: rgba(10, 31, 51, 0.75);
+    margin-top: 0.28rem; overflow-wrap: anywhere;
+}
+.ci-exec-prod b { color: var(--risk-color, #183F5F); font-weight: 800; }
+.ci-exec-headr {
+    flex: 0 0 auto; display: flex; flex-direction: column;
+    align-items: flex-end; gap: 0.35rem; text-align: right;
+}
+@media (max-width: 900px) {
+    .ci-exec-name { font-size: 1.28rem; }
+}
+
+/* Executive Summary — the plain-English lead on every abnormal-order card. */
+.ci-exec-summary {
+    margin-top: 1.05rem;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F6FAFE 100%);
+    border: 1px solid var(--airio-border, #D8E2EC);
+    border-left: 4px solid var(--risk-color, #183F5F);
+    border-radius: 12px;
+    padding: 0.9rem 1.05rem;
+}
+.ci-exec-summary-tag {
+    font-size: 0.66rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--risk-color, #183F5F); margin-bottom: 0.38rem;
+}
+.ci-exec-summary-text {
+    font-size: 1.02rem; line-height: 1.6; color: var(--airio-deep-navy, #0A1F33);
+}
+
+/* AI Investigation Report — narrative briefing header inside the expander. */
+.ci-report-head {
+    font-size: 1.14rem; font-weight: 800; color: var(--airio-deep-navy, #0A1F33);
+    letter-spacing: 0.01em; margin: 0.1rem 0 0.75rem 0;
+    padding-bottom: 0.45rem; border-bottom: 2px solid var(--airio-border, #D8E2EC);
+}
+.ci-report-lead {
+    font-size: 0.82rem; line-height: 1.5; color: rgba(10, 31, 51, 0.62);
+    margin: -0.45rem 0 0.85rem 0;
+}
+
+/* Technical Details — collapsed numeric drill-down for advanced users. */
+.ci-tech {
+    border: 1px solid var(--airio-border, #D8E2EC);
+    border-radius: 12px; background: var(--airio-card, #FFFFFF);
+    margin-top: 0.5rem; padding: 0 0.95rem;
+}
+.ci-tech > summary {
+    cursor: pointer; list-style: none; padding: 0.7rem 0;
+    font-weight: 800; font-size: 0.8rem; letter-spacing: 0.04em;
+    text-transform: uppercase; color: rgba(10, 31, 51, 0.7);
+}
+.ci-tech > summary::-webkit-details-marker { display: none; }
+.ci-tech > summary::before { content: "▸ "; color: rgba(10, 31, 51, 0.45); }
+.ci-tech[open] > summary::before { content: "▾ "; }
+.ci-tech-body { padding: 0.1rem 0 0.95rem 0; }
+.ci-tech-note {
+    margin-top: 0.55rem; font-size: 0.76rem; line-height: 1.5;
+    color: rgba(10, 31, 51, 0.58);
+}
 </style>
 """
 
@@ -590,106 +735,14 @@ RISK_STYLE = {
 }
 
 
-def build_abnormal_cards(
-    abnormal_df: pd.DataFrame,
-    facts: pd.DataFrame,
-    at_risk_ids: set[str],
-    inventory: pd.DataFrame | None = None,
-) -> list[dict]:
-    """Build one AI card per abnormal order line, sorted by severity (deviation).
-
-    Every flagged line becomes its own card — not aggregated to one-per-customer —
-    so all abnormal orders are surfaced. Pure view-layer enrichment: per-line
-    revenue comes from ``facts`` (the authoritative line_total), the on-hand stock
-    and the product's prior order sequence are pulled in so the AI narrative can
-    cite real numbers, and risk_score is scaled relative to the largest deviation
-    in the set. No service logic changes.
-    """
-    if abnormal_df is None or abnormal_df.empty:
-        return []
-
-    # Recover per-line revenue + product_id by matching the flagged lines back to
-    # the fact frame on (order_nbr, product_name).
-    flook = facts.copy()
-    if "order_nbr" not in flook.columns:
-        flook["order_nbr"] = flook.get("order_id", "")
-    flook["order_nbr"] = flook["order_nbr"].astype(str)
-    lookup = (
-        flook.groupby(["order_nbr", "product_name"], as_index=False)
-        .agg(product_id=("product_id", "first"), line_revenue=("revenue", "sum"))
-    )
-
-    ab = abnormal_df.copy()
-    ab["order_nbr"] = ab["order_nbr"].astype(str)
-    ab = ab.merge(lookup, on=["order_nbr", "product_name"], how="left")
-    ab["line_revenue"] = pd.to_numeric(ab["line_revenue"], errors="coerce").fillna(0.0)
-    ab["product_id"] = ab["product_id"].astype(str)
-
-    # On-hand stock per product (summed across branches), if inventory is available.
-    stock_by_product: dict[str, int] = {}
-    if inventory is not None and not inventory.empty and "product_id" in inventory.columns:
-        inv = inventory.copy()
-        inv["product_id"] = inv["product_id"].astype(str)
-        inv["_stock"] = pd.to_numeric(inv.get("stock_level"), errors="coerce").fillna(0)
-        stock_by_product = inv.groupby("product_id")["_stock"].sum().round().astype(int).to_dict()
-
-    # Each product's full order-quantity sequence in date order (for the history
-    # narrative + "typical range").
-    series_src = facts.copy()
-    if "order_date" in series_src.columns:
-        series_src = series_src.sort_values("order_date")
-    series_src["product_id"] = series_src["product_id"].astype(str)
-    series_src["_qty"] = pd.to_numeric(series_src["quantity"], errors="coerce").fillna(0).round().astype(int)
-    qty_series_by_product = series_src.groupby("product_id")["_qty"].apply(list).to_dict()
-
-    # How many abnormal lines each customer has (drives "recurring behaviour" copy).
-    cust_counts = ab.groupby("customer_name").size().to_dict()
-
-    global_max_dev = float(ab["deviation_pct"].max()) or 1.0
-
-    cards: list[dict] = []
-    for position, (_, row) in enumerate(ab.iterrows()):
-        deviation = float(row["deviation_pct"])
-        name = str(row["customer_name"])
-        product_id = str(row["product_id"])
-        current_quantity = int(row["current_quantity"])
-
-        # Historical (non-anomalous) order sequence for this product: drop one
-        # occurrence of the flagged quantity so the baseline reflects normal demand.
-        full_series = list(qty_series_by_product.get(product_id, []))
-        history = full_series.copy()
-        if current_quantity in history:
-            history.remove(current_quantity)
-        if history:
-            hist_low, hist_high = int(min(history)), int(max(history))
-        else:
-            baseline = max(1, math.ceil(float(row["historical_avg"])))
-            hist_low = hist_high = baseline
-
-        cards.append({
-            "uid": f"abn{position}",
-            "customer_name": name,
-            "product_name": str(row["product_name"]),
-            "product_id": product_id,
-            "order_nbr": str(row["order_nbr"]),
-            "risk_level": str(row["risk_level"]),
-            "risk_score": int(round(min(100.0, deviation / global_max_dev * 100.0))),
-            "deviation_pct": deviation,
-            "current_quantity": current_quantity,
-            "historical_avg": float(row["historical_avg"]),
-            "revenue_impact": float(row["line_revenue"]),
-            "at_risk": product_id in at_risk_ids,
-            "customer_abnormal_lines": int(cust_counts.get(name, 1)),
-            "current_inventory": stock_by_product.get(product_id),  # None if unknown
-            "hist_series": history[-6:],
-            "hist_low": hist_low,
-            "hist_high": hist_high,
-        })
-    cards.sort(key=lambda c: (c["risk_score"], c["deviation_pct"]), reverse=True)
-    return cards
+# build_abnormal_cards now lives in backend.services.abnormal_order_intelligence
+# (imported at the top) so the dashboard Abnormal Order Intelligence Report and
+# this page build identical cards from a single source of truth.
 
 
-def render_executive_summary(cards: list[dict], abnormal_df: pd.DataFrame) -> None:
+def render_executive_summary(
+    cards: list[dict], abnormal_df: pd.DataFrame, threshold_pct: float = 50.0
+) -> None:
     """Section 1 — premium AI briefing panel summarising the abnormal-order signal."""
     total_lines = int(len(abnormal_df))
     customers_impacted = int(abnormal_df["customer_name"].nunique()) if not abnormal_df.empty else 0
@@ -720,7 +773,7 @@ def render_executive_summary(cards: list[dict], abnormal_df: pd.DataFrame) -> No
         '<div class="ci-hero-kicker">AI Order Intelligence Center · Live from Oracle</div>'
         '<div class="ci-hero-title">🚨 AI Executive Summary</div>'
         '<div class="ci-hero-sub">Autonomous monitoring of customer ordering behaviour against '
-        'per-product demand baselines.</div>'
+        f'per-product demand baselines · Abnormal Order Threshold: {int(threshold_pct)}%</div>'
         f'<div class="ci-hero-grid">{chips}</div>'
         '</div>',
         unsafe_allow_html=True,
@@ -728,264 +781,225 @@ def render_executive_summary(cards: list[dict], abnormal_df: pd.DataFrame) -> No
 
 
 def _card_html(card: dict, rank: int) -> str:
-    rs = RISK_STYLE[card["risk_level"]]
-    explanation = (
-        f"{escape(card['customer_name'])} ordered {card['deviation_pct']:.0f}% above historical "
-        f"demand for {escape(card['product_name'])}."
-    )
-    sub = ("This order may create inventory pressure." if card["at_risk"]
-           else "Current order quantity significantly exceeds baseline demand.")
-    inv_txt = "Pressure detected" if card["at_risk"] else "Stable"
+    """Full-width executive investigation panel for a single abnormal order.
+
+    Business-first: the card leads with a plain-English Executive Summary and the
+    Risk Level badge. All numeric KPIs, scores and formulas live in the collapsed
+    Technical Details section inside the expander, not on the card face.
+    """
+    ra = _ensure_assessment(card)
+    band = ra["band"]
+    style = RISK_ASSESSMENT_STYLE[band]
+    summary = _executive_summary(card)
     return (
-        f'<div class="ci-ai-card" style="--risk-color:{rs["color"]}">'
-        '<div class="ci-ai-head"><div>'
-        f'<div class="ci-ai-rank">#{rank} · Risk Score {card["risk_score"]}/100</div>'
-        f'<div class="ci-ai-name">{escape(card["customer_name"])}</div></div>'
-        f'<div class="ci-risk-badge" style="background:{rs["badge_bg"]};color:{rs["badge_fg"]}">'
-        f'{rs["icon"]} {card["risk_level"]} Risk</div></div>'
-        f'<div class="ci-prod-line">Product: <b>{escape(card["product_name"])}</b></div>'
-        '<div class="ci-ai-metrics">'
-        f'<div class="ci-ai-metric"><div class="k">Deviation</div><div class="v">+{card["deviation_pct"]:.0f}%</div></div>'
-        f'<div class="ci-ai-metric"><div class="k">Current Qty</div><div class="v">{card["current_quantity"]:,}</div></div>'
-        f'<div class="ci-ai-metric"><div class="k">Hist. Avg</div><div class="v">{math.ceil(card["historical_avg"]):,}</div></div>'
+        f'<div class="ci-exec-card" style="--risk-color:{style["color"]}">'
+        '<div class="ci-exec-head">'
+        '<div class="ci-exec-headl">'
+        f'<div class="ci-exec-rank">#{rank} · Abnormal Order Investigation</div>'
+        f'<div class="ci-exec-name">{escape(card["customer_name"])}</div>'
+        f'<div class="ci-exec-prod">Product: <b>{escape(card["product_name"])}</b></div>'
         '</div>'
-        '<div class="ci-ai-metrics">'
-        f'<div class="ci-ai-metric"><div class="k">Revenue Impact</div><div class="v">{money(card["revenue_impact"])}</div></div>'
-        f'<div class="ci-ai-metric"><div class="k">Inventory</div><div class="v">{escape(inv_txt)}</div></div>'
+        '<div class="ci-exec-headr">'
+        f'<div class="ci-risk-badge" style="background:{style["bg"]};color:{style["color"]}">'
+        f'{style["icon"]} {band} Risk</div>'
         '</div>'
-        f'<div class="ci-ai-explain"><span class="tag">🧠 AI Analysis</span>{explanation} {escape(sub)}</div>'
+        '</div>'
+        '<div class="ci-exec-summary">'
+        '<div class="ci-exec-summary-tag">🧠 Executive Summary</div>'
+        f'<div class="ci-exec-summary-text">{escape(summary)}</div>'
+        '</div>'
         '</div>'
     )
 
 
-def _analysis_paragraphs(card: dict) -> list[str]:
-    """The AI-analyst narrative — grounded in this customer's real numbers."""
-    name = card["customer_name"]
-    prod = card["product_name"]
-    cur = card["current_quantity"]
-    dev = card["deviation_pct"]
+def _technical_details_html(card: dict) -> str:
+    """Collapsed numeric drill-down (scores, ratios, formula) for advanced users."""
+    ra = _ensure_assessment(card)
+    inv = card.get("current_inventory")
+    cur = int(card["current_quantity"])
     avg = math.ceil(card["historical_avg"])
-    lo, hi = card["hist_low"], card["hist_high"]
+    lo, hi = int(card["hist_low"]), int(card["hist_high"])
+    dev = float(card["deviation_pct"])
+    impact = ra["impact_pct"]
+    impact_str = f"{impact:.0f}% of on-hand stock" if impact is not None else "N/A — stock unavailable"
+    coverage = f"{inv / cur:.2f}× order size" if (inv and cur) else "N/A"
+    inv_str = f"{inv:,} units" if inv is not None else "Unavailable"
+    hist_range = f"{lo:,} – {hi:,} units" if lo != hi else f"{lo:,} units"
 
-    paras: list[str] = []
-    if lo != hi:
-        paras.append(f"{name} typically orders between {lo:,} and {hi:,} units of {prod} per order.")
-    else:
-        paras.append(f"{name} typically orders around {lo:,} units of {prod} per order.")
-    paras.append(
-        f"The latest order was placed for {cur:,} units — approximately {dev:.0f}% above the "
-        f"historical average demand of {avg:,} units for this product."
-    )
-    inv = card.get("current_inventory")
-    if inv is not None and inv > 0:
-        share = cur / inv * 100.0
-        paras.append(
-            f"This single order would consume about {share:.0f}% of the {inv:,} units currently in "
-            f"stock, and is materially higher than {name}'s previous purchasing behaviour."
-        )
-    else:
-        paras.append(
-            f"This order is materially higher than {name}'s previous purchasing behaviour for {prod}."
-        )
-    return paras
-
-
-def _pattern_hypotheses(card: dict) -> list[str]:
-    """Business hypotheses for the spike, presented as 'the pattern may indicate'."""
-    return [
-        "A new customer contract or project",
-        "A planned bulk procurement cycle",
-        "Inventory buffering on the customer's side",
-        "A temporary demand surge",
-    ]
-
-
-def _closing_inventory_line(card: dict) -> str | None:
-    """A grounded closing sentence about stockout pressure, when stock is known."""
-    inv = card.get("current_inventory")
-    cur = card["current_quantity"]
-    if inv is not None and cur:
-        if inv < cur:
-            return (
-                f"Based on current inventory of {inv:,} units, continued demand at this rate may "
-                "increase stockout pressure if replenishment actions are not taken."
-            )
-        if card["at_risk"]:
-            return (
-                "With this product already at or below its reorder point, sustained demand at this "
-                "level may increase stockout pressure if replenishment is not accelerated."
-            )
-        return (
-            f"Current inventory of {inv:,} units can absorb this order, but repeat orders of this "
-            "size would draw stock down quickly."
-        )
-    if card["at_risk"]:
-        return (
-            "This product is already at or below its reorder point, so sustained demand at this "
-            "level may increase stockout pressure."
-        )
-    return None
-
-
-def _inventory_impact(card: dict) -> tuple[list[tuple[str, str]] | None, str]:
-    """Return (stat rows, risk-assessment sentence) for the inventory impact block."""
-    inv = card.get("current_inventory")
-    cur = card["current_quantity"]
-    if inv is None:
-        return None, (
-            "Live inventory for this product is unavailable; assess replenishment manually "
-            "against the order size."
-        )
-    coverage = (inv / cur) if cur else 0.0
     rows = [
-        ("Current Inventory", f"{inv:,} units"),
-        ("Expected Consumption", f"{cur:,} units"),
-        ("Inventory Coverage", f"{coverage:.2f}x order size"),
+        ("Risk Score", f"{ra['score']} / 100"),
+        ("Risk Band", ra["band"]),
+        ("Deviation from Avg", f"+{dev:.0f}%"),
+        ("Historical Avg", f"{avg:,} units"),
+        ("Historical Max", f"{hi:,} units"),
+        ("Historical Range", hist_range),
+        ("Latest Order Qty", f"{cur:,} units"),
+        ("Current Inventory", inv_str),
+        ("Inventory Impact %", impact_str),
+        ("Coverage Ratio", coverage),
+        ("Revenue Impact", money(card["revenue_impact"])),
+        ("Stockout Risk", ra["stockout_risk"]),
     ]
-    if coverage < 1:
-        risk = (
-            f"Current inventory ({inv:,} units) is below this order's size and may be insufficient "
-            "if similar orders continue over the next replenishment cycle."
-        )
-    elif coverage < 2:
-        risk = (
-            f"Current inventory covers roughly {coverage:.1f}x this order; a repeat order from "
-            f"{card['customer_name']} would draw stock down quickly."
-        )
+    grid = '<div class="ci-deep-grid">' + "".join(
+        f'<div class="ci-deep-stat"><div class="k">{escape(k)}</div><div class="v">{escape(v)}</div></div>'
+        for k, v in rows
+    ) + '</div>'
+    note = (
+        '<div class="ci-tech-note">Risk score blends deviation from average (30%), '
+        'increase above the historical maximum (25%), inventory impact (20%), '
+        'reorder-point pressure (15%) and recent demand trend (10%), normalised to 0–100. '
+        'Bands: 0–30 Low · 31–60 Medium · 61–85 High · 86–100 Critical.</div>'
+    )
+    return (
+        '<details class="ci-tech">'
+        '<summary>⚙️ Technical Details</summary>'
+        f'<div class="ci-tech-body">{grid}{note}</div>'
+        '</details>'
+    )
+
+
+# The abnormal-order narrative generators (_demand_trend, _what_happened,
+# _inventory_impact_narrative, _product_demand_context,
+# _customer_behaviour_assessment, _deep_actions) now live in
+# backend.services.abnormal_order_intelligence and are imported at the top, so the
+# page and the dashboard email report tell an identical story.
+
+
+CHART_BLUE = "#183F5F"   # historical orders
+CHART_GREEN = "#6CB33F"  # latest order, normal
+CHART_RED = "#B42318"    # latest order, abnormal
+
+
+def make_trend_chart(card: dict):
+    """Complete order-history chart: every order for the product, in real sequence.
+
+    Plots the product's full chronological order sequence (``order_series``) — one
+    bar per actual order, never an average or aggregate — and highlights the
+    evaluated/abnormal order in red at its true position (``current_index``). All
+    other orders use Bunzl blue, so the spike that triggered the anomaly is
+    immediately visible against genuine ordering behaviour. Falls back to
+    ``hist_series + [current_quantity]`` only if the full sequence is unavailable.
+    """
+    series = [int(q) for q in (card.get("order_series") or [])]
+    cur = int(card["current_quantity"])
+    if series:
+        idx = int(card.get("current_index", len(series) - 1))
+        idx = max(0, min(idx, len(series) - 1))
     else:
-        risk = (
-            f"Current inventory covers about {coverage:.1f}x this order size, so immediate stockout "
-            "risk is low."
-        )
-    return rows, risk
-
-
-def _order_history(card: dict) -> tuple[str | None, int, str]:
-    """Return (historical-pattern string, latest qty, observation sentence)."""
-    hist = card.get("hist_series") or []
-    cur = card["current_quantity"]
-    prod = card["product_name"]
-    if not hist:
-        return None, cur, f"No prior order history is available for {prod} to compare against this order."
-    pattern = " → ".join(f"{q:,}" for q in hist)
-    spread = max(hist) - min(hist)
-    if spread <= max(3, 0.15 * max(hist)):
-        obs = (
-            f"Demand for {prod} held steady across recent orders before this sudden increase "
-            f"to {cur:,} units."
-        )
-    else:
-        obs = (
-            f"Demand for {prod} varied modestly across recent orders before this order broke "
-            f"sharply above the range to {cur:,} units."
-        )
-    return pattern, cur, obs
-
-
-def _deep_actions(card: dict) -> list[str]:
-    """Contextual, customer/product-specific recommended actions."""
-    name = card["customer_name"]
-    prod = card["product_name"]
-    inv = card.get("current_inventory")
-
-    actions = [
-        f"Confirm whether this order is associated with a new project or contract for {name}",
-        f"Monitor follow-up orders from {name} over the next 7–14 days",
-    ]
-    if inv is not None and inv < card["current_quantity"]:
-        actions.append(f"Consider transferring {prod} inventory from lower-demand locations to cover the shortfall")
-    elif card["at_risk"]:
-        actions.append(f"Expedite replenishment for {prod}, which is at or below its reorder point")
-    else:
-        actions.append(f"Consider transferring {prod} inventory from lower-demand locations if demand persists")
-    actions.append(f"Increase procurement planning for {prod} if demand continues at this level")
-    if card["customer_abnormal_lines"] > 1:
-        actions.append(
-            f"Review {name}'s broader ordering pattern — {card['customer_abnormal_lines']} of their "
-            "order lines are flagged abnormal"
-        )
-    return actions
-
-
-def make_trend_chart(facts: pd.DataFrame, card: dict):
-    """Mini demand-history sparkline for the card's most abnormal product."""
-    series = facts[facts["product_name"] == card["product_name"]]
-    qtys: list[int] = []
-    if not series.empty:
-        ordered = series.sort_values("order_date") if "order_date" in series.columns else series
-        qtys = pd.to_numeric(ordered["quantity"], errors="coerce").fillna(0).round().astype(int).tolist()
-    qtys = qtys[-11:]
-
-    current = card["current_quantity"]
-    colors: list[str] = []
-    marked = False
-    for q in qtys:
-        if not marked and q == current:
-            colors.append("#B42318")
-            marked = True
-        else:
-            colors.append("#183F5F")
-    if not marked:  # guarantee the anomaly is always visible
-        qtys.append(current)
-        colors.append("#B42318")
-    if not qtys:
+        # Degraded mode (older service frame): prior orders then the evaluated one.
+        series = [int(q) for q in (card.get("hist_series") or [])] + [cur]
+        idx = len(series) - 1
+    if not series:
         return None
 
+    n = len(series)
+    eval_color = CHART_RED if bool(card.get("risk_level")) else CHART_GREEN
+    colors = [eval_color if i == idx else CHART_BLUE for i in range(n)]
+    line_widths = [2 if i == idx else 0 for i in range(n)]
+    line_colors = [eval_color if i == idx else "rgba(0,0,0,0)" for i in range(n)]
+
     fig = go.Figure(go.Bar(
-        x=list(range(1, len(qtys) + 1)),
-        y=qtys,
+        x=list(range(1, n + 1)),
+        y=series,
         marker_color=colors,
-        text=qtys,
+        marker_line_color=line_colors,
+        marker_line_width=line_widths,
+        text=[f"{q:,}" for q in series],
         textposition="outside",
+        width=0.64,
+        hovertemplate="%{y:,} units<extra></extra>",
     ))
     fig.update_traces(textfont_size=10, cliponaxis=False)
+    # Callout floating above the highlighted (evaluated) bar, wherever it falls.
+    fig.add_annotation(
+        x=idx + 1,
+        y=series[idx],
+        text="Abnormal Order",
+        showarrow=False,
+        yshift=26,
+        font=dict(size=10, color=eval_color),
+        xanchor="center",
+    )
+    headroom = max(series) * 1.3 if max(series) else 1
+    # Order-position labels (Order 1 … Order n); the evaluated one reads "Latest"
+    # since it is always the most recent order, pinned at the far right.
+    # Shown when the sequence is short enough to stay legible; hidden otherwise.
+    if n <= 14:
+        order_labels = [("Latest" if i == idx else f"Order {i + 1}") for i in range(n)]
+        xaxis = dict(
+            tickmode="array",
+            tickvals=list(range(1, n + 1)),
+            ticktext=order_labels,
+            tickfont=dict(size=9, color="rgba(10,31,51,0.55)"),
+            showgrid=False, zeroline=False, showline=False,
+        )
+        bottom_margin = 26
+    else:
+        xaxis = dict(visible=False)
+        bottom_margin = 8
     fig.update_layout(
-        height=175,
-        margin=dict(l=8, r=8, t=20, b=8),
+        height=190 + (bottom_margin - 8),
+        margin=dict(l=8, r=8, t=36, b=bottom_margin),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         showlegend=False,
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False),
+        bargap=0.28,
+        xaxis=xaxis,
+        yaxis=dict(visible=False, range=[0, headroom]),
     )
     return fig
 
 
+# -- Risk Assessment (enhancement layer) -----------------------------------
+# The composite 0-100 risk score and 4-band verdict (RISK_ASSESSMENT_STYLE,
+# _RISK_PRIORITY, _ensure_assessment, _risk_assessment) now live in
+# backend.services.abnormal_order_intelligence and are imported at the top. That
+# module is the single source of truth shared with the dashboard Abnormal Order
+# Intelligence Report, so risk bands and scores match exactly across surfaces.
+
+
+def _narrative_block(
+    title: str,
+    color: str,
+    paras: list[str],
+    subtitle: str | None = None,
+    bullets: list[str] | None = None,
+    actions: bool = False,
+) -> str:
+    """Render one section of the AI Investigation Report as a styled narrative block."""
+    cls = "ci-deep-block actions" if actions else "ci-deep-block"
+    html = f'<div class="{cls}"><div class="ci-deep-block-title" style="color:{color}">{title}</div>'
+    html += "".join(f'<div class="ci-deep-text">{escape(p)}</div>' for p in paras)
+    if subtitle:
+        html += f'<div class="ci-deep-subtitle">{escape(subtitle)}</div>'
+    if bullets:
+        html += "".join(f'<div class="ci-deep-bullet">{escape(b)}</div>' for b in bullets)
+    html += '</div>'
+    return html
+
+
 def render_deep_analysis(card: dict, facts: pd.DataFrame) -> None:
-    """Section 3 — expandable deep analysis shown inside each card's expander."""
-    stats = [
-        ("Historical Avg", f"{math.ceil(card['historical_avg']):,}"),
-        ("Current Qty", f"{card['current_quantity']:,}"),
-        ("Deviation", f"+{card['deviation_pct']:.0f}%"),
-        ("Risk Level", card["risk_level"]),
-        ("Revenue Impact", money(card["revenue_impact"])),
-        ("Inventory", "Pressure detected" if card["at_risk"] else "Stable"),
-    ]
-    grid = '<div class="ci-deep-grid">' + "".join(
-        f'<div class="ci-deep-stat"><div class="k">{escape(k)}</div><div class="v">{escape(v)}</div></div>'
-        for k, v in stats
-    ) + '</div>'
-    st.markdown(grid, unsafe_allow_html=True)
+    """AI Investigation Report — a narrative supply-chain briefing for one order.
 
-    # -- Order History narrative -------------------------------------------
-    pattern, latest, observation = _order_history(card)
-    history_html = '<div class="ci-deep-block"><div class="ci-deep-block-title" style="color:#183F5F">📜 Order History</div>'
-    if pattern:
-        history_html += (
-            '<div class="ci-deep-label">Historical Pattern</div>'
-            f'<div class="ci-deep-pattern">{escape(pattern)} units</div>'
-        )
-    history_html += (
-        '<div class="ci-deep-label">Latest Order</div>'
-        f'<div class="ci-deep-latest">{latest:,} units</div>'
-        '<div class="ci-deep-label">Observation</div>'
-        f'<div class="ci-deep-text">{escape(observation)}</div>'
-        '</div>'
+    The AI interprets the real calculations and tells the story behind the anomaly:
+    what happened, the inventory impact, the product's demand context, a hedged read
+    on customer behaviour, and a business recommendation. Every number, score and
+    formula is tucked into the collapsed Technical Details block at the end for
+    advanced users — the briefing face carries no KPI cards.
+    """
+    NAVY, AMBER = "#183F5F", "#C76A12"
+
+    # -- Report header -----------------------------------------------------
+    st.markdown('<div class="ci-report-head">🧠 AI Investigation Report</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="ci-report-lead">AI-generated briefing interpreting this order against '
+        'real demand baselines and live inventory — prepared as a supply-chain analyst would.</div>',
+        unsafe_allow_html=True,
     )
-    st.markdown(history_html, unsafe_allow_html=True)
 
-    st.caption(f"📈 Demand history — {compact(card['product_name'], 34)} (anomaly highlighted in red)")
-    chart = make_trend_chart(facts, card)
+    # -- Historical order graph (kept exactly as before) -------------------
+    st.caption(f"📈 Complete order history — {compact(card['product_name'], 34)} (flagged order in red)")
+    chart = make_trend_chart(card)
     if chart is not None:
         st.plotly_chart(
             chart,
@@ -994,48 +1008,57 @@ def render_deep_analysis(card: dict, facts: pd.DataFrame) -> None:
             key=f"trend_{card['uid']}",
         )
 
-    # -- AI Analysis narrative ---------------------------------------------
-    analysis_html = '<div class="ci-deep-block"><div class="ci-deep-block-title" style="color:#183F5F">🧠 AI Analysis</div>'
-    analysis_html += "".join(f'<div class="ci-deep-text">{escape(p)}</div>' for p in _analysis_paragraphs(card))
-    analysis_html += '<div class="ci-deep-subtitle">The pattern may indicate:</div>'
-    analysis_html += "".join(f'<div class="ci-deep-bullet">{escape(b)}</div>' for b in _pattern_hypotheses(card))
-    closing = _closing_inventory_line(card)
-    if closing:
-        analysis_html += f'<div class="ci-deep-text closing">{escape(closing)}</div>'
-    analysis_html += '</div>'
-    st.markdown(analysis_html, unsafe_allow_html=True)
+    # -- What Happened? ----------------------------------------------------
+    st.markdown(
+        _narrative_block("📌 What Happened?", NAVY, _what_happened(card)),
+        unsafe_allow_html=True,
+    )
 
     # -- Inventory Impact --------------------------------------------------
-    inv_rows, inv_risk = _inventory_impact(card)
-    inv_html = '<div class="ci-deep-block"><div class="ci-deep-block-title" style="color:#183F5F">📦 Inventory Impact</div>'
-    if inv_rows:
-        inv_html += '<div class="ci-deep-grid">' + "".join(
-            f'<div class="ci-deep-stat"><div class="k">{escape(k)}</div><div class="v">{escape(v)}</div></div>'
-            for k, v in inv_rows
-        ) + '</div>'
-    inv_html += (
-        '<div class="ci-deep-label">Risk Assessment</div>'
-        f'<div class="ci-deep-text">{escape(inv_risk)}</div>'
-        '</div>'
+    st.markdown(
+        _narrative_block("📦 Inventory Impact", NAVY, _inventory_impact_narrative(card)),
+        unsafe_allow_html=True,
     )
-    st.markdown(inv_html, unsafe_allow_html=True)
 
-    # -- Recommended Actions -----------------------------------------------
-    actions_html = '<div class="ci-deep-block actions"><div class="ci-deep-block-title" style="color:#C76A12">✅ Recommended Actions</div>' + "".join(
-        f'<div class="ci-deep-bullet">{escape(a)}</div>' for a in _deep_actions(card)
-    ) + '</div>'
-    st.markdown(actions_html, unsafe_allow_html=True)
+    # -- Product Demand Context --------------------------------------------
+    st.markdown(
+        _narrative_block("📈 Product Demand Context", NAVY, _product_demand_context(card)),
+        unsafe_allow_html=True,
+    )
+
+    # -- Customer Behaviour Assessment (hedged hypotheses) -----------------
+    behaviour_paras, hypotheses = _customer_behaviour_assessment(card)
+    st.markdown(
+        _narrative_block(
+            "🏢 Customer Behaviour Assessment", NAVY, behaviour_paras,
+            subtitle="This behaviour may indicate:", bullets=hypotheses,
+        ),
+        unsafe_allow_html=True,
+    )
+
+    # -- Business Recommendation -------------------------------------------
+    st.markdown(
+        _narrative_block(
+            "🎯 Business Recommendation", AMBER, [], bullets=_deep_actions(card), actions=True,
+        ),
+        unsafe_allow_html=True,
+    )
+
+    # -- Technical Details (collapsed numbers/scores/formula) --------------
+    st.markdown(_technical_details_html(card), unsafe_allow_html=True)
 
 
 def render_ai_cards(cards: list[dict], facts: pd.DataFrame) -> None:
-    """Section 2 — large interactive AI cards, two per row, each with deep analysis."""
-    for start in range(0, len(cards), 2):
-        row = st.columns(2, gap="large")
-        for column, (offset, card) in zip(row, enumerate(cards[start:start + 2])):
-            with column:
-                st.markdown(_card_html(card, start + offset + 1), unsafe_allow_html=True)
-                with st.expander("🔬 Expand Analysis"):
-                    render_deep_analysis(card, facts)
+    """Section 2 — full-width executive panels, one per row, each with deep analysis.
+
+    Cards arrive pre-sorted by risk priority (Critical → High → Medium → Low, then
+    by composite risk score) so the most important abnormal orders read first.
+    """
+    for rank, card in enumerate(cards, start=1):
+        st.markdown(_card_html(card, rank), unsafe_allow_html=True)
+        with st.expander("🧠 AI Investigation Report — What Happened, Inventory Impact, Demand Context, Customer Behaviour & Recommendation"):
+            render_deep_analysis(card, facts)
+        st.markdown('<div style="height:0.7rem"></div>', unsafe_allow_html=True)
 
 
 def _alert_html(card: dict) -> str:
@@ -1071,62 +1094,126 @@ def render_detailed_abnormal_table(abnormal_df: pd.DataFrame) -> None:
     if abnormal_df.empty:
         st.success("No abnormal order quantities detected against per-product baselines.")
         return
-    display_abnormal = abnormal_df.rename(
-        columns={
-            "customer_name": "Customer",
-            "product_name": "Product",
-            "order_nbr": "Order",
-            "order_date": "Date",
-            "historical_avg": "Historical Avg",
-            "current_quantity": "Current Qty",
-            "deviation_pct": "Deviation %",
-            "risk_level": "Risk Level",
-        }
-    )
+    rename = {
+        "customer_name": "Customer",
+        "product_name": "Product",
+        "order_nbr": "Order",
+        "order_date": "Date",
+        "historical_avg": "Historical Avg",
+        "historical_max": "Historical Max",
+        "current_quantity": "Current Qty",
+        "deviation_pct": "Deviation %",
+        "risk_level": "Risk Level",
+    }
+    # Only the business-facing columns; hist_series / hist_count / historical_min
+    # are internal inputs to the narrative, not for the flat table.
+    display_abnormal = abnormal_df[[c for c in rename if c in abnormal_df.columns]].rename(columns=rename)
     st.dataframe(
         display_abnormal,
         use_container_width=True,
         hide_index=True,
         column_config={
             "Historical Avg": st.column_config.NumberColumn(format="%.1f"),
+            "Historical Max": st.column_config.NumberColumn(format="%d"),
             "Current Qty": st.column_config.NumberColumn(format="%d"),
             "Deviation %": st.column_config.NumberColumn(format="+%.0f%%"),
         },
     )
 
 
+# Persisted key for the anomaly-detection sensitivity control (number input).
+ABNORMAL_THRESHOLD_KEY = "ci_abnormal_threshold"
+
+
+def render_threshold_control() -> float:
+    """Anomaly-detection sensitivity control, shown directly above the section.
+
+    Reads/writes ``st.session_state[ABNORMAL_THRESHOLD_KEY]`` so the value persists
+    across reruns; the page reads the same key at the top to derive its analytics.
+    Returns the current threshold percentage.
+    """
+    st.number_input(
+        "Deviation Threshold (%)",
+        min_value=10,
+        max_value=200,
+        step=5,
+        key=ABNORMAL_THRESHOLD_KEY,
+        help=(
+            "Affects anomaly detection only — it does not change any other metric on "
+            "this page."
+        ),
+    )
+    st.caption(
+        "Orders exceeding this deviation percentage from historical product demand "
+        "will be flagged as abnormal."
+    )
+    return float(st.session_state[ABNORMAL_THRESHOLD_KEY])
+
+
+def render_risk_summary(cards: list[dict]) -> None:
+    """Section summary — count of abnormal orders in each composite risk band."""
+    counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
+    for card in cards:
+        counts[_ensure_assessment(card)["band"]] += 1
+    chips = "".join(
+        f'<div class="ci-risk-chip" style="--chip-color:{RISK_ASSESSMENT_STYLE[band]["color"]}">'
+        f'<span class="dot">{RISK_ASSESSMENT_STYLE[band]["icon"]}</span>'
+        f'<span class="body"><span class="k">{band}</span>'
+        f'<span class="v">{counts[band]}</span></span></div>'
+        for band in ("Critical", "High", "Medium", "Low")
+    )
+    st.markdown(f'<div class="ci-risk-summary">{chips}</div>', unsafe_allow_html=True)
+
+
 def render_ai_order_intelligence_center(
     abnormal_cards: list[dict],
     abnormal_df: pd.DataFrame,
     facts: pd.DataFrame,
+    threshold_pct: float = 50.0,
 ) -> None:
     """The full premium AI section: summary -> cards -> deep analysis -> feed -> table.
 
     Rendered as one self-contained block placed directly below Customer Spotlight.
     """
-    st.subheader("🚨 AI Order Intelligence Center")
+    st.subheader("🚨 Abnormal Order Detection")
     st.caption(
         "An AI analyst continuously monitoring customer ordering behaviour against "
-        "per-product demand baselines, explaining every abnormal order in business language."
+        "per-product demand baselines, explaining every abnormal order in business "
+        "language — highest-risk orders first."
     )
 
+    # Anomaly-detection sensitivity control — placed directly above the section.
+    threshold_pct = render_threshold_control()
+
     # Section 1 — AI Executive Summary
-    render_executive_summary(abnormal_cards, abnormal_df)
+    render_executive_summary(abnormal_cards, abnormal_df, threshold_pct)
 
     if not abnormal_cards:
         st.success(
-            "✅ All clear — no order lines exceed their per-product demand baseline. "
-            "The AI monitor will surface anomalies here as soon as they appear."
+            f"✅ All clear — no order lines exceed their per-product demand baseline at the "
+            f"{int(threshold_pct)}% deviation threshold. The AI monitor will surface anomalies "
+            "here as soon as they appear."
         )
         return
 
-    # Section 2 + 3 — AI Customer Intelligence cards & expandable deep analysis
+    # Order the panels by executive risk priority: Critical → High → Medium → Low,
+    # then by composite risk score (descending) within each band.
+    ranked_cards = sorted(
+        abnormal_cards,
+        key=lambda c: (_RISK_PRIORITY[_ensure_assessment(c)["band"]], -_ensure_assessment(c)["score"]),
+    )
+
+    # Section summary — abnormal-order counts per risk band.
+    render_risk_summary(ranked_cards)
+
+    # Section 2 + 3 — full-width investigation panels & expandable deep analysis
     st.markdown("#### 🤖 AI Customer Intelligence")
     st.caption(
-        "One AI-analysed card for every abnormal order, ranked by severity. "
-        "Expand any card for the full demand-history breakdown and recommended actions."
+        "One full-width investigation panel for every abnormal order, ordered by risk "
+        "priority. Expand any panel for the full demand-history breakdown, AI Analysis "
+        "and recommended actions."
     )
-    render_ai_cards(abnormal_cards, facts)
+    render_ai_cards(ranked_cards, facts)
 
     # Section 5 — Detailed abnormal order table (Streamlit dataframe)
     st.markdown("#### 📋 Abnormal Order Detail")
@@ -1182,24 +1269,38 @@ if pd.notna(date_min) and pd.notna(date_max):
     )
 st.caption(window_caption)
 
-kpis = cis.executive_kpis(facts, customers, orders, inventory)
+# -- Abnormal-order sensitivity --------------------------------------------
+# The deviation-threshold control itself now lives directly above the Abnormal
+# Order Detection section (rendered by ``render_threshold_control``). It persists
+# its value in ``st.session_state[ABNORMAL_THRESHOLD_KEY]``; we read that value
+# here so the whole page re-derives its anomaly analytics from the chosen
+# sensitivity on every rerun.
+if ABNORMAL_THRESHOLD_KEY not in st.session_state:
+    st.session_state[ABNORMAL_THRESHOLD_KEY] = int(cis.DEFAULT_ABNORMAL_DEVIATION_PCT)
+deviation_threshold = float(st.session_state[ABNORMAL_THRESHOLD_KEY])
+
+kpis = cis.executive_kpis(facts, customers, orders, inventory, min_deviation_pct=deviation_threshold)
 
 # Supporting datasets, computed once and reused by both the KPI hover detail and
 # their dedicated sections below (no recalculation — identical service outputs).
+# Everything anomaly-related is re-derived from ``deviation_threshold`` so the KPI
+# cards, AI cards, charts, tables and insights all refresh when the slider moves.
 top_customers_df = cis.top_customers(facts, limit=10)
-abnormal_df = cis.detect_abnormal_orders(facts)
+abnormal_df = cis.detect_abnormal_orders(facts, min_deviation_pct=deviation_threshold)
 trends_df = cis.customer_demand_trends(facts)
 impact_df = cis.inventory_impact(facts, inventory)
 dormant_df = cis.dormant_accounts(customers, orders)
 
 # Reuse the existing reorder-point logic to flag at-risk products for the cards.
 at_risk_ids = cis.at_risk_products(inventory)
-abnormal_cards = build_abnormal_cards(abnormal_df, facts, at_risk_ids, inventory)
+abnormal_cards = build_abnormal_cards(
+    abnormal_df, facts, at_risk_ids, inventory, threshold_pct=deviation_threshold
+)
 
 # -- Executive KPIs --------------------------------------------------------
 st.subheader("Executive KPIs")
 st.caption("Hover (or tap) a card to flip it and reveal the supporting metrics.")
-render_executive_kpis(kpis, top_customers_df, trends_df, abnormal_df, impact_df, dormant_df)
+render_executive_kpis(kpis, top_customers_df, trends_df, abnormal_df, impact_df, dormant_df, deviation_threshold)
 
 # -- Customer Spotlight -----------------------------------------------------
 st.subheader("⭐ Customer Spotlight")
@@ -1211,7 +1312,7 @@ st.divider()
 # ==========================================================================
 # AI Order Intelligence Center — new premium section (directly below Spotlight)
 # ==========================================================================
-render_ai_order_intelligence_center(abnormal_cards, abnormal_df, facts)
+render_ai_order_intelligence_center(abnormal_cards, abnormal_df, facts, deviation_threshold)
 
 st.divider()
 
@@ -1346,7 +1447,9 @@ st.divider()
 # -- AI Insights -----------------------------------------------------------
 st.subheader("AI Insights")
 render_ai_insight_panel(
-    list(cis.generate_customer_insights(facts, customers, orders, inventory)),
+    list(cis.generate_customer_insights(
+        facts, customers, orders, inventory, min_deviation_pct=deviation_threshold
+    )),
     title="Customer Intelligence Insights",
     icon="👥",
 )

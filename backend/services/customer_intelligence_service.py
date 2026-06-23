@@ -21,9 +21,17 @@ import pandas as pd
 # historical average. Detection is deviation-driven (NOT z-score gated): with a
 # short order history per-product variance is large, so z-scores understate real
 # outliers. A small absolute floor avoids flagging noise on tiny-mean products.
-_ABNORMAL_MIN_DEVIATION_PCT = 75.0   # at least +75% over the product baseline
-_ABNORMAL_MIN_ABS_GAP = 5.0          # and at least 5 units above the mean
-_HIGH_RISK_DEVIATION_PCT = 150.0     # >= +150% over baseline => High risk
+#
+# The deviation threshold is the primary sensitivity knob and is now caller
+# supplied (the Customer Intelligence page exposes it as a slider, the chatbot
+# can pass it per query). ``DEFAULT_ABNORMAL_DEVIATION_PCT`` is only the fallback
+# when no value is provided.
+DEFAULT_ABNORMAL_DEVIATION_PCT = 50.0   # at least +50% over the product baseline
+_ABNORMAL_MIN_ABS_GAP = 5.0             # and at least 5 units above the mean
+# High risk is graded relative to the active threshold (3x the configured
+# deviation), so risk severity tracks the chosen sensitivity instead of a fixed
+# cut-off. At the 50% default this reproduces the previous +150% High-risk line.
+_HIGH_RISK_MULTIPLIER = 3.0
 
 # Demand trend: split the order window in half and compare revenue.
 _TREND_GROWTH_BAND = 10.0            # +/-10% revenue change => "Stable"
@@ -175,41 +183,150 @@ def customer_spotlight(facts: pd.DataFrame, limit: int = 5) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Section 4 - Abnormal order detection (per-product baseline)
 # ---------------------------------------------------------------------------
-def detect_abnormal_orders(facts: pd.DataFrame, limit: int | None = None) -> pd.DataFrame:
-    """Flag order lines whose quantity deviates sharply from the product baseline.
+def prior_order_baseline(
+    df: pd.DataFrame,
+    value_col: str,
+    group_col: str = "product_id",
+    sort_cols: list[str] | None = None,
+) -> pd.DataFrame:
+    """Attach per-row 'prior orders only' baseline statistics.
 
-    For each product the historical mean quantity is computed across all order
-    lines; a line is abnormal when its quantity is at least
-    ``_ABNORMAL_MIN_DEVIATION_PCT`` above that mean and at least
-    ``_ABNORMAL_MIN_ABS_GAP`` units above it. The anomaly is attributed to the
-    customer who placed the order.
+    For every row the baseline is computed from rows in the same ``group_col`` that
+    occurred strictly BEFORE it in ``sort_cols`` order (chronological by default),
+    so an order can never contaminate the baseline used to judge it. For the
+    product order history ``6 -> 6 -> 160`` the row carrying 160 sees a prior
+    baseline of mean 6, max 6, min 6 — the 160 itself is excluded.
+
+    Adds the columns ``hist_count`` (number of prior orders), ``hist_mean``,
+    ``hist_max``, ``hist_min`` and ``hist_std`` (sample std, NaN with <2 priors).
+    The first order of each product has ``hist_count == 0`` and NaN statistics.
+    Row order of the returned frame matches the input (a fresh RangeIndex).
+    """
+    work = df.reset_index(drop=True)
+    if work.empty:
+        for col in ("hist_count", "hist_mean", "hist_max", "hist_min", "hist_std"):
+            work[col] = pd.Series(dtype="float64")
+        return work
+
+    sort_cols = [c for c in (sort_cols or []) if c in work.columns]
+    work["_orig_pos"] = np.arange(len(work))
+    # mergesort = stable, so equal sort keys keep their original relative order.
+    work = work.sort_values([group_col, *sort_cols], kind="mergesort")
+
+    grp = work.groupby(group_col, sort=False)[value_col]
+    work["hist_count"] = grp.cumcount()                       # strictly-prior count
+    prior_sum = grp.cumsum() - work[value_col]                # sum excluding current
+    work["hist_mean"] = prior_sum / work["hist_count"].replace(0, np.nan)
+    # Cumulative max/min then shift one row within the group → excludes current.
+    work["hist_max"] = grp.cummax().groupby(work[group_col]).shift(1)
+    work["hist_min"] = grp.cummin().groupby(work[group_col]).shift(1)
+    # Expanding sample std then shift → std of the prior orders only.
+    exp_std = grp.expanding().std().reset_index(level=0, drop=True)
+    work["hist_std"] = exp_std.groupby(work[group_col]).shift(1)
+
+    work = work.sort_values("_orig_pos").drop(columns="_orig_pos").reset_index(drop=True)
+    return work
+
+
+def detect_abnormal_orders(
+    facts: pd.DataFrame,
+    limit: int | None = None,
+    min_deviation_pct: float = DEFAULT_ABNORMAL_DEVIATION_PCT,
+) -> pd.DataFrame:
+    """Flag the MOST RECENT order of each product when it deviates from baseline.
+
+    Only the latest order per product is evaluated — the question this answers is
+    "given everything we knew before today, is the newest order abnormal enough to
+    require management attention?". Its baseline is computed from that product's
+    orders that occurred strictly BEFORE it (see :func:`prior_order_baseline`), so
+    the order being judged never contaminates its own baseline and earlier spikes
+    stay part of the history rather than being flagged in their own right. The
+    latest order is abnormal when its quantity is at least ``min_deviation_pct``
+    above the prior-only mean and at least ``_ABNORMAL_MIN_ABS_GAP`` units above it.
+    A product with only a single order has no prior history and is never flagged.
+    The anomaly is attributed to the customer who placed the order.
+
+    ``min_deviation_pct`` is the user-configurable sensitivity (the page slider /
+    the chatbot threshold); High risk is graded at ``_HIGH_RISK_MULTIPLIER`` times
+    that value so severity scales with the chosen sensitivity.
     """
     columns = ["customer_name", "product_name", "order_nbr", "order_date",
-               "historical_avg", "current_quantity", "deviation_pct", "risk_level"]
+               "historical_avg", "historical_max", "historical_min", "hist_count",
+               "hist_series", "order_series", "current_index",
+               "current_quantity", "deviation_pct", "risk_level"]
     if facts is None or facts.empty:
         return pd.DataFrame(columns=columns)
 
-    work = facts.copy()
-    work["product_mean"] = (
-        work.groupby("product_id")["quantity"].transform("mean").fillna(0.0)
+    min_deviation_pct = float(min_deviation_pct)
+    high_risk_threshold = min_deviation_pct * _HIGH_RISK_MULTIPLIER
+
+    # Chronological tiebreak so "prior" is deterministic for same-day orders.
+    sort_cols = [c for c in ["order_date", "order_nbr"] if c in facts.columns]
+    work = prior_order_baseline(
+        facts, value_col="quantity", group_col="product_id", sort_cols=sort_cols
     )
+
+    # Baseline = prior orders only; the current line is excluded from its own mean.
+    work["product_mean"] = work["hist_mean"]
     mean_safe = work["product_mean"].replace(0, np.nan)
-    work["deviation_pct"] = ((work["quantity"] - work["product_mean"]) / mean_safe * 100.0).fillna(0.0)
+    work["deviation_pct"] = (work["quantity"] - work["product_mean"]) / mean_safe * 100.0
     work["abs_gap"] = work["quantity"] - work["product_mean"]
 
+    # Only the MOST RECENT order of each product is evaluated. The latest order is
+    # judged against the COMPLETE history of prior orders; older spikes are part of
+    # that baseline and are never flagged on their own. A flag therefore always
+    # means "given everything we knew before, the newest order is abnormal" — and
+    # because the latest order's ``hist_count`` equals its position at the end of
+    # the full sequence, it always renders at the far right of the trend chart.
+    latest_idx = (
+        work.sort_values(["product_id", *sort_cols], kind="mergesort")
+        .groupby("product_id", sort=False)
+        .tail(1)
+        .index
+    )
+    work["is_latest"] = work.index.isin(latest_idx)
+
+    # A line can only be judged once it has at least one genuine prior order.
     flagged = work[
-        (work["deviation_pct"] >= _ABNORMAL_MIN_DEVIATION_PCT)
+        work["is_latest"]
+        & (work["hist_count"] >= 1)
+        & (work["deviation_pct"] >= min_deviation_pct)
         & (work["abs_gap"] >= _ABNORMAL_MIN_ABS_GAP)
     ].copy()
     if flagged.empty:
         return pd.DataFrame(columns=columns)
 
+    # Prior-only quantity history per product (same chronological order as the
+    # baseline), so a flagged line at position ``hist_count`` takes the first
+    # ``hist_count`` quantities as its genuine history (excludes the current line).
+    ser = facts.copy()
+    ser["product_id"] = ser["product_id"].astype(str)
+    ser = ser.sort_values(["product_id", *sort_cols], kind="mergesort")
+    ser["_q"] = pd.to_numeric(ser["quantity"], errors="coerce").fillna(0).round().astype(int)
+    full_by_product = ser.groupby("product_id", sort=False)["_q"].apply(list).to_dict()
+
     flagged["risk_level"] = np.where(
-        flagged["deviation_pct"] >= _HIGH_RISK_DEVIATION_PCT, "High", "Medium"
+        flagged["deviation_pct"] >= high_risk_threshold, "High", "Medium"
     )
-    flagged["historical_avg"] = flagged["product_mean"].round(1)
+    flagged["historical_avg"] = flagged["hist_mean"].round(1)
+    flagged["historical_max"] = flagged["hist_max"].round().astype(int)
+    flagged["historical_min"] = flagged["hist_min"].round().astype(int)
+    flagged["hist_count"] = flagged["hist_count"].astype(int)
     flagged["current_quantity"] = flagged["quantity"].round().astype(int)
     flagged["deviation_pct"] = flagged["deviation_pct"].round(1)
+    # ``hist_series`` = prior orders only (for narrative/trend). ``order_series`` =
+    # the product's COMPLETE chronological order sequence (for the chart), with
+    # ``current_index`` marking where the evaluated order sits inside it. Because
+    # ``hist_count`` is the number of orders strictly before this line, it is also
+    # the evaluated order's 0-based position in the full sequence.
+    flagged["hist_series"] = [
+        full_by_product.get(str(pid), [])[: int(hc)]
+        for pid, hc in zip(flagged["product_id"], flagged["hist_count"])
+    ]
+    flagged["order_series"] = [
+        full_by_product.get(str(pid), []) for pid in flagged["product_id"]
+    ]
+    flagged["current_index"] = flagged["hist_count"].astype(int)
     if "order_date" in flagged.columns:
         flagged["order_date"] = flagged["order_date"].dt.strftime("%Y-%m-%d")
     if "order_nbr" not in flagged.columns:
@@ -298,16 +415,16 @@ def highest_growth_customer(facts: pd.DataFrame) -> dict:
 # Section 6 - Inventory impact analysis
 # ---------------------------------------------------------------------------
 def at_risk_products(inventory: pd.DataFrame) -> set[str]:
-    """Product ids at or below their reorder point in any branch."""
-    if inventory is None or inventory.empty:
-        return set()
-    inv = inventory.copy()
-    if "product_id" not in inv.columns:
-        return set()
-    stock = pd.to_numeric(inv.get("stock_level"), errors="coerce").fillna(0)
-    reorder = pd.to_numeric(inv.get("reorder_threshold"), errors="coerce").fillna(0)
-    risky = inv.loc[stock <= reorder, "product_id"].astype(str)
-    return set(risky.unique())
+    """Product ids at or below their reorder point under the active inventory scope.
+
+    Delegates to the shared inventory-scope helper so "at risk" is judged on the
+    same stock figure shown everywhere else — network totals (stock summed across
+    branches vs the summed reorder point) by default, or a single branch when
+    ``INVENTORY_SCOPE=branch``.
+    """
+    from backend.services import inventory_scope
+
+    return inventory_scope.at_risk_product_ids(inventory)
 
 
 def inventory_impact(facts: pd.DataFrame, inventory: pd.DataFrame, limit: int | None = None) -> pd.DataFrame:
@@ -384,11 +501,12 @@ def executive_kpis(
     customers: pd.DataFrame,
     orders: pd.DataFrame,
     inventory: pd.DataFrame,
+    min_deviation_pct: float = DEFAULT_ABNORMAL_DEVIATION_PCT,
 ) -> dict:
     """Assemble the five headline KPIs for the page."""
     leaders = top_customers(facts, limit=1)
     growth = highest_growth_customer(facts)
-    abnormal = detect_abnormal_orders(facts)
+    abnormal = detect_abnormal_orders(facts, min_deviation_pct=min_deviation_pct)
     impact = inventory_impact(facts, inventory)
     dormant = dormant_accounts(customers, orders)
 
@@ -416,6 +534,7 @@ def generate_customer_insights(
     customers: pd.DataFrame,
     orders: pd.DataFrame,
     inventory: pd.DataFrame,
+    min_deviation_pct: float = DEFAULT_ABNORMAL_DEVIATION_PCT,
 ) -> list[str]:
     """Concise, data-grounded business insights from the computed frames."""
     if facts is None or facts.empty:
@@ -442,16 +561,20 @@ def generate_customer_insights(
         names = ", ".join(products["product_name"].head(3).tolist())
         insights.append(f"Top revenue products: {names}.")
 
-    abnormal = detect_abnormal_orders(facts)
+    abnormal = detect_abnormal_orders(facts, min_deviation_pct=min_deviation_pct)
     if not abnormal.empty:
         worst = abnormal.iloc[0]
         insights.append(
-            f"{int(len(abnormal))} abnormal order line(s) detected. Largest: {worst['customer_name']} ordered "
+            f"{int(len(abnormal))} abnormal order line(s) detected at the configured deviation threshold "
+            f"of {min_deviation_pct:.0f}%. Largest: {worst['customer_name']} ordered "
             f"{int(worst['current_quantity'])} of {worst['product_name']} vs a baseline of "
             f"{worst['historical_avg']:.0f} (+{worst['deviation_pct']:.0f}%)."
         )
     else:
-        insights.append("No abnormal order quantities detected against per-product baselines.")
+        insights.append(
+            f"No abnormal order quantities detected against per-product baselines at the configured "
+            f"deviation threshold of {min_deviation_pct:.0f}%."
+        )
 
     dormant = dormant_accounts(customers, orders)
     if not dormant.empty:

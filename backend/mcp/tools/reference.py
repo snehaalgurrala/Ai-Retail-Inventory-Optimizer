@@ -5,13 +5,26 @@ All read raw Oracle tables directly through the context bundle.
 
 from __future__ import annotations
 
-from backend.mcp import context as ctx
+from backend.mcp import config, context as ctx
 from backend.services.location_validation import validate_requested_location
 
 
-def list_stores(limit: int = 10) -> dict:
+def _list_limit(limit: int) -> int:
+    """Effective row limit for whole-dimension list tools.
+
+    These list a complete small reference dimension (products, stores, suppliers),
+    so an unspecified limit must mean "return them all" — not the paginated default
+    of 10, which would make "give me all products" report 16 but show only 10. An
+    explicit positive limit is still honoured (and capped by the hard max).
+    """
+    if limit and int(limit) > 0:
+        return ctx.clamp_limit(limit)
+    return config.max_record_limit()
+
+
+def list_stores(limit: int = 0) -> dict:
     """List the branches/stores (the B2B ordering units), with city and capacity."""
-    limit = ctx.clamp_limit(limit)
+    limit = _list_limit(limit)
     stores = ctx.get_context().raw("stores")
     return {
         "tool": "list_stores",
@@ -25,9 +38,9 @@ def list_stores(limit: int = 10) -> dict:
     }
 
 
-def list_products(category: str = "", limit: int = 10) -> dict:
+def list_products(category: str = "", limit: int = 0) -> dict:
     """List products in the catalog, optionally filtered to one category."""
-    limit = ctx.clamp_limit(limit)
+    limit = _list_limit(limit)
     products = ctx.get_context().raw("products")
     if category and "category" in products.columns:
         products = products[
@@ -53,9 +66,9 @@ def list_products(category: str = "", limit: int = 10) -> dict:
     }
 
 
-def list_suppliers(limit: int = 10) -> dict:
+def list_suppliers(limit: int = 0) -> dict:
     """List suppliers with delivery lead time and reliability score."""
-    limit = ctx.clamp_limit(limit)
+    limit = _list_limit(limit)
     suppliers = ctx.get_context().raw("suppliers")
     return {
         "tool": "list_suppliers",

@@ -15,6 +15,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 from backend.mcp import config as mcp_config  # noqa: E402
+from backend.services import llm_reasoner  # noqa: E402
 from backend.services import rag_service  # noqa: E402
 from backend.services.chatbot_router import route_chatbot_request  # noqa: E402
 from frontend.utils.page_helpers import (  # noqa: E402
@@ -414,10 +415,36 @@ render_page_header(
     "stockout risks, abnormal orders, and demand trends.",
 )
 
+def _mcp_lightweight_status() -> tuple[dict, dict, dict]:
+    """Config/debug status for MCP mode WITHOUT loading the legacy vector stack.
+
+    The MCP engine never uses embeddings or FAISS, but the full status helpers
+    (`chatbot_config_status` / `get_vector_debug_status` / `check_vector_rag_environment`)
+    each initialize the local sentence-transformers embedding model on first call,
+    adding ~10s to the first page render for values that are unused in MCP mode.
+    Here we derive only what the page actually shows, from the LLM config alone.
+    """
+    llm_ok = bool(llm_reasoner.llm_is_configured())
+    status_fn = getattr(llm_reasoner, "llm_status_message", None)
+    status_message = (
+        status_fn() if callable(status_fn)
+        else ("LLM is configured." if llm_ok
+              else "LLM is not configured. Add OPENROUTER_API_KEY in .env.")
+    )
+    config = {"configured": llm_ok, "status_message": status_message}
+    debug = {"llm_active": llm_ok, "retrieval_mode": "mcp_oracle", "answer_path": "mcp"}
+    return config, debug, {}
+
+
 # --- Status / diagnostics reads (kept; surfaced only where genuinely useful) --
-config_status = _chatbot_config_status()
-debug_status = _vector_debug_status()
-vector_env = _vector_rag_environment()
+# In MCP mode skip the embedding/FAISS probes entirely (see helper above): they
+# load the local sentence-transformers model on first render and are unused here.
+if mcp_mode:
+    config_status, debug_status, vector_env = _mcp_lightweight_status()
+else:
+    config_status = _chatbot_config_status()
+    debug_status = _vector_debug_status()
+    vector_env = _vector_rag_environment()
 last_retrieval_mode = st.session_state.get("chatbot_retrieval_mode", "")
 last_answer_path = st.session_state.get("chatbot_answer_path", "")
 if last_retrieval_mode:

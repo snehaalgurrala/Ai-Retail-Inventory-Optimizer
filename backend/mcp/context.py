@@ -24,7 +24,12 @@ from backend.services.store_inventory_service import build_store_inventory_view
 from backend.services.inventory_prediction_service import build_predictive_inventory_view
 
 
-RAW_TABLES = ("inventory", "products", "stores", "sales", "suppliers", "transactions")
+RAW_TABLES = (
+    "inventory", "products", "stores", "sales", "suppliers", "transactions",
+    # Real customer/order model (BZ_MOCK_CUSTOMER -> ORDER_HEADER -> ORDER_LINE),
+    # so order-aware tools answer from actual orders, not the sales proxy.
+    "customers", "orders", "order_lines",
+)
 
 # Logical dataset name -> Oracle table it is sourced from (for "sources" output).
 ORACLE_SOURCE = {
@@ -34,6 +39,9 @@ ORACLE_SOURCE = {
     "sales": "BZ_MOCK_SALES_HISTORY",
     "suppliers": "BZ_MOCK_SUPPLIER",
     "transactions": "BZ_MOCK_INVENTORY_TRANSACTION",
+    "customers": "BZ_MOCK_CUSTOMER",
+    "orders": "BZ_MOCK_ORDER_HEADER",
+    "order_lines": "BZ_MOCK_ORDER_LINE",
 }
 
 
@@ -48,6 +56,7 @@ class OracleContext:
         self.frames = frames
         self._store_view: pd.DataFrame | None = None
         self._predictive_view: pd.DataFrame | None = None
+        self._order_facts: pd.DataFrame | None = None
 
     # -- raw frames ---------------------------------------------------------
     def raw(self, name: str) -> pd.DataFrame:
@@ -75,6 +84,24 @@ class OracleContext:
                 self.frames["suppliers"],
             )
         return self._predictive_view.copy()
+
+    def customer_order_facts(self) -> pd.DataFrame:
+        """Line-level customer/order fact frame (orders -> lines -> customer/product).
+
+        Built once per context from the real order model, reused across the
+        order-aware customer tools. Mirrors the Customer Intelligence page so the
+        chatbot's order answers match it.
+        """
+        if self._order_facts is None:
+            from backend.services import customer_intelligence_service as cis
+
+            self._order_facts = cis.prepare_customer_orders(
+                self.frames.get("order_lines", pd.DataFrame()),
+                self.frames.get("orders", pd.DataFrame()),
+                self.frames.get("customers", pd.DataFrame()),
+                self.frames.get("products", pd.DataFrame()),
+            )
+        return self._order_facts.copy()
 
 
 def _load_frames() -> dict[str, pd.DataFrame]:

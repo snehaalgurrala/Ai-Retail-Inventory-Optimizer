@@ -114,8 +114,13 @@ def _route_via_mcp(
     retrieval is never used on this path.
     """
     from backend.mcp.orchestrator import answer_with_mcp
+    from backend.services.chatbot_intent import fallback_intent
 
-    classified = classify_user_intent(user_input)
+    # Gate greetings/off-topic with the zero-latency keyword heuristic instead of a
+    # dedicated LLM round-trip. The MCP orchestrator already handles real business
+    # questions; spending a 3-13s model call just to detect "hi" doubled per-question
+    # latency. Anything not clearly a greeting/irrelevant falls through to the loop.
+    classified = fallback_intent(user_input)
     intent = classified.get("intent", "unclear")
     if intent in {"greeting", "irrelevant"}:
         print(f"[chatbot] engine=mcp detected_intent={intent} is_follow_up=False")

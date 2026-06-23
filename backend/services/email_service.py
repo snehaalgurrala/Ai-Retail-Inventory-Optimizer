@@ -16,6 +16,8 @@ from backend.services.depletion_formatter import (
     depletion_urgency_label,
     exact_depletion_tooltip,
     format_depletion_window,
+    inventory_position_status,
+    urgency_rank,
 )
 from backend.services.report_service import _email_shell, _metric_card, _section, _table_html
 
@@ -268,12 +270,45 @@ def _priority_badge(priority: str) -> str:
 
 
 def _depletion_display(row: pd.Series | dict) -> tuple[str, str, str]:
-    days = row.get("predicted_days_remaining", row.get("days_of_stock_remaining", 999))
-    return (
-        str(row.get("urgency_label") or depletion_urgency_label(days)),
-        str(row.get("depletion_window") or format_depletion_window(days)),
-        exact_depletion_tooltip(days),
+    """Resolve (urgency, window, exact) for a low-stock row.
+
+    A demand forecast is only trusted when there is genuine recent velocity and a
+    finite day estimate; otherwise the row is classified purely by its inventory
+    position (stock vs. reorder point). Even when a forecast exists, the inventory
+    position overrides it whenever the position is the more urgent of the two —
+    this is what stops a near-zero velocity from reporting "Inventory stable" for
+    an item that has actually reached its reorder threshold.
+    """
+    days = pd.to_numeric(
+        pd.Series([row.get("predicted_days_remaining", row.get("days_of_stock_remaining", 999))]),
+        errors="coerce",
+    ).fillna(999.0).iloc[0]
+    velocity = pd.to_numeric(
+        pd.Series([row.get("recent_daily_sales_velocity", 0)]), errors="coerce"
+    ).fillna(0.0).iloc[0]
+    position = inventory_position_status(
+        row.get("current_quantity"), row.get("reorder_threshold")
     )
+    has_forecast = velocity > 0 and days < 999
+
+    if has_forecast:
+        urgency = str(row.get("urgency_label") or depletion_urgency_label(days))
+        window = str(row.get("depletion_window") or format_depletion_window(days))
+        exact = exact_depletion_tooltip(days)
+        # Only resolve the *contradiction*: a forecast that reads "Healthy/stable"
+        # purely because velocity rounds low, while stock is actually at/below the
+        # reorder point. A genuinely urgent day-based forecast (e.g. "2-5 days
+        # remaining") is more actionable than a position label, so it is kept.
+        is_healthy_forecast = urgency_rank(urgency) >= urgency_rank("Healthy")
+        if position and is_healthy_forecast and urgency_rank(position[0]) < urgency_rank(urgency):
+            urgency, window = position
+        return urgency, window, exact
+
+    # No reliable demand signal — classify on inventory position alone and do not
+    # emit a placeholder day estimate.
+    if position:
+        return position[0], position[1], ""
+    return "Monitor", "Insufficient sales history", ""
 
 
 def _get_risk_badge_html(urgency: str) -> str:
@@ -321,27 +356,32 @@ def _build_premium_html_email(low_stock_df: pd.DataFrame) -> str:
 
     detail_rows = []
     for _, row in report_df.iterrows():
-        urgency, window, exact = _depletion_display(row)
+        urgency, window, _exact = _depletion_display(row)
+        velocity = _safe_number(row.get("recent_daily_sales_velocity", 0))
+        reorder_point = int(_safe_number(row.get("reorder_threshold", 0)))
         detail_rows.append(
             {
                 "product_name": row.get("product_name", row.get("product_id", "N/A")),
                 "branch": row.get("store_name", row.get("store_id", "N/A")),
                 "current_stock": int(_safe_number(row.get("current_quantity", 0))),
-                "avg_daily_sales": f"{_safe_number(row.get('recent_daily_sales_velocity', 0)):.1f}",
-                "depletion_window": window,
-                "exact_estimate": exact,
-                "urgency": urgency,
+                "reorder_point": reorder_point,
+                # No fabricated demand: an item flagged purely by an order draw-down
+                # has no recent sales velocity, so say so plainly rather than "0.0".
+                "avg_daily_sales": f"{velocity:.1f}/day" if velocity > 0 else "No recent demand",
+                "inventory_position": window,
+                "status": urgency,
                 "suggested_reorder": int(_safe_number(row.get("suggested_reorder_quantity", 0))),
-                "ai_reasoning": str(row.get("ai_alert_message", "Review for reorder"))[:120],
+                "ai_reasoning": str(row.get("ai_alert_message", "Review for reorder"))[:160],
             }
         )
     detail_df = pd.DataFrame(detail_rows)
 
     low_stock_count = len(report_df)
     affected_branches = report_df["store_id"].nunique() if "store_id" in report_df.columns else 0
-    urgency_series = (
-        detail_df["urgency"].fillna("").astype(str).str.casefold()
-        if "urgency" in detail_df.columns
+    action_states = ["critical", "high", "reorder required"]
+    status_series = (
+        detail_df["status"].fillna("").astype(str).str.casefold()
+        if "status" in detail_df.columns
         else pd.Series(dtype=str)
     )
     priority_series = (
@@ -350,9 +390,9 @@ def _build_premium_html_email(low_stock_df: pd.DataFrame) -> str:
         else pd.Series(dtype=str)
     )
     critical_count = int(
-        urgency_series.isin(["critical", "high"]).sum()
-        if not urgency_series.empty
-        else priority_series.isin(["critical", "high"]).sum()
+        status_series.isin(action_states).sum()
+        if not status_series.empty
+        else priority_series.isin(action_states).sum()
     )
     top_item = str(report_df.iloc[0].get("product_name", report_df.iloc[0].get("product_id", "N/A"))).strip()
     total_reorder = int(
@@ -419,10 +459,10 @@ def _build_premium_html_email(low_stock_df: pd.DataFrame) -> str:
                         "product_name",
                         "branch",
                         "current_stock",
+                        "reorder_point",
+                        "status",
+                        "inventory_position",
                         "avg_daily_sales",
-                        "depletion_window",
-                        "exact_estimate",
-                        "urgency",
                         "suggested_reorder",
                         "ai_reasoning",
                     ],
@@ -638,12 +678,14 @@ def _generate_low_stock_excel(low_stock_df: pd.DataFrame) -> Path:
         "Product",
         "Branch",
         "Current Stock",
+        "Reorder Point",
+        "Status",
+        "Inventory Position",
         "Avg Daily Sales",
-        "Depletion Window (Days)",
         "Suggested Reorder Qty",
         "AI Reasoning",
     ]
-    
+
     # Add header row
     for col_num, column_title in enumerate(columns, 1):
         cell = ws.cell(row=1, column=col_num)
@@ -652,27 +694,32 @@ def _generate_low_stock_excel(low_stock_df: pd.DataFrame) -> Path:
         cell.font = header_font
         cell.alignment = header_alignment
         cell.border = border
-    
+
     # Add data rows
     for row_num, (_, row_data) in enumerate(low_stock_df.iterrows(), 2):
         urgency, window, _ = _depletion_display(row_data)
-        
+        velocity = float(pd.to_numeric(row_data.get("recent_daily_sales_velocity", 0), errors="coerce") or 0)
+
         ws.cell(row=row_num, column=1).value = str(row_data.get("product_name", "N/A"))
         ws.cell(row=row_num, column=2).value = str(row_data.get("store_name", "N/A"))
         ws.cell(row=row_num, column=3).value = int(float(row_data.get("current_quantity", 0)))
-        ws.cell(row=row_num, column=4).value = float(row_data.get("recent_daily_sales_velocity", 0))
-        ws.cell(row=row_num, column=5).value = float(row_data.get("predicted_days_remaining", 0))
-        ws.cell(row=row_num, column=6).value = int(float(row_data.get("suggested_reorder_quantity", 0)))
-        ws.cell(row=row_num, column=7).value = str(row_data.get("ai_alert_message", "Review for reorder"))
-    
+        ws.cell(row=row_num, column=4).value = int(float(row_data.get("reorder_threshold", 0)))
+        ws.cell(row=row_num, column=5).value = urgency
+        ws.cell(row=row_num, column=6).value = window
+        ws.cell(row=row_num, column=7).value = f"{velocity:.2f}/day" if velocity > 0 else "No recent demand"
+        ws.cell(row=row_num, column=8).value = int(float(row_data.get("suggested_reorder_quantity", 0)))
+        ws.cell(row=row_num, column=9).value = str(row_data.get("ai_alert_message", "Review for reorder"))
+
     # Auto-adjust column widths
     ws.column_dimensions["A"].width = 25
     ws.column_dimensions["B"].width = 20
-    ws.column_dimensions["C"].width = 16
-    ws.column_dimensions["D"].width = 16
-    ws.column_dimensions["E"].width = 20
-    ws.column_dimensions["F"].width = 18
-    ws.column_dimensions["G"].width = 30
+    ws.column_dimensions["C"].width = 14
+    ws.column_dimensions["D"].width = 14
+    ws.column_dimensions["E"].width = 16
+    ws.column_dimensions["F"].width = 24
+    ws.column_dimensions["G"].width = 16
+    ws.column_dimensions["H"].width = 18
+    ws.column_dimensions["I"].width = 40
     
     # Save file
     PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -714,6 +761,7 @@ def _build_email_text_body(low_stock_df: pd.DataFrame) -> str:
         store_name = str(row.get("store_name", row.get("store_id", ""))).strip()
         city = str(row.get("city", "")).strip()
         urgency, window, exact = _depletion_display(row)
+        window_line = f"   Inventory Position: {window}" + (f" ({exact})" if exact else "")
         lines.extend(
             [
                 f"{index}. Product: {product_name}",
@@ -722,8 +770,8 @@ def _build_email_text_body(low_stock_df: pd.DataFrame) -> str:
                 f"   Current Stock: {row.get('current_quantity', '')}",
                 f"   Reorder Threshold: {row.get('reorder_threshold', '')}",
                 f"   Suggested Reorder Quantity: {row.get('suggested_reorder_quantity', '')}",
-                f"   Urgency: {urgency}",
-                f"   Depletion Window: {window} ({exact})",
+                f"   Status: {urgency}",
+                window_line,
                 f"   Priority: {row.get('priority', '')}",
                 "   Agent Recommendation: Reorder immediately if priority is High; otherwise queue replenishment in the next purchase cycle.",
                 "",

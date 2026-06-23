@@ -130,7 +130,10 @@ def _llm_json_once(system_prompt: str, user_prompt: str) -> dict | None:
 
         from openai import OpenAI
 
-        kwargs = {"api_key": settings["api_key"], "timeout": settings["timeout"]}
+        # max_retries=0: this module already retries via _llm_json. Leaving the SDK
+        # default (2) compounds with our loop AND the OpenRouter free-tier queueing,
+        # turning one transient 429 into minutes of backoff. Bound it here.
+        kwargs = {"api_key": settings["api_key"], "timeout": settings["timeout"], "max_retries": 0}
         if settings["base_url"]:
             kwargs["base_url"] = settings["base_url"]
         client = OpenAI(**kwargs)
@@ -181,9 +184,14 @@ _SYSTEM_PROMPT = (
     "Most tools take OPTIONAL filters (store_id, category, product_id, metric). Omitting a "
     "filter is normal and means 'all stores / all products'; e.g. ranking questions about "
     "top or bottom sellers across the whole business are answered by get_top_products / "
-    "get_bottom_products with no store_id. Always attempt the most relevant tool with sensible "
-    "default arguments before concluding. Only answer that you cannot help if genuinely no "
-    "listed tool is relevant — never claim a tool is missing when one above can answer."
+    "get_bottom_products with no store_id. Product master questions — a product list with "
+    "reorder point, current/available inventory, category, unit price, supplier or lead time, "
+    "the reorder point of a named product, or whether a product is below its reorder point — "
+    "are answered by get_product_master (omit arguments to return the whole catalogue). "
+    "Use get_products_below_reorder for 'which products are below their reorder point'. "
+    "Always attempt the most relevant tool with sensible default arguments before concluding. "
+    "Only answer that you cannot help if genuinely no listed tool is relevant — never claim a "
+    "tool is missing when one above can answer."
 )
 
 

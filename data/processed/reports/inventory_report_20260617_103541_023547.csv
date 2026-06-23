@@ -1,0 +1,17 @@
+product_id,store_id,stock_level,reorder_threshold,last_updated,product_name,category,cost_price,selling_price,store_name,city,inventory_value
+101,5,127,40,2026-06-11,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,62.5,Mock Distribution Branch - Chicago,Chicago,7937.5
+102,5,176,40,2026-06-11,16 oz Clear Cold Cups Case,Foodservice Disposables,42.0,68.0,Mock Distribution Branch - Chicago,Chicago,11968.0
+103,5,179,40,2026-06-11,9 inch Paper Plates Case,Foodservice Disposables,24.0,39.95,Mock Distribution Branch - Chicago,Chicago,7151.05
+104,5,71,40,2026-06-11,Compostable Takeout Containers Case,Foodservice Disposables,48.0,79.99,Mock Distribution Branch - Chicago,Chicago,5679.29
+201,5,150,30,2026-06-11,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,34.99,Mock Distribution Branch - Chicago,Chicago,5248.5
+202,5,158,30,2026-06-11,Multi-Surface Cleaner Gallon Case,Janitorial Supplies,24.0,42.0,Mock Distribution Branch - Chicago,Chicago,6636.0
+203,5,90,30,2026-06-11,Disinfectant Wipes Bucket,Janitorial Supplies,28.0,49.5,Mock Distribution Branch - Chicago,Chicago,4455.0
+204,5,103,30,2026-06-11,Hardwound Paper Towels Case,Janitorial Supplies,32.0,55.0,Mock Distribution Branch - Chicago,Chicago,5665.0
+301,5,99,25,2026-06-11,Nitrile Gloves Medium Case,Safety and PPE,52.0,87.5,Mock Distribution Branch - Chicago,Chicago,8662.5
+302,5,108,25,2026-06-11,Safety Glasses Pack,Safety and PPE,18.0,31.99,Mock Distribution Branch - Chicago,Chicago,3454.9199999999996
+303,5,79,25,2026-06-11,Disposable Face Masks Case,Safety and PPE,35.0,58.0,Mock Distribution Branch - Chicago,Chicago,4582.0
+304,5,29,25,2026-06-11,High Visibility Safety Vest Pack,Safety and PPE,44.0,74.0,Mock Distribution Branch - Chicago,Chicago,2146.0
+401,5,174,35,2026-06-11,Bottled Water 24 Pack Case,Breakroom Supplies,4.8,8.99,Mock Distribution Branch - Chicago,Chicago,1564.26
+402,5,133,35,2026-06-11,Coffee Pods Box,Breakroom Supplies,21.0,38.0,Mock Distribution Branch - Chicago,Chicago,5054.0
+403,5,66,20,2026-06-11,Copy Paper Case,Office Supplies,34.0,58.99,Mock Distribution Branch - Chicago,Chicago,3893.34
+404,5,10,25,2026-06-11,Pallet Stretch Film Case,Packaging Supplies,52.0,88.0,Mock Distribution Branch - Chicago,Chicago,880.0

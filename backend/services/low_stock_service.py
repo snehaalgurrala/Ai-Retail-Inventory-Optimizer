@@ -36,7 +36,9 @@ def calculate_priority(current_quantity: float, reorder_threshold: float) -> str
     ratio = current_quantity / reorder_threshold if reorder_threshold else 0
     if ratio <= 0.5:
         return "High"
-    if current_quantity < reorder_threshold:
+    # At or below the reorder point the item needs replenishment — only stock that
+    # is strictly above the reorder point is "Low" (healthy) priority.
+    if current_quantity <= reorder_threshold:
         return "Medium"
     return "Low"
 

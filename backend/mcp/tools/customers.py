@@ -1,10 +1,11 @@
-"""Customer tools — branch-as-customer model.
+"""Customer & order tools — real customer/order model.
 
-IMPORTANT DATA NOTE: Oracle has no customer/end-user dimension (no customer_id in
-sales or transactions, and no customer table). For Bunzl's B2B distribution model
-the ordering unit is the branch/store, so "customer" here means the ordering
-branch. Everything is computed live from Oracle sales + transactions. Each tool
-states this assumption in its ``notes`` so the chatbot can be transparent.
+Oracle DOES have a real end-customer dimension: BZ_MOCK_CUSTOMER ->
+BZ_MOCK_ORDER_HEADER -> BZ_MOCK_ORDER_LINE. These tools answer from that model
+(loaded live via the shared MCP context), so they reflect freshly placed orders —
+including those created in the Customer Order Simulator — the moment the context
+is refreshed. All abnormal-order logic is shared with the Customer Intelligence
+page via ``customer_intelligence_service`` so the chatbot and the page agree.
 """
 
 from __future__ import annotations
@@ -12,172 +13,314 @@ from __future__ import annotations
 import pandas as pd
 
 from backend.mcp import context as ctx
+from backend.services import customer_intelligence_service as cis
 
 
 _CUSTOMER_NOTE = (
-    "Oracle has no end-customer dimension; 'customer' = ordering branch/store "
-    "(B2B model), computed from sales history."
+    "'Customer' is the real end-customer (BZ_MOCK_CUSTOMER); orders come from "
+    "BZ_MOCK_ORDER_HEADER/ORDER_LINE. Computed live from Oracle."
 )
 
 
-def _branch_sales() -> pd.DataFrame:
-    """Sales joined to branch names, with numeric quantity and revenue."""
-    context = ctx.get_context()
-    sales = context.raw("sales")
-    stores = context.raw("stores")
-    if sales.empty:
-        return pd.DataFrame()
-    sales["store_id"] = sales["store_id"].astype(str)
-    sales["product_id"] = sales["product_id"].astype(str)
-    sales["quantity_sold"] = ctx.num(sales, "quantity_sold")
-    sales["revenue"] = sales["quantity_sold"] * ctx.num(sales, "selling_price")
-    if "date" in sales.columns:
-        sales["date"] = pd.to_datetime(sales["date"], errors="coerce")
-    if not stores.empty:
-        stores["store_id"] = stores["store_id"].astype(str)
-        sales = sales.merge(
-            stores[[c for c in ["store_id", "store_name", "city"] if c in stores.columns]],
-            on="store_id", how="left",
-        )
-    return sales
+def _facts() -> pd.DataFrame:
+    """Line-level customer/order fact frame from the shared context."""
+    return ctx.get_context().customer_order_facts()
 
 
 def get_top_customers(metric: str = "revenue", limit: int = 10) -> dict:
-    """Top ordering branches ('customers') by revenue (default) or units."""
+    """Top end-customers by order revenue (default) or units ordered."""
     limit = ctx.clamp_limit(limit)
     metric = "units" if str(metric).lower().startswith("unit") else "revenue"
-    sales = _branch_sales()
-    if sales.empty:
+    facts = _facts()
+    if facts is None or facts.empty:
         return {
             "tool": "get_top_customers",
             "summary": {"count": 0},
             "records": [],
-            "sources": ctx.sources("sales", "stores"),
+            "sources": ctx.sources("orders", "order_lines", "customers"),
             "notes": _CUSTOMER_NOTE,
         }
-    grouped = (
-        sales.groupby([c for c in ["store_id", "store_name", "city"] if c in sales.columns], as_index=False)
-        .agg(units_ordered=("quantity_sold", "sum"),
-             revenue=("revenue", "sum"),
-             distinct_products=("product_id", "nunique"),
-             order_lines=("quantity_sold", "size"))
-    )
-    sort_col = "units_ordered" if metric == "units" else "revenue"
-    grouped = grouped.sort_values(sort_col, ascending=False)
-    grouped["units_ordered"] = grouped["units_ordered"].round().astype(int)
-    grouped["revenue"] = grouped["revenue"].round(2)
+    leaders = cis.top_customers(facts, limit=None)
+    sort_col = "units" if metric == "units" else "revenue"
+    leaders = leaders.sort_values(sort_col, ascending=False)
     return {
         "tool": "get_top_customers",
-        "summary": {"metric": metric, "branch_count": int(len(grouped))},
+        "summary": {"metric": metric, "customer_count": int(len(leaders))},
         "records": ctx.records(
-            grouped,
-            ["store_id", "store_name", "city", "units_ordered", "revenue", "distinct_products", "order_lines"],
+            leaders,
+            ["customer_name", "customer_segment", "contract_tier",
+             "orders", "units", "revenue", "contribution_pct"],
             limit,
         ),
-        "sources": ctx.sources("sales", "stores"),
+        "sources": ctx.sources("orders", "order_lines", "customers"),
         "notes": _CUSTOMER_NOTE,
     }
 
 
-def get_customer_order_analysis(store_id: str = "", limit: int = 10) -> dict:
-    """Ordering profile per branch: volume, order lines, average line size,
-    product variety, and most recent activity date."""
+def get_customer_order_analysis(customer: str = "", limit: int = 10) -> dict:
+    """Per-customer ordering profile: orders, units, revenue, average line size,
+    product variety, and most recent order date. Optionally filter by customer
+    name (partial match)."""
     limit = ctx.clamp_limit(limit)
-    sales = _branch_sales()
-    if sales.empty:
+    facts = _facts()
+    if facts is None or facts.empty:
         return {
             "tool": "get_customer_order_analysis",
             "summary": {"count": 0},
             "records": [],
-            "sources": ctx.sources("sales", "stores"),
+            "sources": ctx.sources("orders", "order_lines", "customers"),
             "notes": _CUSTOMER_NOTE,
         }
-    if store_id:
-        sales = sales[sales["store_id"] == str(store_id)]
-    group_cols = [c for c in ["store_id", "store_name", "city"] if c in sales.columns]
-    agg = sales.groupby(group_cols, as_index=False).agg(
-        order_lines=("quantity_sold", "size"),
-        units_ordered=("quantity_sold", "sum"),
+    work = facts.copy()
+    if customer:
+        work = work[work["customer_name"].astype(str).str.contains(str(customer), case=False, na=False)]
+    if work.empty:
+        return {
+            "tool": "get_customer_order_analysis",
+            "summary": {"scope": customer or "all_customers", "count": 0},
+            "records": [],
+            "sources": ctx.sources("orders", "order_lines", "customers"),
+            "notes": _CUSTOMER_NOTE,
+        }
+    agg = work.groupby(["customer_id", "customer_name"], as_index=False).agg(
+        orders=("order_id", "nunique"),
+        order_lines=("quantity", "size"),
+        units_ordered=("quantity", "sum"),
         revenue=("revenue", "sum"),
-        avg_line_size=("quantity_sold", "mean"),
+        avg_line_size=("quantity", "mean"),
         distinct_products=("product_id", "nunique"),
-        last_order_date=("date", "max") if "date" in sales.columns else ("quantity_sold", "size"),
+        last_order_date=("order_date", "max"),
     )
     agg["units_ordered"] = agg["units_ordered"].round().astype(int)
     agg["revenue"] = agg["revenue"].round(2)
     agg["avg_line_size"] = agg["avg_line_size"].round(2)
-    if "last_order_date" in agg.columns:
-        agg["last_order_date"] = agg["last_order_date"].astype(str)
-    agg = agg.sort_values("units_ordered", ascending=False)
+    agg["last_order_date"] = pd.to_datetime(agg["last_order_date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    agg = agg.sort_values("revenue", ascending=False)
     return {
         "tool": "get_customer_order_analysis",
-        "summary": {"scope": store_id or "all_branches", "branch_count": int(len(agg))},
+        "summary": {"scope": customer or "all_customers", "customer_count": int(len(agg))},
         "records": ctx.records(
             agg,
-            ["store_id", "store_name", "city", "order_lines", "units_ordered",
-             "revenue", "avg_line_size", "distinct_products", "last_order_date"],
+            ["customer_name", "orders", "order_lines", "units_ordered", "revenue",
+             "avg_line_size", "distinct_products", "last_order_date"],
             limit,
         ),
-        "sources": ctx.sources("sales", "stores"),
+        "sources": ctx.sources("orders", "order_lines", "customers"),
         "notes": _CUSTOMER_NOTE,
     }
 
 
-def detect_abnormal_ordering(limit: int = 10, z_threshold: float = 3.0) -> dict:
-    """Detect abnormally large order lines using a per-product z-score.
+def get_customer_products(customer: str = "", metric: str = "quantity", limit: int = 25) -> dict:
+    """Products a specific customer has actually ordered — the product-level breakdown.
 
-    For each product, computes the mean and standard deviation of order
-    quantities across branches; an order line is abnormal when its quantity is at
-    least ``z_threshold`` standard deviations above the product's mean.
+    THE tool for any product-level customer-order question, e.g. "what products did
+    <customer> order?", "show all products ordered by <customer>", "which product
+    does <customer> buy most frequently?", "which product generated the most revenue
+    for <customer>?", "what was the latest product <customer> ordered?", or "quantity
+    purchased per product for <customer>". Unlike ``get_customer_order_analysis``
+    (which returns only a distinct-product COUNT), this resolves the full chain
+    BZ_MOCK_CUSTOMER -> ORDER_HEADER -> ORDER_LINE -> BZ_MOCK_PRODUCT and returns one
+    row per product with its name, category, total quantity, revenue, the number of
+    orders containing it, and the most recent order date.
+
+    ``customer`` is matched case-insensitively as a partial name and is required to
+    scope the answer to one customer. ``metric`` sets the sort order: "quantity"
+    (default), "revenue", "frequency" (most orders first), or "recent" (latest first).
     """
     limit = ctx.clamp_limit(limit)
-    z_threshold = max(2.0, float(z_threshold or 3.0))
-    sales = _branch_sales()
-    if sales.empty or "product_id" not in sales.columns:
+    facts = _facts()
+    if facts is None or facts.empty:
         return {
-            "tool": "detect_abnormal_ordering",
-            "summary": {"abnormal_count": 0},
+            "tool": "get_customer_products",
+            "summary": {"scope": customer or "all_customers", "count": 0},
             "records": [],
-            "sources": ctx.sources("sales", "stores"),
+            "sources": ctx.sources("orders", "order_lines", "customers", "products"),
             "notes": _CUSTOMER_NOTE,
         }
+    work = facts.copy()
+    if customer:
+        work = work[work["customer_name"].astype(str).str.contains(str(customer), case=False, na=False)]
+    if work.empty:
+        return {
+            "tool": "get_customer_products",
+            "summary": {"scope": customer or "all_customers", "count": 0},
+            "records": [],
+            "sources": ctx.sources("orders", "order_lines", "customers", "products"),
+            "notes": _CUSTOMER_NOTE + f" No orders found for a customer matching '{customer}'.",
+        }
 
-    stats = sales.groupby("product_id")["quantity_sold"].agg(["mean", "std"]).reset_index()
-    stats = stats.rename(columns={"mean": "product_mean", "std": "product_std"})
-    flagged = sales.merge(stats, on="product_id", how="left")
-    flagged["product_std"] = flagged["product_std"].fillna(0)
-    # z-score; products with zero variance cannot produce an outlier.
-    flagged["z_score"] = 0.0
-    mask = flagged["product_std"] > 0
-    flagged.loc[mask, "z_score"] = (
-        (flagged.loc[mask, "quantity_sold"] - flagged.loc[mask, "product_mean"])
-        / flagged.loc[mask, "product_std"]
+    group_cols = [c for c in ["customer_name", "product_id", "product_name", "category"]
+                  if c in work.columns]
+    by_product = work.groupby(group_cols, as_index=False).agg(
+        total_quantity=("quantity", "sum"),
+        revenue=("revenue", "sum"),
+        orders=("order_id", "nunique"),
+        last_order_date=("order_date", "max"),
     )
-    abnormal = flagged[flagged["z_score"] >= z_threshold].copy()
-    abnormal["z_score"] = abnormal["z_score"].round(2)
-    abnormal["product_mean"] = abnormal["product_mean"].round(2)
-    abnormal["expected_max"] = (abnormal["product_mean"] + z_threshold * abnormal["product_std"]).round(1)
-    abnormal["quantity_sold"] = abnormal["quantity_sold"].round().astype(int)
-    abnormal = abnormal.sort_values("z_score", ascending=False)
+    by_product["total_quantity"] = by_product["total_quantity"].round().astype(int)
+    by_product["revenue"] = by_product["revenue"].round(2)
+    by_product["last_order_date"] = pd.to_datetime(
+        by_product["last_order_date"], errors="coerce"
+    ).dt.strftime("%Y-%m-%d")
 
-    # Attach product names if available.
-    products = ctx.get_context().raw("products")
-    if not products.empty and "product_name" in products.columns:
-        products["product_id"] = products["product_id"].astype(str)
-        abnormal = abnormal.merge(products[["product_id", "product_name"]], on="product_id", how="left")
+    sort_by = {
+        "revenue": "revenue",
+        "frequency": "orders",
+        "freq": "orders",
+        "orders": "orders",
+        "recent": "last_order_date",
+        "latest": "last_order_date",
+    }.get(str(metric).lower(), "total_quantity")
+    by_product = by_product.sort_values(sort_by, ascending=False)
 
+    matched_customers = sorted(work["customer_name"].dropna().astype(str).unique())
+    return {
+        "tool": "get_customer_products",
+        "summary": {
+            "scope": customer or "all_customers",
+            "matched_customers": matched_customers,
+            "product_count": int(len(by_product)),
+            "total_units": int(by_product["total_quantity"].sum()),
+            "sorted_by": sort_by,
+        },
+        "records": ctx.records(
+            by_product,
+            ["customer_name", "product_name", "category", "total_quantity",
+             "revenue", "orders", "last_order_date"],
+            limit,
+        ),
+        "sources": ctx.sources("orders", "order_lines", "customers", "products"),
+        "notes": _CUSTOMER_NOTE + " One row per product the customer has ordered.",
+    }
+
+
+def get_recent_orders(limit: int = 10) -> dict:
+    """Most recent customer orders (latest first) from BZ_MOCK_ORDER_HEADER.
+
+    Use for "latest customer order", "what was just ordered", or "recent orders
+    today" — returns each order's number, date, customer, branch, status and
+    total, newest first, so a freshly placed order appears at the top.
+    """
+    limit = ctx.clamp_limit(limit)
+    context = ctx.get_context()
+    orders = context.raw("orders")
+    customers = context.raw("customers")
+    if orders.empty:
+        return {
+            "tool": "get_recent_orders",
+            "summary": {"count": 0},
+            "records": [],
+            "sources": ctx.sources("orders", "customers"),
+            "notes": _CUSTOMER_NOTE,
+        }
+    o = orders.copy()
+    o["order_date"] = pd.to_datetime(o.get("order_date"), errors="coerce")
+    o["order_total"] = ctx.num(o, "order_total").round(2)
+    if not customers.empty:
+        cust_cols = [c for c in ["customer_id", "customer_name", "customer_segment", "contract_tier"]
+                     if c in customers.columns]
+        c = customers[cust_cols].copy()
+        c["customer_id"] = c["customer_id"].astype(str)
+        o["customer_id"] = o["customer_id"].astype(str)
+        o = o.merge(c, on="customer_id", how="left")
+    sort_cols = [col for col in ["order_date", "order_id"] if col in o.columns]
+    o = o.sort_values(sort_cols, ascending=False)
+    o["order_date"] = o["order_date"].dt.strftime("%Y-%m-%d")
+    return {
+        "tool": "get_recent_orders",
+        "summary": {"order_count": int(len(o))},
+        "records": ctx.records(
+            o,
+            ["order_nbr", "order_date", "customer_name", "customer_segment",
+             "contract_tier", "store_id", "order_status", "order_total"],
+            limit,
+        ),
+        "sources": ctx.sources("orders", "customers"),
+        "notes": _CUSTOMER_NOTE,
+    }
+
+
+def detect_abnormal_ordering(
+    limit: int = 10, z_threshold: float = 3.0, min_deviation_pct: float = 0.0
+) -> dict:
+    """Detect abnormal customer orders against each product's prior demand baseline.
+
+    Evaluates the latest order of every product against the average of its prior
+    orders (the order being judged is excluded from its own baseline). An order is
+    abnormal when its quantity is at least ``min_deviation_pct`` above that prior
+    average. Use this for "any abnormal orders today?", "unusual orders", or
+    "abnormal orders above 40%" (pass min_deviation_pct=40). When no percentage is
+    given the Customer Intelligence default threshold is used; ``z_threshold`` is
+    accepted for backward compatibility but ignored. Results match the Customer
+    Intelligence page and include the customer, product, quantity, historical
+    average / maximum, deviation %, and risk level.
+    """
+    limit = ctx.clamp_limit(limit)
+    threshold = float(min_deviation_pct or 0.0)
+    if threshold <= 0.0:
+        threshold = float(cis.DEFAULT_ABNORMAL_DEVIATION_PCT)
+
+    facts = _facts()
+    abnormal = cis.detect_abnormal_orders(facts, min_deviation_pct=threshold)
+    if abnormal is None or abnormal.empty:
+        return {
+            "tool": "detect_abnormal_ordering",
+            "summary": {"abnormal_count": 0, "min_deviation_pct": round(threshold, 1)},
+            "records": [],
+            "sources": ctx.sources("orders", "order_lines", "customers"),
+            "notes": _CUSTOMER_NOTE
+            + f" Abnormal = latest order >= prior-order average + {threshold:.0f}% per product.",
+        }
     return {
         "tool": "detect_abnormal_ordering",
         "summary": {
             "abnormal_count": int(len(abnormal)),
-            "z_threshold": z_threshold,
+            "method": "deviation_pct",
+            "min_deviation_pct": round(threshold, 1),
         },
         "records": ctx.records(
             abnormal,
-            ["sale_id", "date", "store_id", "store_name", "product_id", "product_name",
-             "quantity_sold", "product_mean", "expected_max", "z_score"],
+            ["customer_name", "product_name", "order_nbr", "order_date",
+             "current_quantity", "historical_avg", "historical_max",
+             "deviation_pct", "risk_level"],
             limit,
         ),
-        "sources": ctx.sources("sales", "stores"),
-        "notes": _CUSTOMER_NOTE + " Abnormal = quantity ≥ mean + z·std per product.",
+        "sources": ctx.sources("orders", "order_lines", "customers"),
+        "notes": _CUSTOMER_NOTE
+        + f" Abnormal = latest order >= prior-order average + {threshold:.0f}% per product.",
+    }
+
+
+def get_order_inventory_impact(limit: int = 10) -> dict:
+    """Inventory pressure created by customer orders on at-risk products.
+
+    Use for "inventory impact of recent orders" or "which customers strain
+    inventory": lists customers ordering products that are at/below their reorder
+    point, with the at-risk units, revenue, affected products, and a 0-100 risk
+    score — the same view as the Customer Intelligence page.
+    """
+    limit = ctx.clamp_limit(limit)
+    context = ctx.get_context()
+    facts = context.customer_order_facts()
+    inventory = context.raw("inventory")
+    impact = cis.inventory_impact(facts, inventory)
+    if impact is None or impact.empty:
+        return {
+            "tool": "get_order_inventory_impact",
+            "summary": {"count": 0},
+            "records": [],
+            "sources": ctx.sources("orders", "order_lines", "inventory"),
+            "notes": _CUSTOMER_NOTE + " At risk = stock at/below reorder point in any branch.",
+        }
+    return {
+        "tool": "get_order_inventory_impact",
+        "summary": {"customers_at_risk": int(len(impact))},
+        "records": ctx.records(
+            impact,
+            ["customer_name", "at_risk_units", "at_risk_revenue",
+             "affected_products", "products_detail", "risk_score"],
+            limit,
+        ),
+        "sources": ctx.sources("orders", "order_lines", "inventory"),
+        "notes": _CUSTOMER_NOTE + " At risk = stock at/below reorder point in any branch.",
     }

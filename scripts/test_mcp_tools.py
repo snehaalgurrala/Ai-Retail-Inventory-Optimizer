@@ -38,6 +38,8 @@ SAMPLE_ARGS = {
     "get_inventory_health": {},
     "get_low_stock_items": {"limit": 5},
     "get_overstock_items": {"limit": 5},
+    "get_product_master": {"limit": 5},
+    "get_products_below_reorder": {"limit": 5},
     "get_top_products": {"limit": 5, "metric": "revenue"},
     "get_bottom_products": {"limit": 5, "metric": "units"},
     "get_product_performance": {"limit": 5},
@@ -48,6 +50,7 @@ SAMPLE_ARGS = {
     "get_procurement_risk": {"limit": 5},
     "get_top_customers": {"limit": 5, "metric": "revenue"},
     "get_customer_order_analysis": {"limit": 5},
+    "get_customer_products": {"customer": "", "metric": "quantity", "limit": 5},
     "detect_abnormal_ordering": {"limit": 5},
     "get_transfer_opportunities": {"limit": 5},
 }

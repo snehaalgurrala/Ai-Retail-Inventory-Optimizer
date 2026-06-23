@@ -88,6 +88,15 @@ def _fallback_intent(user_input: str) -> dict[str, str]:
     return {"intent": "unclear"}
 
 
+def fallback_intent(user_input: str) -> dict[str, str]:
+    """Public, zero-latency keyword intent classifier (no LLM call).
+
+    Used by the MCP router to gate greetings/off-topic messages without spending
+    an LLM round-trip. Delegates to the same heuristic the LLM path falls back to.
+    """
+    return _fallback_intent(user_input)
+
+
 def _normalize_intent(intent: str) -> dict[str, str]:
     """Normalize LLM output to the allowed set."""
     cleaned = str(intent or "").strip().lower()

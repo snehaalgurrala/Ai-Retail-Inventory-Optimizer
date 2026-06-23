@@ -102,7 +102,9 @@ _TOOLS: list[Callable[..., dict]] = [
     inventory.get_inventory_health,
     inventory.get_low_stock_items,
     inventory.get_overstock_items,
-    # Products
+    # Products (master catalogue + sales performance)
+    products.get_product_master,
+    products.get_products_below_reorder,
     products.get_top_products,
     products.get_bottom_products,
     products.get_product_performance,
@@ -113,10 +115,13 @@ _TOOLS: list[Callable[..., dict]] = [
     # Supplier / procurement
     supplier.get_supplier_analysis,
     supplier.get_procurement_risk,
-    # Customers (branch-as-customer)
+    # Customers & orders (real BZ_MOCK_CUSTOMER -> ORDER_HEADER -> ORDER_LINE)
     customers.get_top_customers,
     customers.get_customer_order_analysis,
+    customers.get_customer_products,
+    customers.get_recent_orders,
     customers.detect_abnormal_ordering,
+    customers.get_order_inventory_impact,
     # Transfer
     transfer.get_transfer_opportunities,
 ]
