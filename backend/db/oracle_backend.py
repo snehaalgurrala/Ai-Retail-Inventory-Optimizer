@@ -49,6 +49,11 @@ COLUMNS = {
         "quantity_sold", "selling_price",
     ],
     "stores": ["store_id", "store_name", "city", "capacity"],
+    # Branch dimension with STATE + active flag (home-branch resolution needs
+    # CITY+STATE; the "stores" contract intentionally omits state for parity).
+    "branches": [
+        "branch_id", "branch_name", "city", "state", "active_flg",
+    ],
     "suppliers": [
         "supplier_id", "supplier_name", "avg_delivery_days", "reliability_score",
     ],
@@ -230,6 +235,27 @@ class OracleBackend:
         )
         return df[COLUMNS["stores"]]
 
+    def _load_branches(self) -> pd.DataFrame:
+        # Full branch dimension (incl. STATE + ACTIVE_FLG) for home-branch
+        # resolution. Unlike "stores", keeps every branch so callers can apply
+        # their own active filter, and exposes STATE for CITY+STATE matching.
+        sql = """
+            SELECT
+                TO_CHAR(BRANCH_ID) AS "branch_id",
+                BRANCH_NAME        AS "branch_name",
+                CITY               AS "city",
+                STATE              AS "state",
+                ACTIVE_FLG         AS "active_flg"
+            FROM BZ_MOCK_BRANCH
+            ORDER BY BRANCH_ID
+        """
+        df = self._query(sql)
+        df = _coerce(
+            df,
+            str_cols=("branch_id", "branch_name", "city", "state", "active_flg"),
+        )
+        return df[COLUMNS["branches"]]
+
     def _load_suppliers(self) -> pd.DataFrame:
         sql = """
             SELECT
@@ -386,6 +412,7 @@ class OracleBackend:
         "products": _load_products,
         "sales": _load_sales,
         "stores": _load_stores,
+        "branches": _load_branches,
         "suppliers": _load_suppliers,
         "inventory": _load_inventory,
         "transactions": _load_transactions,

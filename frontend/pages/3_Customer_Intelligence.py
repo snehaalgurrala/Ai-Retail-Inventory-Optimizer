@@ -15,9 +15,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.db import repository  # noqa: E402
 from backend.services import customer_intelligence_service as cis  # noqa: E402
+from backend.services import customer_order_limits as col  # noqa: E402
 from backend.services import inventory_scope  # noqa: E402
 from backend.services.abnormal_order_intelligence import (  # noqa: E402
     RISK_ASSESSMENT_STYLE,
+    RISK_DISPLAY_LABEL,
     _RISK_PRIORITY,
     _customer_behaviour_assessment,
     _deep_actions,
@@ -156,6 +158,77 @@ def render_spotlight(spotlight: list[dict]) -> None:
                 """,
                 unsafe_allow_html=True,
             )
+
+
+def render_order_quantity_limits(customers: pd.DataFrame) -> None:
+    """Editable per-customer order quantity limits (persisted to JSON, not Oracle).
+
+    The Order Simulator caps each product line in a customer's cart at this value;
+    the default is ``DEFAULT_LIMIT`` units for any customer without a saved limit.
+    Saving writes a small config file and mirrors the values into session_state so
+    both pages read identical limits — the BZ_MOCK_* schema is never touched.
+    """
+    st.subheader("🛒 Order Quantity Limits")
+    st.caption(
+        f"Default is {col.DEFAULT_LIMIT} units per product per customer — adjust any "
+        "customer below. Only customers who can log into the Order Simulator will "
+        "actually hit this limit."
+    )
+    if customers.empty or "customer_id" not in customers.columns:
+        st.info("No customers are available to configure.")
+        return
+
+    rows = (
+        customers.sort_values("customer_name")
+        if "customer_name" in customers.columns
+        else customers
+    )
+    grid = pd.DataFrame(
+        {
+            "Customer ID": rows["customer_id"].astype(str).tolist(),
+            "Customer Name": rows.get(
+                "customer_name", pd.Series(dtype=str)
+            ).astype(str).tolist(),
+            "Segment": rows.get("customer_segment", pd.Series(dtype=str))
+            .fillna("—")
+            .astype(str)
+            .tolist(),
+            "Limit (units)": [col.get_limit(cid) for cid in rows["customer_id"]],
+        }
+    )
+
+    edited = st.data_editor(
+        grid,
+        key="ci_order_limits_editor",
+        hide_index=True,
+        use_container_width=True,
+        disabled=["Customer ID", "Customer Name", "Segment"],
+        column_config={
+            "Limit (units)": st.column_config.NumberColumn(
+                "Limit (units)",
+                min_value=1,
+                step=1,
+                format="%d",
+                help="Maximum units of any single product this customer may add to their cart.",
+            ),
+        },
+    )
+
+    if st.button("💾 Save limits", key="ci_save_order_limits"):
+        updated: dict[int, int] = {}
+        for _, record in edited.iterrows():
+            try:
+                cid = int(record["Customer ID"])
+                lim = int(record["Limit (units)"])
+            except (TypeError, ValueError):
+                continue
+            updated[cid] = lim if lim >= 1 else 1
+        col.save_limits(updated)
+        # Mirror into session so the simulator (same Streamlit session) reads the
+        # freshly saved values immediately.
+        st.session_state[col.SESSION_KEY] = updated
+        st.success("Order quantity limits saved.")
+        st.toast("Order quantity limits saved", icon="✅")
 
 
 def make_top_products_chart(product_df: pd.DataFrame, value_col: str, label: str):
@@ -350,21 +423,21 @@ def render_executive_kpis(
         growth_lines = [("", "Not enough dated order history.")]
         growth_note = "Short history"
 
-    # 3) Abnormal Orders
+    # 3) Demand Opportunities Identified
     if not abnormal_df.empty:
         high = int((abnormal_df["risk_level"] == "High").sum())
         medium = int((abnormal_df["risk_level"] == "Medium").sum())
         worst = abnormal_df.iloc[0]
         abnormal_lines = [
-            ("Flagged lines", f"{len(abnormal_df)}"),
+            ("Opportunities", f"{len(abnormal_df)}"),
             ("Threshold", f"≥ +{int(threshold_pct)}% over baseline"),
-            ("Severity", f"{high} High · {medium} Medium"),
+            ("Intensity", f"{high} High Demand · {medium} Moderate Demand"),
             ("Largest", f"{worst['customer_name']} (+{worst['deviation_pct']:.0f}%)"),
             ("Product", f"{worst['product_name']} — {int(worst['current_quantity'])} vs {worst['historical_avg']:.0f} avg"),
         ]
     else:
         abnormal_lines = [
-            ("", f"No lines exceed the +{int(threshold_pct)}% deviation threshold."),
+            ("", f"No orders exceed the +{int(threshold_pct)}% demand threshold."),
             ("", "Method: per-product average quantity."),
         ]
 
@@ -402,10 +475,8 @@ def render_executive_kpis(
                   "Top Customer — detail", top_lines),
         _kpi_card("Highest Growth", kpis["growth_customer_name"], "name",
                   growth_note, "Growth — detail", growth_lines),
-        _kpi_card("Abnormal Orders", f"{kpis['abnormal_orders']:,}", "num",
-                  f"Lines ≥ +{int(threshold_pct)}% over baseline", "Abnormal Orders — detail", abnormal_lines),
-        _kpi_card("Stockout-Risk Customers", f"{kpis['stockout_risk_customers']:,}", "num",
-                  "Ordering at-risk products", "Inventory Pressure — detail", impact_lines),
+        _kpi_card("Demand Opportunities Identified", f"{kpis['abnormal_orders']:,}", "num",
+                  f"Orders ≥ +{int(threshold_pct)}% over baseline", "Demand Opportunities — detail", abnormal_lines),
         _kpi_card("Dormant Accounts", f"{kpis['dormant_accounts']:,}", "num",
                   "Active, zero orders", "Dormant Accounts — detail", dormant_lines),
     ]
@@ -756,12 +827,12 @@ def render_executive_summary(
         top_product = "—"
 
     stats = [
-        ("alert", "Abnormal orders detected", f"{total_lines:,}", ""),
-        ("", "Customers impacted", f"{customers_impacted:,}", ""),
-        ("", "Products impacted", f"{products_impacted:,}", ""),
-        ("alert", "Revenue exposure", money(revenue_exposure), ""),
-        ("", "Highest-risk customer", compact(top_customer, 22), "name"),
-        ("", "Highest-risk product", compact(top_product, 22), "name"),
+        ("alert", "Demand opportunities identified", f"{total_lines:,}", ""),
+        ("", "Customers involved", f"{customers_impacted:,}", ""),
+        ("", "Products involved", f"{products_impacted:,}", ""),
+        ("alert", "Revenue opportunity", money(revenue_exposure), ""),
+        ("", "Top demand customer", compact(top_customer, 22), "name"),
+        ("", "Top demand product", compact(top_product, 22), "name"),
     ]
     chips = "".join(
         f'<div class="ci-hero-stat {variant}"><div class="k">{escape(label)}</div>'
@@ -770,10 +841,10 @@ def render_executive_summary(
     )
     st.markdown(
         '<div class="ci-hero">'
-        '<div class="ci-hero-kicker">AI Order Intelligence Center · Live from Oracle</div>'
-        '<div class="ci-hero-title">🚨 AI Executive Summary</div>'
-        '<div class="ci-hero-sub">Autonomous monitoring of customer ordering behaviour against '
-        f'per-product demand baselines · Abnormal Order Threshold: {int(threshold_pct)}%</div>'
+        '<div class="ci-hero-kicker">Customer Demand Intelligence · Live from Oracle</div>'
+        '<div class="ci-hero-title">📈 AI Demand Summary</div>'
+        '<div class="ci-hero-sub">AI-powered analysis of customer demand patterns against '
+        f'per-product demand baselines · Demand Sensitivity Threshold: {int(threshold_pct)}%</div>'
         f'<div class="ci-hero-grid">{chips}</div>'
         '</div>',
         unsafe_allow_html=True,
@@ -795,13 +866,13 @@ def _card_html(card: dict, rank: int) -> str:
         f'<div class="ci-exec-card" style="--risk-color:{style["color"]}">'
         '<div class="ci-exec-head">'
         '<div class="ci-exec-headl">'
-        f'<div class="ci-exec-rank">#{rank} · Abnormal Order Investigation</div>'
+        f'<div class="ci-exec-rank">#{rank} · Demand Opportunity Review</div>'
         f'<div class="ci-exec-name">{escape(card["customer_name"])}</div>'
         f'<div class="ci-exec-prod">Product: <b>{escape(card["product_name"])}</b></div>'
         '</div>'
         '<div class="ci-exec-headr">'
         f'<div class="ci-risk-badge" style="background:{style["bg"]};color:{style["color"]}">'
-        f'{style["icon"]} {band} Risk</div>'
+        f'{style["icon"]} {RISK_DISPLAY_LABEL[band]}</div>'
         '</div>'
         '</div>'
         '<div class="ci-exec-summary">'
@@ -827,8 +898,8 @@ def _technical_details_html(card: dict) -> str:
     hist_range = f"{lo:,} – {hi:,} units" if lo != hi else f"{lo:,} units"
 
     rows = [
-        ("Risk Score", f"{ra['score']} / 100"),
-        ("Risk Band", ra["band"]),
+        ("Demand Score", f"{ra['score']} / 100"),
+        ("Demand Level", RISK_DISPLAY_LABEL[ra["band"]]),
         ("Deviation from Avg", f"+{dev:.0f}%"),
         ("Historical Avg", f"{avg:,} units"),
         ("Historical Max", f"{hi:,} units"),
@@ -845,10 +916,11 @@ def _technical_details_html(card: dict) -> str:
         for k, v in rows
     ) + '</div>'
     note = (
-        '<div class="ci-tech-note">Risk score blends deviation from average (30%), '
+        '<div class="ci-tech-note">Demand score blends deviation from average (30%), '
         'increase above the historical maximum (25%), inventory impact (20%), '
         'reorder-point pressure (15%) and recent demand trend (10%), normalised to 0–100. '
-        'Bands: 0–30 Low · 31–60 Medium · 61–85 High · 86–100 Critical.</div>'
+        'Levels: 0–30 Normal Demand Activity · 31–60 Moderate Demand Activity · '
+        '61–85 High Demand Activity · 86–100 Significant Opportunity.</div>'
     )
     return (
         '<details class="ci-tech">'
@@ -914,7 +986,7 @@ def make_trend_chart(card: dict):
     fig.add_annotation(
         x=idx + 1,
         y=series[idx],
-        text="Abnormal Order",
+        text="High Demand",
         showarrow=False,
         yshift=26,
         font=dict(size=10, color=eval_color),
@@ -990,7 +1062,7 @@ def render_deep_analysis(card: dict, facts: pd.DataFrame) -> None:
     NAVY, AMBER = "#183F5F", "#C76A12"
 
     # -- Report header -----------------------------------------------------
-    st.markdown('<div class="ci-report-head">🧠 AI Investigation Report</div>', unsafe_allow_html=True)
+    st.markdown('<div class="ci-report-head">🧠 Customer Demand Analysis</div>', unsafe_allow_html=True)
     st.markdown(
         '<div class="ci-report-lead">AI-generated briefing interpreting this order against '
         'real demand baselines and live inventory — prepared as a supply-chain analyst would.</div>',
@@ -998,7 +1070,7 @@ def render_deep_analysis(card: dict, facts: pd.DataFrame) -> None:
     )
 
     # -- Historical order graph (kept exactly as before) -------------------
-    st.caption(f"📈 Complete order history — {compact(card['product_name'], 34)} (flagged order in red)")
+    st.caption(f"📈 Complete order history — {compact(card['product_name'], 34)} (latest high-demand order in red)")
     chart = make_trend_chart(card)
     if chart is not None:
         st.plotly_chart(
@@ -1056,7 +1128,7 @@ def render_ai_cards(cards: list[dict], facts: pd.DataFrame) -> None:
     """
     for rank, card in enumerate(cards, start=1):
         st.markdown(_card_html(card, rank), unsafe_allow_html=True)
-        with st.expander("🧠 AI Investigation Report — What Happened, Inventory Impact, Demand Context, Customer Behaviour & Recommendation"):
+        with st.expander("🧠 Customer Demand Analysis — What Happened, Inventory Impact, Demand Context, Customer Behaviour & Recommendation"):
             render_deep_analysis(card, facts)
         st.markdown('<div style="height:0.7rem"></div>', unsafe_allow_html=True)
 
@@ -1065,11 +1137,11 @@ def _alert_html(card: dict) -> str:
     rs = RISK_STYLE[card["risk_level"]]
     if card["customer_abnormal_lines"] > 1:
         title = (
-            f"{escape(card['customer_name'])} showing recurring abnormal ordering behaviour "
+            f"{escape(card['customer_name'])} showing sustained high-demand ordering activity "
             f"({card['customer_abnormal_lines']} lines) — latest +{card['deviation_pct']:.0f}%"
         )
     else:
-        title = f"{escape(card['customer_name'])} ordered {card['deviation_pct']:.0f}% above normal demand"
+        title = f"{escape(card['customer_name'])} ordered {card['deviation_pct']:.0f}% above typical demand"
     meta = (
         f"{escape(card['product_name'])} · {card['current_quantity']:,} units vs "
         f"{math.ceil(card['historical_avg']):,} avg"
@@ -1079,7 +1151,7 @@ def _alert_html(card: dict) -> str:
         f'<div class="ci-alert-icon">{rs["icon"]}</div>'
         f'<div class="ci-alert-body"><div class="ci-alert-title">{title}</div>'
         f'<div class="ci-alert-meta">{meta}</div></div>'
-        f'<div class="ci-alert-score">Score {card["risk_score"]}</div>'
+        f'<div class="ci-alert-score">Demand {card["risk_score"]}</div>'
         '</div>'
     )
 
@@ -1092,7 +1164,7 @@ def render_alert_feed(cards: list[dict]) -> None:
 def render_detailed_abnormal_table(abnormal_df: pd.DataFrame) -> None:
     """Section 5 — every flagged order line as a native Streamlit dataframe."""
     if abnormal_df.empty:
-        st.success("No abnormal order quantities detected against per-product baselines.")
+        st.success("No elevated demand detected against per-product baselines.")
         return
     rename = {
         "customer_name": "Customer",
@@ -1103,11 +1175,18 @@ def render_detailed_abnormal_table(abnormal_df: pd.DataFrame) -> None:
         "historical_max": "Historical Max",
         "current_quantity": "Current Qty",
         "deviation_pct": "Deviation %",
-        "risk_level": "Risk Level",
+        "risk_level": "Demand Level",
     }
     # Only the business-facing columns; hist_series / hist_count / historical_min
     # are internal inputs to the narrative, not for the flat table.
     display_abnormal = abnormal_df[[c for c in rename if c in abnormal_df.columns]].rename(columns=rename)
+    # Present the raw detection bands as positive, demand-focused labels. The
+    # detector emits "High"/"Medium" here; map both to their display wording.
+    if "Demand Level" in display_abnormal.columns:
+        _level_label = {"High": "High Demand Activity", "Medium": "Moderate Demand Activity"}
+        display_abnormal["Demand Level"] = display_abnormal["Demand Level"].map(
+            lambda v: _level_label.get(str(v), str(v))
+        )
     st.dataframe(
         display_abnormal,
         use_container_width=True,
@@ -1139,13 +1218,13 @@ def render_threshold_control() -> float:
         step=5,
         key=ABNORMAL_THRESHOLD_KEY,
         help=(
-            "Affects anomaly detection only — it does not change any other metric on "
-            "this page."
+            "Affects demand-opportunity detection only — it does not change any other metric "
+            "on this page."
         ),
     )
     st.caption(
-        "Orders exceeding this deviation percentage from historical product demand "
-        "will be flagged as abnormal."
+        "Orders exceeding this deviation percentage above historical product demand "
+        "will be surfaced as demand opportunities."
     )
     return float(st.session_state[ABNORMAL_THRESHOLD_KEY])
 
@@ -1158,7 +1237,7 @@ def render_risk_summary(cards: list[dict]) -> None:
     chips = "".join(
         f'<div class="ci-risk-chip" style="--chip-color:{RISK_ASSESSMENT_STYLE[band]["color"]}">'
         f'<span class="dot">{RISK_ASSESSMENT_STYLE[band]["icon"]}</span>'
-        f'<span class="body"><span class="k">{band}</span>'
+        f'<span class="body"><span class="k">{RISK_DISPLAY_LABEL[band]}</span>'
         f'<span class="v">{counts[band]}</span></span></div>'
         for band in ("Critical", "High", "Medium", "Low")
     )
@@ -1175,11 +1254,10 @@ def render_ai_order_intelligence_center(
 
     Rendered as one self-contained block placed directly below Customer Spotlight.
     """
-    st.subheader("🚨 Abnormal Order Detection")
+    st.subheader("📈 Customer Demand Insights")
     st.caption(
-        "An AI analyst continuously monitoring customer ordering behaviour against "
-        "per-product demand baselines, explaining every abnormal order in business "
-        "language — highest-risk orders first."
+        "AI-powered analysis of customer demand patterns, purchasing behaviour, inventory "
+        "impact, and emerging demand opportunities — strongest demand signals first."
     )
 
     # Anomaly-detection sensitivity control — placed directly above the section.
@@ -1190,9 +1268,9 @@ def render_ai_order_intelligence_center(
 
     if not abnormal_cards:
         st.success(
-            f"✅ All clear — no order lines exceed their per-product demand baseline at the "
-            f"{int(threshold_pct)}% deviation threshold. The AI monitor will surface anomalies "
-            "here as soon as they appear."
+            f"✅ No elevated demand right now — no order lines exceed their per-product demand "
+            f"baseline at the {int(threshold_pct)}% threshold. The AI monitor will surface new "
+            "demand opportunities here as soon as they appear."
         )
         return
 
@@ -1206,18 +1284,18 @@ def render_ai_order_intelligence_center(
     # Section summary — abnormal-order counts per risk band.
     render_risk_summary(ranked_cards)
 
-    # Section 2 + 3 — full-width investigation panels & expandable deep analysis
-    st.markdown("#### 🤖 AI Customer Intelligence")
+    # Section 2 + 3 — full-width review panels & expandable deep analysis
+    st.markdown("#### 🤖 Customer Demand Analysis")
     st.caption(
-        "One full-width investigation panel for every abnormal order, ordered by risk "
-        "priority. Expand any panel for the full demand-history breakdown, AI Analysis "
+        "One full-width Demand Opportunity Review for every high-demand order, ordered by "
+        "demand intensity. Expand any panel for the full demand-history breakdown, AI Analysis "
         "and recommended actions."
     )
     render_ai_cards(ranked_cards, facts)
 
-    # Section 5 — Detailed abnormal order table (Streamlit dataframe)
-    st.markdown("#### 📋 Abnormal Order Detail")
-    st.caption("Every flagged order line behind the cards above.")
+    # Section 5 — Detailed demand-opportunity table (Streamlit dataframe)
+    st.markdown("#### 📋 Demand Opportunity Detail")
+    st.caption("Every demand opportunity behind the cards above.")
     render_detailed_abnormal_table(abnormal_df)
 
 
@@ -1231,7 +1309,7 @@ st.markdown(HERO_CSS, unsafe_allow_html=True)
 
 render_page_header(
     "👥 Customer Intelligence",
-    "Real customer demand patterns, abnormal ordering, inventory pressure, and "
+    "Real customer demand patterns, demand insights, inventory pressure, and "
     "growth signals — sourced live from Oracle (BZ_MOCK_CUSTOMER → ORDER_HEADER → ORDER_LINE).",
 )
 
@@ -1306,6 +1384,14 @@ render_executive_kpis(kpis, top_customers_df, trends_df, abnormal_df, impact_df,
 st.subheader("⭐ Customer Spotlight")
 st.caption("Top 5 customers by order revenue.")
 render_spotlight(cis.customer_spotlight(facts, limit=5))
+
+st.divider()
+
+# -- Order Quantity Limits --------------------------------------------------
+# Writes a JSON config (never Oracle). Mirror the saved limits into session so
+# the Order Simulator and this page share one in-session view.
+st.session_state.setdefault(col.SESSION_KEY, col.load_limits())
+render_order_quantity_limits(customers)
 
 st.divider()
 

@@ -103,7 +103,7 @@ def _header_html(target_date: date, period_label: str, top_band: str) -> str:
         '<div style="font-size:12px;font-weight:700;letter-spacing:1px;opacity:0.85;'
         'text-transform:uppercase;">Bunzl AI Supply Chain Platform · Executive Report</div>'
         '<h1 style="margin:8px 0 6px 0;font-size:26px;font-weight:800;">'
-        '🚨 Abnormal Order Intelligence Report</h1>'
+        '📈 Customer Demand Intelligence Report</h1>'
         f'<div style="font-size:13px;opacity:0.85;margin-bottom:14px;">'
         f'{escape(period_label)} · {escape(nice_date)}</div>'
         f'{_badge_html(top_band)}</div>'
@@ -126,16 +126,16 @@ def _exec_summary_html(cards: list[dict], target_date: date, counts: dict[str, i
     body = (
         row([
             _metric_tile("Report Date", nice_date, navy),
-            _metric_tile("Total Abnormal Orders", f"{total:,}", THEME["danger"], highlight=True),
-            _metric_tile("Critical Orders", f"{counts['Critical']:,}", _BAND_ACCENT["Critical"], highlight=True),
+            _metric_tile("Demand Opportunities Identified", f"{total:,}", THEME["danger"], highlight=True),
+            _metric_tile("Significant Opportunities", f"{counts['Critical']:,}", _BAND_ACCENT["Critical"], highlight=True),
         ])
         + row([
-            _metric_tile("High Risk Orders", f"{counts['High']:,}", _BAND_ACCENT["High"], highlight=True),
-            _metric_tile("Medium Risk Orders", f"{counts['Medium']:,}", _BAND_ACCENT["Medium"], highlight=True),
-            _metric_tile("Low Risk Orders", f"{counts['Low']:,}", _BAND_ACCENT["Low"], highlight=True),
+            _metric_tile("High Demand Activity", f"{counts['High']:,}", _BAND_ACCENT["High"], highlight=True),
+            _metric_tile("Moderate Demand Activity", f"{counts['Medium']:,}", _BAND_ACCENT["Medium"], highlight=True),
+            _metric_tile("Normal Demand Activity", f"{counts['Low']:,}", _BAND_ACCENT["Low"], highlight=True),
         ])
         + row([
-            _metric_tile("Total Revenue Impact", _money(total_revenue), THEME["fresh_green"], highlight=True),
+            _metric_tile("Total Revenue Opportunity", _money(total_revenue), THEME["fresh_green"], highlight=True),
             _metric_tile("Total Inventory Consumption", f"{total_units:,} units", navy),
             '<td style="width:33%;"></td>',
         ])
@@ -146,7 +146,7 @@ def _exec_summary_html(cards: list[dict], target_date: date, counts: dict[str, i
 def _risk_distribution_html(counts: dict[str, int]) -> str:
     header = (
         f'<tr style="background:{THEME["primary_navy"]};color:#FFFFFF;">'
-        '<th style="text-align:left;padding:10px 14px;font-size:13px;">Risk Level</th>'
+        '<th style="text-align:left;padding:10px 14px;font-size:13px;">Demand Level</th>'
         '<th style="text-align:right;padding:10px 14px;font-size:13px;">Count</th></tr>'
     )
     rows = []
@@ -155,7 +155,7 @@ def _risk_distribution_html(counts: dict[str, int]) -> str:
         rows.append(
             f'<tr style="border-bottom:1px solid {THEME["soft_border"]};">'
             f'<td style="padding:10px 14px;font-size:14px;font-weight:700;color:{accent};">'
-            f'{escape(band)}</td>'
+            f'{escape(aoi.RISK_DISPLAY_LABEL.get(band, band))}</td>'
             f'<td style="padding:10px 14px;font-size:14px;font-weight:800;text-align:right;'
             f'color:{THEME["deep_navy"]};">{counts[band]:,}</td></tr>'
         )
@@ -165,14 +165,14 @@ def _risk_distribution_html(counts: dict[str, int]) -> str:
         'border-radius:10px;overflow:hidden;">'
         f'{header}{"".join(rows)}</table>'
     )
-    return _section("Risk Distribution Summary", table)
+    return _section("Demand Distribution Summary", table)
 
 
 _TABLE_COLUMNS = [
     "Order Date", "Order Number", "Customer Name", "Customer Segment", "Product Name",
     "Category", "Historical Average", "Historical Maximum", "Latest Order Quantity",
     "Deviation %", "Current Inventory", "Inventory Impact %", "Revenue Impact",
-    "Risk Level", "Priority Score",
+    "Demand Level", "Demand Score",
 ]
 
 
@@ -194,8 +194,8 @@ def _card_row_values(card: dict) -> dict[str, str]:
         "Current Inventory": f"{int(inv):,}" if inv is not None else "N/A",
         "Inventory Impact %": f"{impact:.0f}%" if impact is not None else "N/A",
         "Revenue Impact": _money(card["revenue_impact"]),
-        "Risk Level": ra["band"],
-        "Priority Score": f"{ra['score']}/100",
+        "Demand Level": aoi.RISK_DISPLAY_LABEL.get(ra["band"], ra["band"]),
+        "Demand Score": f"{ra['score']}/100",
     }
 
 
@@ -209,17 +209,18 @@ def _dashboard_table_html(cards: list[dict]) -> str:
     rows = []
     for i, card in enumerate(cards):
         values = _card_row_values(card)
-        band = values["Risk Level"]
+        # Raw band drives the accent colour; the cell shows the demand-focused label.
+        band_key = aoi._ensure_assessment(card)["band"]
         bg = "#FFFFFF" if i % 2 == 0 else THEME["soft_blue"]
         cells = []
         for col in _TABLE_COLUMNS:
             value = values[col]
-            if col == "Risk Level":
-                accent = _BAND_ACCENT.get(band, THEME["primary_navy"])
+            if col == "Demand Level":
+                accent = _BAND_ACCENT.get(band_key, THEME["primary_navy"])
                 cell = (
                     f'<span style="display:inline-block;padding:3px 10px;border-radius:999px;'
                     f'background:{accent};color:#FFFFFF;font-size:11px;font-weight:800;">'
-                    f'{escape(band)}</span>'
+                    f'{escape(value)}</span>'
                 )
             else:
                 cell = escape(value)
@@ -237,7 +238,7 @@ def _dashboard_table_html(cards: list[dict]) -> str:
         f'<thead><tr style="background:{THEME["primary_navy"]};color:#FFFFFF;">{header}</tr></thead>'
         f'<tbody>{"".join(rows)}</tbody></table></div>'
     )
-    return _section("Abnormal Orders Dashboard", table)
+    return _section("Customer Demand Dashboard", table)
 
 
 def _ai_investigation_html(cards: list[dict]) -> str:
@@ -276,17 +277,17 @@ def _ai_investigation_html(cards: list[dict]) -> str:
             f'<div style="font-size:13px;color:{THEME["muted_text"]};margin-bottom:10px;">'
             f'Product: {escape(card["product_name"])}</div>'
             f'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;'
-            f'color:{accent};margin-bottom:6px;">AI Investigation</div>'
+            f'color:{accent};margin-bottom:6px;">AI Demand Analysis</div>'
             f'{investigation}'
             f'<div style="margin-top:10px;font-size:13px;font-weight:800;color:{accent};">'
-            f'Risk Level: {escape(ra["band"])}</div>'
+            f'Demand Level: {escape(aoi.RISK_DISPLAY_LABEL.get(ra["band"], ra["band"]))}</div>'
             f'<div style="margin-top:10px;font-size:11px;font-weight:700;text-transform:uppercase;'
             f'letter-spacing:0.4px;color:{THEME["muted_text"]};">Potential Business Reasons</div>'
             f'{_bullets(aoi.BUSINESS_REASONS, THEME["primary_navy"])}'
             '</div>'
         )
         blocks.append(block)
-    return _section("AI Investigation Summary", "".join(blocks))
+    return _section("Customer Demand Analysis", "".join(blocks))
 
 
 def _business_impact_html(cards: list[dict]) -> str:
@@ -327,7 +328,7 @@ def _footer_html() -> str:
         'text-align:center;font-size:12px;line-height:1.7;">'
         '<div style="font-weight:700;opacity:0.95;">Generated by Bunzl AI Supply Chain '
         'Intelligence Platform</div>'
-        '<div style="opacity:0.7;margin-top:6px;">Executive abnormal-order intelligence — '
+        '<div style="opacity:0.7;margin-top:6px;">Executive customer demand intelligence — '
         'figures match the Customer Intelligence dashboard.</div></div>'
     )
 
@@ -338,7 +339,7 @@ def build_report_html(cards: list[dict], target_date: date, period_label: str) -
     return (
         '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
-        '<title>Abnormal Order Intelligence Report</title></head>'
+        '<title>Customer Demand Intelligence Report</title></head>'
         f'<body style="margin:0;padding:20px;background:{THEME["light_bg"]};'
         'font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;">'
         '<div style="max-width:1080px;margin:0 auto;background:#FFFFFF;border-radius:14px;'
@@ -368,7 +369,7 @@ def build_excel(cards: list[dict], target_date: date) -> Path:
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Abnormal Orders"
+    ws.title = "Customer Demand"
 
     header_fill = PatternFill(start_color="183F5F", end_color="183F5F", fill_type="solid")
     header_font = Font(bold=True, color="FFFFFF", size=11)
@@ -410,7 +411,7 @@ def build_excel(cards: list[dict], target_date: date) -> Path:
     ws.freeze_panes = "A2"
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = REPORTS_DIR / f"Abnormal_Order_Report_{target_date.strftime('%Y%m%d')}.xlsx"
+    output_path = REPORTS_DIR / f"Customer_Demand_Intelligence_Report_{target_date.strftime('%Y%m%d')}.xlsx"
     wb.save(output_path)
     return output_path
 
@@ -442,7 +443,7 @@ def send_abnormal_order_report_email(period: str = "today", target_date: date | 
         return {
             "success": False,
             "email_sent": False,
-            "message": f"Could not load abnormal-order data: {error}",
+            "message": f"Could not load customer demand data: {error}",
         }
 
     if not cards:
@@ -450,7 +451,7 @@ def send_abnormal_order_report_email(period: str = "today", target_date: date | 
             "success": False,
             "email_sent": False,
             "message": (
-                f"No abnormal orders were detected for {resolved_date:%B %d, %Y}, "
+                f"No elevated customer demand was detected for {resolved_date:%B %d, %Y}, "
                 "so no report was sent."
             ),
         }
@@ -465,11 +466,11 @@ def send_abnormal_order_report_email(period: str = "today", target_date: date | 
             "message": f"Could not build the Excel attachment: {error}",
         }
 
-    subject = f"🚨 Bunzl Abnormal Order Intelligence Report – {subject_suffix}"
+    subject = f"📈 Bunzl Customer Demand Intelligence Report – {subject_suffix}"
     result = send_report_email(subject=subject, html_body=html_body, attachment_path=excel_path)
     if result.get("success"):
         result["message"] = (
-            f"Abnormal Order Intelligence Report ({len(cards)} order(s) for "
+            f"Customer Demand Intelligence Report ({len(cards)} order(s) for "
             f"{resolved_date:%B %d, %Y}) sent to the manager with "
             f"{excel_path.name} attached."
         )

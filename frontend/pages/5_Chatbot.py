@@ -48,7 +48,7 @@ SAMPLE_QUESTIONS = [
 SUGGESTION_CHIPS = [
     ("Low Stock", "Which products are low in stock?"),
     ("Top Products", "What are the top selling products?"),
-    ("Abnormal Orders", "Show me any abnormal or unusual orders."),
+    ("Demand Insights", "Show me customer demand insights and any high-demand orders."),
     ("Stockout Risk", "Which products are at risk of stockout?"),
     ("Supplier Risk", "Which supplier is risky?"),
     ("Transfer Opportunities", "Which store needs a stock transfer?"),
@@ -412,7 +412,7 @@ mcp_mode = _is_mcp_mode()
 render_page_header(
     "🤖 Bunzl AI Assistant",
     "Ask questions about inventory, sales, customers, suppliers, recommendations, "
-    "stockout risks, abnormal orders, and demand trends.",
+    "stockout risks, customer demand insights, and demand trends.",
 )
 
 def _mcp_lightweight_status() -> tuple[dict, dict, dict]:

@@ -36,6 +36,18 @@ RISK_ASSESSMENT_STYLE = {
 # Executive ordering — Critical first, then High, Medium, Low.
 _RISK_PRIORITY = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
 
+# Business-facing display labels for the four internal severity bands. The band
+# keys themselves (Low/Medium/High/Critical) are NEVER changed — all logic,
+# sorting, styling and caching rely on them. Only the words shown to users change:
+# positive, demand-focused language that frames each order as a customer demand
+# signal rather than a problem to be flagged.
+RISK_DISPLAY_LABEL = {
+    "Low": "Normal Demand Activity",
+    "Medium": "Moderate Demand Activity",
+    "High": "High Demand Activity",
+    "Critical": "Significant Opportunity",
+}
+
 # Possible business explanations surfaced alongside every abnormal order.
 BUSINESS_REASONS = [
     "New customer contract",
@@ -285,11 +297,12 @@ def _executive_summary(card: dict) -> str:
     else:
         cause = ""
     verdict = {
-        "Critical": "this order is significantly outside normal behaviour and needs "
-                    "immediate attention to avoid stockout risk.",
-        "High": "this order may create inventory pressure and should be reviewed.",
-        "Medium": "this order is above typical demand and is worth reviewing.",
-        "Low": "this order is only slightly above normal behaviour, so monitoring is sufficient.",
+        "Critical": "this order represents a significant increase in demand and is a strong "
+                    "customer demand signal worth prioritising for inventory planning.",
+        "High": "this order reflects elevated demand and is worth reviewing as an emerging "
+                "demand opportunity.",
+        "Medium": "this order shows higher-than-typical demand and is worth reviewing.",
+        "Low": "this order is only slightly above typical demand, so routine monitoring is sufficient.",
     }[band]
     s3 = cause + verdict if cause else verdict[0].upper() + verdict[1:]
     return f"{s1} {s2} {s3}"
@@ -344,7 +357,11 @@ def _what_happened(card: dict) -> list[str]:
     else:
         s += " It matches the previous maximum on record."
     paras.append(s)
-    paras.append("As a result, the order was classified as an abnormal purchasing event.")
+    paras.append(
+        "As a result, this order has been highlighted as a significant increase in demand "
+        "compared to historical purchasing patterns and may indicate a new demand opportunity "
+        "or procurement cycle."
+    )
     return paras
 
 
@@ -430,8 +447,8 @@ def _customer_behaviour_assessment(card: dict) -> tuple[list[str], list[str]]:
     if cur > hi:
         paras = [
             f"An order of this scale has not been recorded for this product before, so it is "
-            f"unclear whether {name} routinely purchases at this level — the behaviour looks "
-            "unusual against everything seen to date."
+            f"unclear whether {name} routinely purchases at this level — it stands out as a "
+            "notably stronger demand signal than everything seen to date."
         ]
     else:
         paras = [
@@ -440,7 +457,7 @@ def _customer_behaviour_assessment(card: dict) -> tuple[list[str], list[str]]:
         ]
     if lines > 1:
         paras.append(
-            f"{name} now has {lines} flagged order lines, which could suggest a broader shift in "
+            f"{name} now has {lines} high-demand order lines, which could suggest a broader shift in "
             "their purchasing pattern rather than a one-off event."
         )
 
@@ -474,7 +491,7 @@ def _deep_actions(card: dict) -> list[str]:
     if card["customer_abnormal_lines"] > 1:
         actions.append(
             f"Review {name}'s broader ordering pattern — {card['customer_abnormal_lines']} of their "
-            "order lines are flagged abnormal"
+            "order lines show elevated demand"
         )
     return actions
 
@@ -507,12 +524,12 @@ def business_impact(card: dict) -> list[str]:
     )
     if int(card.get("customer_abnormal_lines", 1)) > 1:
         items.append(
-            f"Customer concentration risk: {card['customer_name']} has multiple abnormal order "
+            f"Customer concentration: {card['customer_name']} has multiple high-demand order "
             "lines, increasing the business's dependence on a single account."
         )
     else:
         items.append(
-            "Customer concentration risk: a single customer is driving an outsized share of demand "
+            "Customer concentration: a single customer is driving an outsized share of demand "
             "for this product."
         )
     items.append(

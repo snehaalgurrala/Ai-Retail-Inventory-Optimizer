@@ -1,6 +1,6 @@
 store_id,store_name,city,capacity,total_inventory,remaining_capacity,capacity_used_percent
-1,Mock Distribution Branch - Dallas,Dallas,10000,1002,8998,10.02
+1,Mock Distribution Branch - Dallas,Dallas,10000,942,9058,9.42
 2,Mock Distribution Branch - Plano,Plano,9000,1341,7659,14.899999999999999
-3,Mock Distribution Branch - Irving,Irving,8500,1266,7234,14.894117647058824
+3,Mock Distribution Branch - Irving,Irving,8500,1202,7298,14.141176470588235
 4,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000,1477,9523,13.427272727272726
-5,Mock Distribution Branch - Chicago,Chicago,9500,2181,7319,22.957894736842103
+5,Mock Distribution Branch - Chicago,Chicago,9500,2105,7395,22.157894736842103

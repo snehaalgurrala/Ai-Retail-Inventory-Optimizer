@@ -303,6 +303,7 @@ def place_customer_order(
     items: list[dict],
     *,
     branch_id=None,
+    single_branch: bool = False,
     channel: str = "ORDER_SIMULATOR",
     status: str = "PLACED",
     payment_method: str = "SIMULATION",
@@ -320,6 +321,15 @@ def place_customer_order(
     ``items`` is a list of ``{"product_id": ..., "quantity": ...}``. When
     ``branch_id`` is omitted the lowest active branch is used. Returns the new
     order's ids/totals plus the resulting per-product stock levels.
+
+    Draw-down path:
+      * ``single_branch=True`` (the Order Simulator): always decrement only the
+        order's own branch (the customer's home branch), regardless of the global
+        ``INVENTORY_SCOPE`` — display, validation and decrement stay consistent
+        within the session.
+      * ``single_branch=False`` (default): follow ``INVENTORY_SCOPE`` — network
+        scope pools the draw-down across all branches (most-stocked first),
+        branch scope decrements only the order's branch.
     """
     if not items:
         raise ValueError("Cannot place an order with no line items.")
@@ -368,8 +378,9 @@ def place_customer_order(
         # Network scope draws each line from the pooled stock across all branches
         # so placement matches the network-wide inventory shown in the catalogue;
         # branch scope decrements only the order's fulfilling branch. Either way
-        # ``new_stock`` is the figure to display after the order.
-        network = get_inventory_scope() == "network"
+        # ``new_stock`` is the figure to display after the order. ``single_branch``
+        # forces the single-branch path irrespective of the global scope.
+        network = (not single_branch) and get_inventory_scope() == "network"
 
         line_id = _next_id(cursor, "BZ_MOCK_ORDER_LINE", "ORDER_LINE_ID")
         inventory: list[dict] = []

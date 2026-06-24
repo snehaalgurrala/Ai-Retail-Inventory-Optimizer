@@ -50,6 +50,18 @@ def get_inventory_scope() -> str:
     return value if value in SUPPORTED_INVENTORY_SCOPES else DEFAULT_INVENTORY_SCOPE
 
 
+def get_email_dry_run() -> bool:
+    """Whether order-pipeline alert emails should be suppressed (dry-run).
+
+    Read from ``EMAIL_DRY_RUN`` at call time. When truthy, the abnormal-order
+    and low-stock dispatch stages run all their computation but skip the actual
+    SMTP send — used while testing so live alerts are not delivered. Defaults to
+    off (normal sending).
+    """
+    value = (os.getenv("EMAIL_DRY_RUN", "") or "").strip().lower()
+    return value in ("1", "true", "yes", "on")
+
+
 def get_oracle_config() -> dict:
     """Read Oracle connection settings from the environment.
 

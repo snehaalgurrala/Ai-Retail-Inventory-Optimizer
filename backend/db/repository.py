@@ -107,9 +107,37 @@ def load_customers(*, safe: bool = False) -> pd.DataFrame:
     return load_raw("customers", safe=safe)
 
 
+def load_branches(*, safe: bool = False) -> pd.DataFrame:
+    """Load the branch dimension with CITY/STATE/active flag (``BZ_MOCK_BRANCH``).
+
+    Distinct from ``load_stores``: keeps inactive branches and exposes ``state``,
+    which home-branch resolution needs for CITY+STATE matching.
+    """
+    return load_raw("branches", safe=safe)
+
+
 def load_orders(*, safe: bool = False) -> pd.DataFrame:
     """Load order headers (``BZ_MOCK_ORDER_HEADER``)."""
     return load_raw("orders", safe=safe)
+
+
+def load_customers_with_orders(*, safe: bool = False) -> pd.DataFrame:
+    """Customers that have at least one order header (the "active" customers).
+
+    Derived dynamically by intersecting the customer dimension with the customer
+    ids present in ``BZ_MOCK_ORDER_HEADER`` — no hardcoded ids, so it stays
+    correct across resets and as new orders are placed. Returns the same columns
+    as :func:`load_customers`, filtered to the active subset.
+    """
+    customers = load_customers(safe=safe)
+    orders = load_orders(safe=safe)
+    if customers.empty or "customer_id" not in customers.columns:
+        return customers
+    if orders is None or orders.empty or "customer_id" not in orders.columns:
+        return customers.iloc[0:0]
+    active_ids = set(orders["customer_id"].astype(str))
+    mask = customers["customer_id"].astype(str).isin(active_ids)
+    return customers[mask].reset_index(drop=True)
 
 
 def load_order_lines(*, safe: bool = False) -> pd.DataFrame:

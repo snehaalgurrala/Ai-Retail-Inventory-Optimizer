@@ -23,9 +23,17 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.db import oracle_writer, repository  # noqa: E402
 from backend.db.config import get_data_backend  # noqa: E402
+from backend.services import branch_resolver  # noqa: E402
+from backend.services.abnormal_order_intelligence import RISK_DISPLAY_LABEL  # noqa: E402
 from backend.services import customer_intelligence_service as cis  # noqa: E402
+from backend.services import customer_order_limits as col  # noqa: E402
 from backend.services import inventory_scope  # noqa: E402
 from backend.services import order_pipeline_service  # noqa: E402
+
+# The simulator locks each session to the logged-in customer's home branch, so
+# stock display, validation and draw-down all resolve through the branch-scoped
+# path regardless of the global INVENTORY_SCOPE.
+SESSION_SCOPE = "branch"
 from frontend.utils.page_helpers import apply_page_style, render_page_header  # noqa: E402
 
 
@@ -56,14 +64,32 @@ _CACHE_TTL = 60 if get_data_backend() == "oracle" else None
 @st.cache_data(ttl=_CACHE_TTL, show_spinner="Loading Bunzl catalogue from Oracle...")
 def load_simulator_data() -> dict[str, pd.DataFrame]:
     return {
-        "customers": repository.load_customers(safe=True),
+        # Only customers with at least one real order can log in to the
+        # simulator (the Customer Intelligence page still shows all customers).
+        "customers": repository.load_customers_with_orders(safe=True),
         "products": repository.load_products(safe=True),
         "inventory": repository.load_inventory(safe=True),
+        "branches": repository.load_branches(safe=True),
     }
 
 
 def money(value: float) -> str:
     return f"${float(value or 0):,.2f}"
+
+
+def _branch_label(branches: pd.DataFrame | None, branch_id) -> str:
+    """Human label for the home branch, e.g. 'Dallas, TX (Branch 1)'."""
+    fallback = f"Branch {branch_id}"
+    if branches is None or branches.empty or branch_id is None:
+        return fallback
+    row = branches[branches["branch_id"].astype(str) == str(branch_id)]
+    if row.empty:
+        return fallback
+    r = row.iloc[0]
+    city = str(r.get("city") or "").strip()
+    state = str(r.get("state") or "").strip()
+    place = ", ".join(p for p in (city, state) if p)
+    return f"{place} (Branch {branch_id})" if place else fallback
 
 
 SIMULATOR_CSS = """
@@ -118,6 +144,15 @@ SIMULATOR_CSS = """
 .cos-prod-cell .v.price { color: var(--airio-primary-navy, #183F5F); }
 .cos-prod-cell.stock .v.low { color: var(--airio-warning, #C76A12); }
 .cos-prod-cell.stock .v.out { color: var(--airio-risk, #B42318); }
+.cos-prod-unavailable {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    margin-top: 0.12rem; padding: 0.16rem 0.5rem; border-radius: 6px;
+    background: rgba(180, 35, 24, 0.1);
+    border: 1px solid rgba(180, 35, 24, 0.28);
+    color: var(--airio-risk, #B42318);
+    font-size: 0.76rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
 .cos-cart-empty { font-size: 0.86rem; color: rgba(10, 31, 51, 0.6); padding: 0.4rem 0 0.2rem 0; }
 .cos-cart-row {
     display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem;
@@ -143,34 +178,46 @@ def _init_state() -> None:
     st.session_state.setdefault("cos_logged_in", False)
     st.session_state.setdefault("cos_customer_id", None)
     st.session_state.setdefault("cos_customer_name", None)
+    # Home branch the whole session is locked to (set at login).
+    st.session_state.setdefault("cos_home_branch", None)
     # Cart: product_id -> {"name", "price", "qty"}
     st.session_state.setdefault("cos_cart", {})
     st.session_state.setdefault("cos_last_order", None)
+    # Mirror the active per-customer order limits so this page and the Customer
+    # Intelligence page share one in-session view (the JSON file stays authoritative).
+    st.session_state.setdefault(col.SESSION_KEY, col.load_limits())
 
 
 def _logout() -> None:
     st.session_state["cos_logged_in"] = False
     st.session_state["cos_customer_id"] = None
     st.session_state["cos_customer_name"] = None
+    st.session_state["cos_home_branch"] = None
     st.session_state["cos_cart"] = {}
     st.session_state["cos_last_order"] = None
 
 
 @st.cache_data(ttl=_CACHE_TTL)
-def fulfillment_branch_id() -> int:
-    """The single branch all simulated orders draw stock from (lowest active)."""
-    return oracle_writer.default_branch_id()
+def resolve_home_branch(customer_id: str) -> int:
+    """The customer's home branch — the single branch this session is locked to.
+
+    Derived from Oracle (CITY+STATE match -> order history -> lowest active) by
+    ``branch_resolver``; cached per customer for the session's cache lifetime.
+    """
+    return branch_resolver.resolve_home_branch(customer_id)
 
 
 def _stock_by_product(inventory: pd.DataFrame, branch_id: int) -> dict[str, int]:
-    """On-hand stock per product under the platform-wide inventory scope.
+    """On-hand stock per product at the session's home branch.
 
-    Resolves through the shared ``inventory_scope`` helper so the catalogue's
-    "Current Stock", the pre-flight validation, and the order-time draw-down all
-    use the same figure the Customer Intelligence page, emails, and chatbot show —
-    network-wide totals by default (``branch_id`` only applies under branch scope).
+    Forces the BRANCH-scoped path bound to ``branch_id`` (regardless of the
+    global ``INVENTORY_SCOPE``) so the catalogue's "Current Stock", the pre-flight
+    validation, and the order-time draw-down all use the same single-branch figure
+    within the session.
     """
-    return inventory_scope.stock_by_product(inventory, branch_id=branch_id)
+    return inventory_scope.stock_by_product(
+        inventory, branch_id=branch_id, scope=SESSION_SCOPE
+    )
 
 
 # --------------------------------------------------------------------------
@@ -204,16 +251,19 @@ def render_login(customers: pd.DataFrame) -> None:
                 if password != DEMO_PASSWORD:
                     st.error("Incorrect password. Please try again.")
                 else:
+                    customer_id = name_to_id[customer_name]
                     st.session_state["cos_logged_in"] = True
-                    st.session_state["cos_customer_id"] = name_to_id[customer_name]
+                    st.session_state["cos_customer_id"] = customer_id
                     st.session_state["cos_customer_name"] = customer_name
+                    # Lock the session to this customer's home branch.
+                    st.session_state["cos_home_branch"] = resolve_home_branch(customer_id)
                     st.session_state["cos_cart"] = {}
                     st.session_state["cos_last_order"] = None
                     st.rerun()
             st.markdown(
                 '<div class="cos-login-note">Simulation surface — placing an order updates '
                 "Oracle inventory, recalculates Customer Intelligence + recommendations, and "
-                "emails an abnormal-order or low-stock alert when those conditions are met.</div>",
+                "emails a customer demand intelligence or low-stock alert when those conditions are met.</div>",
                 unsafe_allow_html=True,
             )
 
@@ -235,7 +285,16 @@ def render_catalogue(products: pd.DataFrame, stock_map: dict[str, int]) -> None:
         st.info("No products are available from BZ_MOCK_PRODUCT.")
         return
 
-    catalogue = products.sort_values("product_name").reset_index(drop=True)
+    # Show only products carried at the home branch (those with an inventory row
+    # there). ``stock_map`` is already branch-scoped, so its keys are exactly the
+    # carried products — including ones the branch is out of stock on (qty 0),
+    # which still render so the customer sees them as unavailable.
+    carried = set(stock_map)
+    catalogue = products[products["product_id"].astype(str).isin(carried)]
+    if catalogue.empty:
+        st.info("No products are carried at this branch.")
+        return
+    catalogue = catalogue.sort_values("product_name").reset_index(drop=True)
     columns_per_row = 3
     for start in range(0, len(catalogue), columns_per_row):
         row = catalogue.iloc[start:start + columns_per_row]
@@ -245,13 +304,52 @@ def render_catalogue(products: pd.DataFrame, stock_map: dict[str, int]) -> None:
                 _render_product_card(product, stock_map)
 
 
+def _enforce_qty_limit(product_id: str) -> None:
+    """Stepper on_change handler: enforce the per-customer limit at the "+" press.
+
+    Fires the instant the "+" stepper pushes this product's selected quantity above
+    the customer's limit. When that happens it clamps the quantity back to the limit
+    (so the value never displays over the limit) and arms the existing ``_limit_block``
+    flag, which the top-of-render modal renders. Within the limit it does nothing and
+    the quantity increments normally.
+    """
+    key = f"cos_qty_{product_id}"
+    limit = col.get_limit(st.session_state.get("cos_customer_id"))
+    if int(st.session_state.get(key, 1) or 1) > limit:
+        # Cap at the limit and surface the blocking modal on the rerun this fires.
+        st.session_state[key] = limit
+        st.session_state["_limit_block"] = {
+            "name": st.session_state.get("cos_customer_name"),
+            "limit": limit,
+        }
+
+
 def _render_product_card(product: pd.Series, stock_map: dict[str, int]) -> None:
     product_id = str(product["product_id"])
     name = str(product["product_name"])
     category = str(product.get("category") or "Uncategorised")
     price = float(product.get("selling_price") or 0)
+    # Branch-scoped on-hand stock for THIS session's home branch — the same value
+    # used for pre-flight validation (render_cart) and order-time draw-down. Treat
+    # 0, negative or missing/NULL as 0. When it's <= 0 the product is carried at
+    # the branch but not orderable, so the card renders Unavailable + disabled.
     stock = int(stock_map.get(product_id, 0))
+    unavailable = stock <= 0
     stock_cls = _stock_class(stock)
+    qty_key = f"cos_qty_{product_id}"
+
+    # Stock cell: an explicit "Unavailable" badge when out of stock at the home
+    # branch, otherwise the current on-hand count.
+    if unavailable:
+        stock_cell = (
+            '<div class="cos-prod-cell stock"><div class="k">Current Stock</div>'
+            '<div class="cos-prod-unavailable">🚫 Unavailable</div></div>'
+        )
+    else:
+        stock_cell = (
+            '<div class="cos-prod-cell stock"><div class="k">Current Stock</div>'
+            f'<div class="v {stock_cls}">{stock:,}</div></div>'
+        )
 
     with st.container(border=True):
         st.markdown(
@@ -260,23 +358,74 @@ def _render_product_card(product: pd.Series, stock_map: dict[str, int]) -> None:
             '<div class="cos-prod-meta">'
             f'<div class="cos-prod-cell"><div class="k">Price</div>'
             f'<div class="v price">{money(price)}</div></div>'
-            f'<div class="cos-prod-cell stock"><div class="k">Current Stock</div>'
-            f'<div class="v {stock_cls}">{stock:,}</div></div>'
+            f'{stock_cell}'
             "</div>",
             unsafe_allow_html=True,
         )
+        if unavailable:
+            # Lock the stepper at 0 and disable the +, - and Add-to-cart controls.
+            # Out-of-stock products stay visible but un-orderable; they recover on
+            # their own once branch stock goes back above 0 and the cache refreshes.
+            st.session_state[qty_key] = 0
+            st.number_input(
+                "Quantity",
+                min_value=0,
+                max_value=0,
+                step=1,
+                key=qty_key,
+                disabled=True,
+            )
+            st.button(
+                "🚫 Unavailable",
+                key=f"cos_add_{product_id}",
+                use_container_width=True,
+                disabled=True,
+            )
+            return
+
+        # In stock — normal behaviour. If the product just recovered from being
+        # locked at 0, drop the stale 0 so it doesn't fall below min_value=1.
+        if int(st.session_state.get(qty_key, 1) or 0) < 1:
+            st.session_state.pop(qty_key, None)
+        # max_value stays high so the "+" press actually registers a change above
+        # the limit — that's what fires _enforce_qty_limit, which clamps back to the
+        # limit and arms the modal. (Capping max_value at the limit would silently
+        # block the "+" with no modal.)
         qty = st.number_input(
             "Quantity",
             min_value=1,
             max_value=9999,
             value=1,
             step=1,
-            key=f"cos_qty_{product_id}",
+            key=qty_key,
+            on_change=_enforce_qty_limit,
+            args=(product_id,),
         )
         if st.button("➕ Add to Cart", key=f"cos_add_{product_id}", use_container_width=True):
-            _add_to_cart(product_id, name, price, int(qty))
-            st.toast(f"Added {int(qty)} × {name} to cart", icon="🛒")
+            added = _try_add_to_cart(product_id, name, price, int(qty))
+            if added:
+                st.toast(f"Added {added} × {name} to cart", icon="🛒")
             st.rerun()
+
+
+def _try_add_to_cart(product_id: str, name: str, price: float, qty: int) -> int:
+    """Add the product to the cart, silently clamping to the per-product limit.
+
+    The user-facing block now happens at the "+" stepper (see ``_enforce_qty_limit``),
+    so by the time Add-to-cart runs the quantity is already within the limit. This is
+    only a cheap safety net: the per-product, per-customer cap (current quantity in
+    cart + ``qty``) may not exceed the customer's limit (default ``DEFAULT_LIMIT``),
+    so a stale/edge value can never persist an over-limit cart line. It clamps
+    silently — no modal — and returns how many units were actually added.
+    """
+    limit = col.get_limit(st.session_state.get("cos_customer_id"))
+    cart = st.session_state["cos_cart"]
+    in_cart = int(cart.get(product_id, {}).get("qty", 0))
+    add_qty = max(0, min(qty, limit - in_cart))
+    if add_qty <= 0:
+        return 0
+    _add_to_cart(product_id, name, price, add_qty)
+    return add_qty
 
 
 def _add_to_cart(product_id: str, name: str, price: float, qty: int) -> None:
@@ -286,6 +435,22 @@ def _add_to_cart(product_id: str, name: str, price: float, qty: int) -> None:
         existing["qty"] += qty
     else:
         cart[product_id] = {"name": name, "price": price, "qty": qty}
+
+
+# st.dialog (native — centered + page-blocking) is available in Streamlit >= 1.37;
+# fall back to the experimental alias on older builds.
+_dialog = getattr(st, "dialog", None) or getattr(st, "experimental_dialog", None)
+
+
+@_dialog("Order limit reached")
+def _limit_modal(customer_name: str, limit: int) -> None:
+    st.write(f"Sorry {customer_name} You can only add {limit} to your cart")
+    # OK button pinned to the bottom-right of the dialog card.
+    cols = st.columns([5, 1])
+    with cols[1]:
+        if st.button("OK", type="primary", use_container_width=True):
+            st.session_state.pop("_limit_block", None)
+            st.rerun()
 
 
 # --------------------------------------------------------------------------
@@ -379,6 +544,9 @@ def _place_order(cart: dict, total_units: int, branch_id: int) -> None:
         st.session_state["cos_customer_id"],
         items,
         branch_id=branch_id,
+        # Always draw stock down from the customer's home branch only, never the
+        # network pool — keeps display = validation = decrement within the session.
+        single_branch=True,
     )
 
     # Join the per-product new stock levels back to display names for the
@@ -413,7 +581,8 @@ def _place_order(cart: dict, total_units: int, branch_id: int) -> None:
     try:
         with st.spinner("Recalculating Customer Intelligence on the new order..."):
             last_order["ci"] = order_pipeline_service.recalculate_customer_intelligence(
-                result["order_nbr"], threshold, branch_id=result["branch_id"]
+                result["order_nbr"], threshold,
+                branch_id=result["branch_id"], scope=SESSION_SCOPE,
             )
     except Exception as error:  # CI recalc is best-effort; the order is committed
         last_order["ci_error"] = str(error)
@@ -431,7 +600,7 @@ def _place_order(cart: dict, total_units: int, branch_id: int) -> None:
     ci_summary = last_order.get("ci")
     if ci_summary and ci_summary.get("is_abnormal"):
         try:
-            with st.spinner("Sending abnormal-order investigation alert..."):
+            with st.spinner("Sending customer demand intelligence alert..."):
                 last_order["alert"] = order_pipeline_service.dispatch_abnormal_order_alerts(ci_summary)
         except Exception as error:  # alert is best-effort; the order is committed
             last_order["alert_error"] = str(error)
@@ -443,7 +612,7 @@ def _place_order(cart: dict, total_units: int, branch_id: int) -> None:
             last_order["low_stock"] = order_pipeline_service.dispatch_low_stock_alerts(
                 result["order_nbr"],
                 [it["product_id"] for it in items],
-                branch_id=result["branch_id"],
+                branch_id=result["branch_id"], scope=SESSION_SCOPE,
             )
     except Exception as error:  # alert is best-effort; the order is committed
         last_order["low_stock_error"] = str(error)
@@ -481,13 +650,10 @@ def render_order_confirmation() -> None:
             f"**{line['new_stock']:,}** units on hand"
             for line in inventory
         )
-        if inventory_scope.get_inventory_scope() == "network":
-            heading = "📦 **Inventory updated (network-wide)**"
-            note = "(BZ_MOCK_INVENTORY on-hand stock reduced; remaining across all branches):"
-        else:
-            branch = order.get("branch_id", "—")
-            heading = f"📦 **Inventory updated at branch {branch}**"
-            note = "(BZ_MOCK_INVENTORY on-hand stock reduced):"
+        # The simulator always draws stock from the customer's home branch only.
+        branch = order.get("branch_id", "—")
+        heading = f"📦 **Inventory updated at branch {branch}**"
+        note = "(BZ_MOCK_INVENTORY on-hand stock reduced at the home branch):"
         st.info(f"{heading} {note}\n" + lines)
 
     _render_ci_recalc(order)
@@ -496,7 +662,7 @@ def render_order_confirmation() -> None:
     _render_recommendation_recalc(order)
     if order.get("chatbot", {}).get("refreshed"):
         st.caption(
-            "💬 Chatbot context refreshed — ask it “Any abnormal orders today?”, "
+            "💬 Chatbot context refreshed — ask it “Any high-demand orders today?”, "
             "“Latest customer order?”, “Inventory impact of recent orders?” or "
             "“What should we reorder?”."
         )
@@ -505,20 +671,20 @@ def render_order_confirmation() -> None:
 def _render_alert_status(order: dict) -> None:
     """Abnormal Order Investigation Alert email dispatch result."""
     if order.get("alert_error"):
-        st.warning(f"Abnormal-order alert email failed: {order['alert_error']}")
+        st.warning(f"Customer Demand Intelligence Alert email failed: {order['alert_error']}")
         return
     alert = order.get("alert")
     if not alert or not alert.get("attempted"):
         return
-    bands = ", ".join(alert.get("bands") or [])
+    bands = ", ".join(RISK_DISPLAY_LABEL.get(b, b) for b in (alert.get("bands") or []))
     if alert.get("sent"):
         st.success(
-            f"📧 **Abnormal Order Investigation Alert sent** "
+            f"📧 **Customer Demand Intelligence Alert sent** "
             f"({alert['sent']} of {alert['attempted']} · {bands}). {alert.get('message', '')}"
         )
     else:
         st.warning(
-            "📧 Abnormal Order Investigation Alert was triggered "
+            "📧 Customer Demand Intelligence Alert was triggered "
             f"({alert['attempted']} · {bands}) but not delivered: {alert.get('message', '')}"
         )
 
@@ -558,8 +724,8 @@ def _render_ci_recalc(order: dict) -> None:
     if not ci.get("is_abnormal"):
         st.success(
             f"🧠 **Customer Intelligence recalculated** at the configured "
-            f"{threshold}% deviation threshold — this order is within normal demand "
-            "patterns, so no abnormal-order investigation was raised. "
+            f"{threshold}% deviation threshold — this order is within typical demand "
+            "patterns, so no demand opportunity was raised. "
             "The order now appears on the Customer Intelligence page."
         )
         return
@@ -576,12 +742,12 @@ def _render_ci_recalc(order: dict) -> None:
             f"**{entry['current_quantity']:,}** vs historical avg "
             f"**{entry['historical_avg']:.0f}** / max **{entry['historical_max']:,}**  \n"
             f"  Deviation **+{entry['deviation_pct']:.0f}%** · Inventory impact "
-            f"**{impact_str}** (on hand {inv_str}) · Risk Score "
-            f"**{entry['risk_score']}/100 ({entry['risk_band']})**"
+            f"**{impact_str}** (on hand {inv_str}) · Demand Score "
+            f"**{entry['risk_score']}/100 ({RISK_DISPLAY_LABEL.get(entry['risk_band'], entry['risk_band'])})**"
         )
-    st.error(
-        f"🚨 **Abnormal order detected — investigation entry created** "
-        f"(threshold {threshold}%). It is now flagged on the Customer Intelligence page:\n"
+    st.info(
+        f"📈 **High demand detected — demand opportunity created** "
+        f"(threshold {threshold}%). It is now shown on the Customer Intelligence page:\n"
         + "\n".join(blocks)
     )
 
@@ -626,13 +792,27 @@ def main() -> None:
 
     # Logged in.
     customer_name = st.session_state["cos_customer_name"]
+
+    # If an add-to-cart action just violated the customer's per-product limit, show
+    # the centered blocking modal before anything else. Clicking OK clears the flag.
+    block = st.session_state.get("_limit_block")
+    if block:
+        _limit_modal(block.get("name"), block.get("limit"))
+
+    # Home branch the session is locked to (resolve defensively if missing).
+    branch_id = st.session_state.get("cos_home_branch")
+    if branch_id is None:
+        branch_id = resolve_home_branch(st.session_state["cos_customer_id"])
+        st.session_state["cos_home_branch"] = branch_id
+    branch_label = _branch_label(data.get("branches"), branch_id)
+
     st.markdown(
         '<div class="cos-welcome">'
         "<div>"
         f'<div class="cos-welcome-name">👋 Welcome, {escape(str(customer_name))}</div>'
         '<div class="cos-welcome-sub">Browse the catalogue, build your cart, and place a simulated order.</div>'
         "</div>"
-        '<span class="cos-welcome-badge">Simulation mode</span>'
+        f'<span class="cos-welcome-badge">🏢 {escape(branch_label)}</span>'
         "</div>",
         unsafe_allow_html=True,
     )
@@ -645,7 +825,6 @@ def main() -> None:
 
     render_order_confirmation()
 
-    branch_id = fulfillment_branch_id()
     stock_map = _stock_by_product(data["inventory"], branch_id)
     render_catalogue(data["products"], stock_map)
     render_cart(stock_map, branch_id)

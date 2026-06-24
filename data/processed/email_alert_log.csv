@@ -240,3 +240,4 @@ timestamp,alert_key,product_id,store_id,current_quantity,suggested_reorder_quant
 2026-06-23T11:24:50,404|network|100|Medium,404,network,100,150,Medium,True,sent,
 2026-06-23T12:51:50,404|network|100|Medium,404,network,100,150,Medium,True,sent,
 2026-06-23T15:35:23,403|network|80|Medium,403,network,80,120,Medium,True,sent,
+2026-06-23T19:42:15,302|network|110|Medium,302,network,110,140,Medium,True,sent,

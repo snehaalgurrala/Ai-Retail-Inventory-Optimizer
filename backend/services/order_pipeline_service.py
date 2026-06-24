@@ -75,7 +75,7 @@ def _composite_risk_score(
 
 
 def recalculate_customer_intelligence(
-    order_nbr: str, min_deviation_pct: float, branch_id=None
+    order_nbr: str, min_deviation_pct: float, branch_id=None, scope: str | None = None
 ) -> dict:
     """Re-run abnormal-order detection over fresh Oracle data for the new order.
 
@@ -86,7 +86,9 @@ def recalculate_customer_intelligence(
     ``order_nbr``, enriched with the customer / product / inventory context the
     Abnormal Order Investigation Alert email needs. Inventory figures follow the
     platform-wide inventory scope (network-wide totals by default); ``branch_id``
-    is only consulted when ``INVENTORY_SCOPE=branch``.
+    is consulted when scoping to a branch. Pass ``scope="branch"`` to force
+    branch-scoped figures regardless of the global ``INVENTORY_SCOPE`` (the Order
+    Simulator does this so its session stays locked to the home branch).
     """
     orders = repository.load_orders(safe=True)
     order_lines = repository.load_order_lines(safe=True)
@@ -100,8 +102,8 @@ def recalculate_customer_intelligence(
     # One inventory source for display AND scoring — same scope (network by
     # default) used by the Customer Intelligence page, simulator, and chatbot, so
     # the email's "Current Inventory" matches every other surface for this order.
-    stock_map = inventory_scope.stock_by_product(inventory, branch_id=branch_id)
-    reorder_map = inventory_scope.reorder_by_product(inventory, branch_id=branch_id)
+    stock_map = inventory_scope.stock_by_product(inventory, branch_id=branch_id, scope=scope)
+    reorder_map = inventory_scope.reorder_by_product(inventory, branch_id=branch_id, scope=scope)
 
     # detect_abnormal_orders does not carry product_id; recover it by matching the
     # flagged line back to the fact frame on (order_nbr, product_name) — the same
@@ -207,6 +209,18 @@ def dispatch_abnormal_order_alerts(ci_summary: dict) -> dict:
     if not targets:
         return {"attempted": 0, "sent": 0, "message": "No Critical/High/Medium order to alert on."}
 
+    # Dry-run gate: run all the targeting logic but suppress the live SMTP send.
+    from backend.db.config import get_email_dry_run
+
+    if get_email_dry_run():
+        return {
+            "attempted": len(targets),
+            "sent": 0,
+            "bands": [str(e.get("risk_band")) for e in targets],
+            "dry_run": True,
+            "message": "DRY RUN — abnormal-order alert email suppressed (EMAIL_DRY_RUN).",
+        }
+
     sent = 0
     last_message = ""
     bands: list[str] = []
@@ -252,7 +266,7 @@ def _low_stock_reasoning(order_nbr: str, stock: int, reorder: int, suggested: in
 
 
 def dispatch_low_stock_alerts(
-    order_nbr: str, product_ids, branch_id=None
+    order_nbr: str, product_ids, branch_id=None, scope: str | None = None
 ) -> dict:
     """Send a Low Stock Alert email for order lines now at/below their reorder point.
 
@@ -271,9 +285,9 @@ def dispatch_low_stock_alerts(
     inventory = repository.load_inventory(safe=True)
     products = repository.load_products(safe=True)
 
-    at_risk = inventory_scope.at_risk_product_ids(inventory, branch_id=branch_id)
-    stock_map = inventory_scope.stock_by_product(inventory, branch_id=branch_id)
-    reorder_map = inventory_scope.reorder_by_product(inventory, branch_id=branch_id)
+    at_risk = inventory_scope.at_risk_product_ids(inventory, branch_id=branch_id, scope=scope)
+    stock_map = inventory_scope.stock_by_product(inventory, branch_id=branch_id, scope=scope)
+    reorder_map = inventory_scope.reorder_by_product(inventory, branch_id=branch_id, scope=scope)
 
     name_by_pid: dict[str, str] = {}
     category_by_pid: dict[str, str] = {}
@@ -284,8 +298,10 @@ def dispatch_low_stock_alerts(
         if "category" in pr.columns:
             category_by_pid = dict(zip(pr["product_id"], pr["category"].astype(str)))
 
-    scope = inventory_scope.get_inventory_scope()
-    if scope == "branch":
+    # Effective scope: the caller's override (e.g. the simulator forcing
+    # "branch") wins over the global INVENTORY_SCOPE for the store labelling.
+    effective_scope = scope or inventory_scope.get_inventory_scope()
+    if effective_scope == "branch":
         store_id: object = branch_id if branch_id is not None else "branch"
         store_name = f"Branch {branch_id}" if branch_id is not None else "Branch"
     else:
@@ -331,6 +347,18 @@ def dispatch_low_stock_alerts(
             "sent": 0,
             "products": [],
             "message": "No ordered product fell to/below its reorder point.",
+        }
+
+    # Dry-run gate: classification done, but suppress the live SMTP send.
+    from backend.db.config import get_email_dry_run
+
+    if get_email_dry_run():
+        return {
+            "attempted": len(rows),
+            "sent": 0,
+            "products": [r["product_name"] for r in rows],
+            "dry_run": True,
+            "message": "DRY RUN — low-stock alert email suppressed (EMAIL_DRY_RUN).",
         }
 
     result = email_service.send_low_stock_alert_email(pd.DataFrame(rows))

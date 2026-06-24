@@ -8,7 +8,7 @@ product_id,store_id,stock_level,inventory_reorder_threshold,last_updated,product
 203,1,110,30,2026-06-11,Disinfectant Wipes Bucket,Janitorial Supplies,28.0,49.5,0,0,4,Mock Distribution Branch - Dallas,Dallas,10000
 204,1,50,30,2026-06-11,Hardwound Paper Towels Case,Janitorial Supplies,32.0,55.0,0,0,5,Mock Distribution Branch - Dallas,Dallas,10000
 301,1,4,25,2026-06-11,Nitrile Gloves Medium Case,Safety and PPE,52.0,87.5,0,0,2,Mock Distribution Branch - Dallas,Dallas,10000
-302,1,63,25,2026-06-11,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Dallas,Dallas,10000
+302,1,3,25,2026-06-23,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Dallas,Dallas,10000
 303,1,31,25,2026-06-17,Disposable Face Masks Case,Safety and PPE,35.0,58.0,0,0,4,Mock Distribution Branch - Dallas,Dallas,10000
 304,1,105,25,2026-06-11,High Visibility Safety Vest Pack,Safety and PPE,44.0,74.0,0,0,5,Mock Distribution Branch - Dallas,Dallas,10000
 401,1,95,35,2026-06-11,Bottled Water 24 Pack Case,Breakroom Supplies,4.8,8.99,0,0,2,Mock Distribution Branch - Dallas,Dallas,10000
@@ -40,7 +40,7 @@ product_id,store_id,stock_level,inventory_reorder_threshold,last_updated,product
 203,3,153,30,2026-06-11,Disinfectant Wipes Bucket,Janitorial Supplies,28.0,49.5,0,0,4,Mock Distribution Branch - Irving,Irving,8500
 204,3,159,30,2026-06-11,Hardwound Paper Towels Case,Janitorial Supplies,32.0,55.0,0,0,5,Mock Distribution Branch - Irving,Irving,8500
 301,3,103,25,2026-06-23,Nitrile Gloves Medium Case,Safety and PPE,52.0,87.5,0,0,2,Mock Distribution Branch - Irving,Irving,8500
-302,3,64,25,2026-06-23,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Irving,Irving,8500
+302,3,0,25,2026-06-23,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Irving,Irving,8500
 303,3,0,25,2026-06-11,Disposable Face Masks Case,Safety and PPE,35.0,58.0,0,0,4,Mock Distribution Branch - Irving,Irving,8500
 304,3,47,25,2026-06-11,High Visibility Safety Vest Pack,Safety and PPE,44.0,74.0,0,0,5,Mock Distribution Branch - Irving,Irving,8500
 401,3,64,35,2026-06-11,Bottled Water 24 Pack Case,Breakroom Supplies,4.8,8.99,0,0,2,Mock Distribution Branch - Irving,Irving,8500
@@ -72,7 +72,7 @@ product_id,store_id,stock_level,inventory_reorder_threshold,last_updated,product
 203,5,90,30,2026-06-11,Disinfectant Wipes Bucket,Janitorial Supplies,28.0,49.5,0,0,4,Mock Distribution Branch - Chicago,Chicago,9500
 204,5,103,30,2026-06-11,Hardwound Paper Towels Case,Janitorial Supplies,32.0,55.0,0,0,5,Mock Distribution Branch - Chicago,Chicago,9500
 301,5,99,25,2026-06-11,Nitrile Gloves Medium Case,Safety and PPE,52.0,87.5,0,0,2,Mock Distribution Branch - Chicago,Chicago,9500
-302,5,76,25,2026-06-23,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Chicago,Chicago,9500
+302,5,0,25,2026-06-23,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Chicago,Chicago,9500
 303,5,29,25,2026-06-22,Disposable Face Masks Case,Safety and PPE,35.0,58.0,0,0,4,Mock Distribution Branch - Chicago,Chicago,9500
 304,5,29,25,2026-06-11,High Visibility Safety Vest Pack,Safety and PPE,44.0,74.0,0,0,5,Mock Distribution Branch - Chicago,Chicago,9500
 401,5,141,35,2026-06-23,Bottled Water 24 Pack Case,Breakroom Supplies,4.8,8.99,0,0,2,Mock Distribution Branch - Chicago,Chicago,9500

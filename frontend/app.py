@@ -444,11 +444,11 @@ def send_abnormal_order_report(period: str, target_date: date | None = None) -> 
     result = abnormal_order_report.send_abnormal_order_report_email(period, target_date)
     message = str(result.get("message", "") or "")
     if result.get("success"):
-        st.session_state["report_email_success"] = message or "Abnormal Order Intelligence Report sent."
-    elif result.get("email_sent") is False and "No abnormal orders" in message:
+        st.session_state["report_email_success"] = message or "Customer Demand Intelligence Report sent."
+    elif result.get("email_sent") is False and "No elevated customer demand" in message:
         st.session_state["report_email_warning"] = message
     else:
-        st.session_state["report_email_error"] = message or "Abnormal Order Intelligence Report could not be sent."
+        st.session_state["report_email_error"] = message or "Customer Demand Intelligence Report could not be sent."
 
 
 def render_abnormal_order_report_section() -> None:
@@ -456,13 +456,13 @@ def render_abnormal_order_report_section() -> None:
     st.markdown('<div style="height:0.4rem"></div>', unsafe_allow_html=True)
     st.divider()
     st.markdown(
-        '<div class="report-center-title">🚨 Abnormal Order Intelligence Reports</div>',
+        '<div class="report-center-title">📈 Customer Demand Intelligence Reports</div>',
         unsafe_allow_html=True,
     )
     st.markdown(
-        '<div class="report-center-subtitle">Send a premium executive report of the abnormal '
-        'customer orders detected on a single day — same risk classifications, AI investigation '
-        'and network inventory scope as the Customer Intelligence page.</div>',
+        '<div class="report-center-subtitle">Send a premium executive report of the customer '
+        'demand opportunities identified on a single day — same demand classifications, AI '
+        'analysis and network inventory scope as the Customer Intelligence page.</div>',
         unsafe_allow_html=True,
     )
 
@@ -478,14 +478,14 @@ def render_abnormal_order_report_section() -> None:
     with abn_cols[1]:
         st.write("")
         send_today = st.button(
-            "Send Today's Abnormal Orders Report",
+            "Send Today's Demand Intelligence Report",
             use_container_width=True,
             key="send_abnormal_today",
         )
     with abn_cols[2]:
         st.write("")
         send_yesterday = st.button(
-            "Send Yesterday's Abnormal Orders Report",
+            "Send Yesterday's Demand Intelligence Report",
             use_container_width=True,
             key="send_abnormal_yesterday",
         )
