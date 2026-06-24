@@ -1,81 +1,81 @@
 product_id,store_id,stock_level,inventory_reorder_threshold,last_updated,product_name,category,cost_price,selling_price,shelf_life_days,reorder_threshold,supplier_id,store_name,city,capacity
-101,1,150,40,2026-06-16,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,62.5,0,0,2,Mock Distribution Branch - Dallas,Dallas,10000
-102,1,64,40,2026-06-16,16 oz Clear Cold Cups Case,Foodservice Disposables,42.0,68.0,0,0,3,Mock Distribution Branch - Dallas,Dallas,10000
-103,1,0,40,2026-06-11,9 inch Paper Plates Case,Foodservice Disposables,24.0,39.95,0,0,4,Mock Distribution Branch - Dallas,Dallas,10000
-104,1,65,40,2026-06-11,Compostable Takeout Containers Case,Foodservice Disposables,48.0,79.99,0,0,5,Mock Distribution Branch - Dallas,Dallas,10000
-201,1,60,30,2026-06-11,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,34.99,0,0,2,Mock Distribution Branch - Dallas,Dallas,10000
-202,1,54,30,2026-06-11,Multi-Surface Cleaner Gallon Case,Janitorial Supplies,24.0,42.0,0,0,3,Mock Distribution Branch - Dallas,Dallas,10000
-203,1,110,30,2026-06-11,Disinfectant Wipes Bucket,Janitorial Supplies,28.0,49.5,0,0,4,Mock Distribution Branch - Dallas,Dallas,10000
-204,1,50,30,2026-06-11,Hardwound Paper Towels Case,Janitorial Supplies,32.0,55.0,0,0,5,Mock Distribution Branch - Dallas,Dallas,10000
-301,1,4,25,2026-06-11,Nitrile Gloves Medium Case,Safety and PPE,52.0,87.5,0,0,2,Mock Distribution Branch - Dallas,Dallas,10000
-302,1,3,25,2026-06-23,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Dallas,Dallas,10000
-303,1,31,25,2026-06-17,Disposable Face Masks Case,Safety and PPE,35.0,58.0,0,0,4,Mock Distribution Branch - Dallas,Dallas,10000
-304,1,105,25,2026-06-11,High Visibility Safety Vest Pack,Safety and PPE,44.0,74.0,0,0,5,Mock Distribution Branch - Dallas,Dallas,10000
-401,1,95,35,2026-06-11,Bottled Water 24 Pack Case,Breakroom Supplies,4.8,8.99,0,0,2,Mock Distribution Branch - Dallas,Dallas,10000
-402,1,82,35,2026-06-11,Coffee Pods Box,Breakroom Supplies,21.0,38.0,0,0,3,Mock Distribution Branch - Dallas,Dallas,10000
-403,1,28,20,2026-06-23,Copy Paper Case,Office Supplies,34.0,58.99,0,0,4,Mock Distribution Branch - Dallas,Dallas,10000
-404,1,41,25,2026-06-23,Pallet Stretch Film Case,Packaging Supplies,52.0,88.0,0,0,5,Mock Distribution Branch - Dallas,Dallas,10000
-101,2,222,40,2026-06-23,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,62.5,0,0,2,Mock Distribution Branch - Plano,Plano,9000
-102,2,200,40,2026-06-11,16 oz Clear Cold Cups Case,Foodservice Disposables,42.0,68.0,0,0,3,Mock Distribution Branch - Plano,Plano,9000
-103,2,173,40,2026-06-11,9 inch Paper Plates Case,Foodservice Disposables,24.0,39.95,0,0,4,Mock Distribution Branch - Plano,Plano,9000
-104,2,6,40,2026-06-11,Compostable Takeout Containers Case,Foodservice Disposables,48.0,79.99,0,0,5,Mock Distribution Branch - Plano,Plano,9000
-201,2,83,30,2026-06-11,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,34.99,0,0,2,Mock Distribution Branch - Plano,Plano,9000
-202,2,61,30,2026-06-11,Multi-Surface Cleaner Gallon Case,Janitorial Supplies,24.0,42.0,0,0,3,Mock Distribution Branch - Plano,Plano,9000
-203,2,56,30,2026-06-11,Disinfectant Wipes Bucket,Janitorial Supplies,28.0,49.5,0,0,4,Mock Distribution Branch - Plano,Plano,9000
-204,2,82,30,2026-06-11,Hardwound Paper Towels Case,Janitorial Supplies,32.0,55.0,0,0,5,Mock Distribution Branch - Plano,Plano,9000
-301,2,75,25,2026-06-22,Nitrile Gloves Medium Case,Safety and PPE,52.0,87.5,0,0,2,Mock Distribution Branch - Plano,Plano,9000
-302,2,62,25,2026-06-11,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Plano,Plano,9000
-303,2,65,25,2026-06-11,Disposable Face Masks Case,Safety and PPE,35.0,58.0,0,0,4,Mock Distribution Branch - Plano,Plano,9000
-304,2,77,25,2026-06-11,High Visibility Safety Vest Pack,Safety and PPE,44.0,74.0,0,0,5,Mock Distribution Branch - Plano,Plano,9000
-401,2,92,35,2026-06-11,Bottled Water 24 Pack Case,Breakroom Supplies,4.8,8.99,0,0,2,Mock Distribution Branch - Plano,Plano,9000
-402,2,61,35,2026-06-11,Coffee Pods Box,Breakroom Supplies,21.0,38.0,0,0,3,Mock Distribution Branch - Plano,Plano,9000
-403,2,26,20,2026-06-11,Copy Paper Case,Office Supplies,34.0,58.99,0,0,4,Mock Distribution Branch - Plano,Plano,9000
-404,2,0,25,2026-06-23,Pallet Stretch Film Case,Packaging Supplies,52.0,88.0,0,0,5,Mock Distribution Branch - Plano,Plano,9000
-101,3,196,40,2026-06-23,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,62.5,0,0,2,Mock Distribution Branch - Irving,Irving,8500
-102,3,53,40,2026-06-11,16 oz Clear Cold Cups Case,Foodservice Disposables,42.0,68.0,0,0,3,Mock Distribution Branch - Irving,Irving,8500
-103,3,104,40,2026-06-11,9 inch Paper Plates Case,Foodservice Disposables,24.0,39.95,0,0,4,Mock Distribution Branch - Irving,Irving,8500
-104,3,65,40,2026-06-11,Compostable Takeout Containers Case,Foodservice Disposables,48.0,79.99,0,0,5,Mock Distribution Branch - Irving,Irving,8500
-201,3,0,30,2026-06-12,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,34.99,0,0,2,Mock Distribution Branch - Irving,Irving,8500
-202,3,66,30,2026-06-11,Multi-Surface Cleaner Gallon Case,Janitorial Supplies,24.0,42.0,0,0,3,Mock Distribution Branch - Irving,Irving,8500
-203,3,153,30,2026-06-11,Disinfectant Wipes Bucket,Janitorial Supplies,28.0,49.5,0,0,4,Mock Distribution Branch - Irving,Irving,8500
-204,3,159,30,2026-06-11,Hardwound Paper Towels Case,Janitorial Supplies,32.0,55.0,0,0,5,Mock Distribution Branch - Irving,Irving,8500
-301,3,103,25,2026-06-23,Nitrile Gloves Medium Case,Safety and PPE,52.0,87.5,0,0,2,Mock Distribution Branch - Irving,Irving,8500
-302,3,0,25,2026-06-23,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Irving,Irving,8500
-303,3,0,25,2026-06-11,Disposable Face Masks Case,Safety and PPE,35.0,58.0,0,0,4,Mock Distribution Branch - Irving,Irving,8500
-304,3,47,25,2026-06-11,High Visibility Safety Vest Pack,Safety and PPE,44.0,74.0,0,0,5,Mock Distribution Branch - Irving,Irving,8500
-401,3,64,35,2026-06-11,Bottled Water 24 Pack Case,Breakroom Supplies,4.8,8.99,0,0,2,Mock Distribution Branch - Irving,Irving,8500
-402,3,143,35,2026-06-11,Coffee Pods Box,Breakroom Supplies,21.0,38.0,0,0,3,Mock Distribution Branch - Irving,Irving,8500
-403,3,0,20,2026-06-23,Copy Paper Case,Office Supplies,34.0,58.99,0,0,4,Mock Distribution Branch - Irving,Irving,8500
-404,3,49,25,2026-06-11,Pallet Stretch Film Case,Packaging Supplies,52.0,88.0,0,0,5,Mock Distribution Branch - Irving,Irving,8500
-101,4,219,40,2026-06-23,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,62.5,0,0,2,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-102,4,153,40,2026-06-11,16 oz Clear Cold Cups Case,Foodservice Disposables,42.0,68.0,0,0,3,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-103,4,96,40,2026-06-11,9 inch Paper Plates Case,Foodservice Disposables,24.0,39.95,0,0,4,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-104,4,205,40,2026-06-11,Compostable Takeout Containers Case,Foodservice Disposables,48.0,79.99,0,0,5,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-201,4,98,30,2026-06-11,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,34.99,0,0,2,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-202,4,97,30,2026-06-11,Multi-Surface Cleaner Gallon Case,Janitorial Supplies,24.0,42.0,0,0,3,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-203,4,104,30,2026-06-11,Disinfectant Wipes Bucket,Janitorial Supplies,28.0,49.5,0,0,4,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-204,4,6,30,2026-06-11,Hardwound Paper Towels Case,Janitorial Supplies,32.0,55.0,0,0,5,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-301,4,104,25,2026-06-11,Nitrile Gloves Medium Case,Safety and PPE,52.0,87.5,0,0,2,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-302,4,45,25,2026-06-11,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-303,4,75,25,2026-06-11,Disposable Face Masks Case,Safety and PPE,35.0,58.0,0,0,4,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-304,4,30,25,2026-06-23,High Visibility Safety Vest Pack,Safety and PPE,44.0,74.0,0,0,5,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-401,4,133,35,2026-06-11,Bottled Water 24 Pack Case,Breakroom Supplies,4.8,8.99,0,0,2,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-402,4,86,35,2026-06-11,Coffee Pods Box,Breakroom Supplies,21.0,38.0,0,0,3,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-403,4,26,20,2026-06-23,Copy Paper Case,Office Supplies,34.0,58.99,0,0,4,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-404,4,0,25,2026-06-11,Pallet Stretch Film Case,Packaging Supplies,52.0,88.0,0,0,5,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
-101,5,127,40,2026-06-11,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,62.5,0,0,2,Mock Distribution Branch - Chicago,Chicago,9500
-102,5,176,40,2026-06-11,16 oz Clear Cold Cups Case,Foodservice Disposables,42.0,68.0,0,0,3,Mock Distribution Branch - Chicago,Chicago,9500
-103,5,179,40,2026-06-11,9 inch Paper Plates Case,Foodservice Disposables,24.0,39.95,0,0,4,Mock Distribution Branch - Chicago,Chicago,9500
-104,5,71,40,2026-06-11,Compostable Takeout Containers Case,Foodservice Disposables,48.0,79.99,0,0,5,Mock Distribution Branch - Chicago,Chicago,9500
-201,5,150,30,2026-06-11,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,34.99,0,0,2,Mock Distribution Branch - Chicago,Chicago,9500
-202,5,158,30,2026-06-11,Multi-Surface Cleaner Gallon Case,Janitorial Supplies,24.0,42.0,0,0,3,Mock Distribution Branch - Chicago,Chicago,9500
-203,5,90,30,2026-06-11,Disinfectant Wipes Bucket,Janitorial Supplies,28.0,49.5,0,0,4,Mock Distribution Branch - Chicago,Chicago,9500
-204,5,103,30,2026-06-11,Hardwound Paper Towels Case,Janitorial Supplies,32.0,55.0,0,0,5,Mock Distribution Branch - Chicago,Chicago,9500
-301,5,99,25,2026-06-11,Nitrile Gloves Medium Case,Safety and PPE,52.0,87.5,0,0,2,Mock Distribution Branch - Chicago,Chicago,9500
-302,5,0,25,2026-06-23,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Chicago,Chicago,9500
-303,5,29,25,2026-06-22,Disposable Face Masks Case,Safety and PPE,35.0,58.0,0,0,4,Mock Distribution Branch - Chicago,Chicago,9500
-304,5,29,25,2026-06-11,High Visibility Safety Vest Pack,Safety and PPE,44.0,74.0,0,0,5,Mock Distribution Branch - Chicago,Chicago,9500
-401,5,141,35,2026-06-23,Bottled Water 24 Pack Case,Breakroom Supplies,4.8,8.99,0,0,2,Mock Distribution Branch - Chicago,Chicago,9500
-402,5,133,35,2026-06-11,Coffee Pods Box,Breakroom Supplies,21.0,38.0,0,0,3,Mock Distribution Branch - Chicago,Chicago,9500
-403,5,500,20,2026-06-23,Copy Paper Case,Office Supplies,34.0,58.99,0,0,4,Mock Distribution Branch - Chicago,Chicago,9500
-404,5,120,25,2026-06-23,Pallet Stretch Film Case,Packaging Supplies,52.0,88.0,0,0,5,Mock Distribution Branch - Chicago,Chicago,9500
+101,1,198,40,2026-06-24,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,62.5,0,0,2,Mock Distribution Branch - Dallas,Dallas,10000
+102,1,64,40,2026-06-24,16 oz Clear Cold Cups Case,Foodservice Disposables,42.0,68.0,0,0,3,Mock Distribution Branch - Dallas,Dallas,10000
+103,1,0,40,2026-06-24,9 inch Paper Plates Case,Foodservice Disposables,24.0,39.95,0,0,4,Mock Distribution Branch - Dallas,Dallas,10000
+104,1,65,40,2026-06-24,Compostable Takeout Containers Case,Foodservice Disposables,48.0,79.99,0,0,5,Mock Distribution Branch - Dallas,Dallas,10000
+201,1,60,30,2026-06-24,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,34.99,0,0,2,Mock Distribution Branch - Dallas,Dallas,10000
+202,1,54,30,2026-06-24,Multi-Surface Cleaner Gallon Case,Janitorial Supplies,24.0,42.0,0,0,3,Mock Distribution Branch - Dallas,Dallas,10000
+203,1,110,30,2026-06-24,Disinfectant Wipes Bucket,Janitorial Supplies,28.0,49.5,0,0,4,Mock Distribution Branch - Dallas,Dallas,10000
+204,1,50,30,2026-06-24,Hardwound Paper Towels Case,Janitorial Supplies,32.0,55.0,0,0,5,Mock Distribution Branch - Dallas,Dallas,10000
+301,1,4,25,2026-06-24,Nitrile Gloves Medium Case,Safety and PPE,52.0,87.5,0,0,2,Mock Distribution Branch - Dallas,Dallas,10000
+302,1,63,25,2026-06-24,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Dallas,Dallas,10000
+303,1,80,25,2026-06-24,Disposable Face Masks Case,Safety and PPE,35.0,58.0,0,0,4,Mock Distribution Branch - Dallas,Dallas,10000
+304,1,105,25,2026-06-24,High Visibility Safety Vest Pack,Safety and PPE,44.0,74.0,0,0,5,Mock Distribution Branch - Dallas,Dallas,10000
+401,1,95,35,2026-06-24,Bottled Water 24 Pack Case,Breakroom Supplies,4.8,8.99,0,0,2,Mock Distribution Branch - Dallas,Dallas,10000
+402,1,82,35,2026-06-24,Coffee Pods Box,Breakroom Supplies,21.0,38.0,0,0,3,Mock Distribution Branch - Dallas,Dallas,10000
+403,1,60,20,2026-06-24,Copy Paper Case,Office Supplies,34.0,58.99,0,0,4,Mock Distribution Branch - Dallas,Dallas,10000
+404,1,82,25,2026-06-24,Pallet Stretch Film Case,Packaging Supplies,52.0,88.0,0,0,5,Mock Distribution Branch - Dallas,Dallas,10000
+101,2,122,40,2026-06-24,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,62.5,0,0,2,Mock Distribution Branch - Plano,Plano,9000
+102,2,200,40,2026-06-24,16 oz Clear Cold Cups Case,Foodservice Disposables,42.0,68.0,0,0,3,Mock Distribution Branch - Plano,Plano,9000
+103,2,173,40,2026-06-24,9 inch Paper Plates Case,Foodservice Disposables,24.0,39.95,0,0,4,Mock Distribution Branch - Plano,Plano,9000
+104,2,6,40,2026-06-24,Compostable Takeout Containers Case,Foodservice Disposables,48.0,79.99,0,0,5,Mock Distribution Branch - Plano,Plano,9000
+201,2,83,30,2026-06-24,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,34.99,0,0,2,Mock Distribution Branch - Plano,Plano,9000
+202,2,61,30,2026-06-24,Multi-Surface Cleaner Gallon Case,Janitorial Supplies,24.0,42.0,0,0,3,Mock Distribution Branch - Plano,Plano,9000
+203,2,56,30,2026-06-24,Disinfectant Wipes Bucket,Janitorial Supplies,28.0,49.5,0,0,4,Mock Distribution Branch - Plano,Plano,9000
+204,2,82,30,2026-06-24,Hardwound Paper Towels Case,Janitorial Supplies,32.0,55.0,0,0,5,Mock Distribution Branch - Plano,Plano,9000
+301,2,109,25,2026-06-24,Nitrile Gloves Medium Case,Safety and PPE,52.0,87.5,0,0,2,Mock Distribution Branch - Plano,Plano,9000
+302,2,62,25,2026-06-24,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Plano,Plano,9000
+303,2,65,25,2026-06-24,Disposable Face Masks Case,Safety and PPE,35.0,58.0,0,0,4,Mock Distribution Branch - Plano,Plano,9000
+304,2,77,25,2026-06-24,High Visibility Safety Vest Pack,Safety and PPE,44.0,74.0,0,0,5,Mock Distribution Branch - Plano,Plano,9000
+401,2,92,35,2026-06-24,Bottled Water 24 Pack Case,Breakroom Supplies,4.8,8.99,0,0,2,Mock Distribution Branch - Plano,Plano,9000
+402,2,61,35,2026-06-24,Coffee Pods Box,Breakroom Supplies,21.0,38.0,0,0,3,Mock Distribution Branch - Plano,Plano,9000
+403,2,26,20,2026-06-24,Copy Paper Case,Office Supplies,34.0,58.99,0,0,4,Mock Distribution Branch - Plano,Plano,9000
+404,2,95,25,2026-06-24,Pallet Stretch Film Case,Packaging Supplies,52.0,88.0,0,0,5,Mock Distribution Branch - Plano,Plano,9000
+101,3,206,40,2026-06-24,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,62.5,0,0,2,Mock Distribution Branch - Irving,Irving,8500
+102,3,53,40,2026-06-24,16 oz Clear Cold Cups Case,Foodservice Disposables,42.0,68.0,0,0,3,Mock Distribution Branch - Irving,Irving,8500
+103,3,104,40,2026-06-24,9 inch Paper Plates Case,Foodservice Disposables,24.0,39.95,0,0,4,Mock Distribution Branch - Irving,Irving,8500
+104,3,65,40,2026-06-24,Compostable Takeout Containers Case,Foodservice Disposables,48.0,79.99,0,0,5,Mock Distribution Branch - Irving,Irving,8500
+201,3,0,30,2026-06-24,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,34.99,0,0,2,Mock Distribution Branch - Irving,Irving,8500
+202,3,66,30,2026-06-24,Multi-Surface Cleaner Gallon Case,Janitorial Supplies,24.0,42.0,0,0,3,Mock Distribution Branch - Irving,Irving,8500
+203,3,153,30,2026-06-24,Disinfectant Wipes Bucket,Janitorial Supplies,28.0,49.5,0,0,4,Mock Distribution Branch - Irving,Irving,8500
+204,3,159,30,2026-06-24,Hardwound Paper Towels Case,Janitorial Supplies,32.0,55.0,0,0,5,Mock Distribution Branch - Irving,Irving,8500
+301,3,108,25,2026-06-24,Nitrile Gloves Medium Case,Safety and PPE,52.0,87.5,0,0,2,Mock Distribution Branch - Irving,Irving,8500
+302,3,109,25,2026-06-24,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Irving,Irving,8500
+303,3,0,25,2026-06-24,Disposable Face Masks Case,Safety and PPE,35.0,58.0,0,0,4,Mock Distribution Branch - Irving,Irving,8500
+304,3,47,25,2026-06-24,High Visibility Safety Vest Pack,Safety and PPE,44.0,74.0,0,0,5,Mock Distribution Branch - Irving,Irving,8500
+401,3,64,35,2026-06-24,Bottled Water 24 Pack Case,Breakroom Supplies,4.8,8.99,0,0,2,Mock Distribution Branch - Irving,Irving,8500
+402,3,143,35,2026-06-24,Coffee Pods Box,Breakroom Supplies,21.0,38.0,0,0,3,Mock Distribution Branch - Irving,Irving,8500
+403,3,73,20,2026-06-24,Copy Paper Case,Office Supplies,34.0,58.99,0,0,4,Mock Distribution Branch - Irving,Irving,8500
+404,3,49,25,2026-06-24,Pallet Stretch Film Case,Packaging Supplies,52.0,88.0,0,0,5,Mock Distribution Branch - Irving,Irving,8500
+101,4,119,40,2026-06-24,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,62.5,0,0,2,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+102,4,153,40,2026-06-24,16 oz Clear Cold Cups Case,Foodservice Disposables,42.0,68.0,0,0,3,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+103,4,96,40,2026-06-24,9 inch Paper Plates Case,Foodservice Disposables,24.0,39.95,0,0,4,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+104,4,205,40,2026-06-24,Compostable Takeout Containers Case,Foodservice Disposables,48.0,79.99,0,0,5,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+201,4,98,30,2026-06-24,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,34.99,0,0,2,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+202,4,97,30,2026-06-24,Multi-Surface Cleaner Gallon Case,Janitorial Supplies,24.0,42.0,0,0,3,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+203,4,104,30,2026-06-24,Disinfectant Wipes Bucket,Janitorial Supplies,28.0,49.5,0,0,4,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+204,4,6,30,2026-06-24,Hardwound Paper Towels Case,Janitorial Supplies,32.0,55.0,0,0,5,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+301,4,104,25,2026-06-24,Nitrile Gloves Medium Case,Safety and PPE,52.0,87.5,0,0,2,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+302,4,45,25,2026-06-24,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+303,4,75,25,2026-06-24,Disposable Face Masks Case,Safety and PPE,35.0,58.0,0,0,4,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+304,4,108,25,2026-06-24,High Visibility Safety Vest Pack,Safety and PPE,44.0,74.0,0,0,5,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+401,4,133,35,2026-06-24,Bottled Water 24 Pack Case,Breakroom Supplies,4.8,8.99,0,0,2,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+402,4,86,35,2026-06-24,Coffee Pods Box,Breakroom Supplies,21.0,38.0,0,0,3,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+403,4,46,20,2026-06-24,Copy Paper Case,Office Supplies,34.0,58.99,0,0,4,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+404,4,0,25,2026-06-24,Pallet Stretch Film Case,Packaging Supplies,52.0,88.0,0,0,5,Mock Distribution Branch - Eden Prairie,Eden Prairie,11000
+101,5,127,40,2026-06-24,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,62.5,0,0,2,Mock Distribution Branch - Chicago,Chicago,9500
+102,5,176,40,2026-06-24,16 oz Clear Cold Cups Case,Foodservice Disposables,42.0,68.0,0,0,3,Mock Distribution Branch - Chicago,Chicago,9500
+103,5,179,40,2026-06-24,9 inch Paper Plates Case,Foodservice Disposables,24.0,39.95,0,0,4,Mock Distribution Branch - Chicago,Chicago,9500
+104,5,71,40,2026-06-24,Compostable Takeout Containers Case,Foodservice Disposables,48.0,79.99,0,0,5,Mock Distribution Branch - Chicago,Chicago,9500
+201,5,150,30,2026-06-24,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,34.99,0,0,2,Mock Distribution Branch - Chicago,Chicago,9500
+202,5,158,30,2026-06-24,Multi-Surface Cleaner Gallon Case,Janitorial Supplies,24.0,42.0,0,0,3,Mock Distribution Branch - Chicago,Chicago,9500
+203,5,90,30,2026-06-24,Disinfectant Wipes Bucket,Janitorial Supplies,28.0,49.5,0,0,4,Mock Distribution Branch - Chicago,Chicago,9500
+204,5,103,30,2026-06-24,Hardwound Paper Towels Case,Janitorial Supplies,32.0,55.0,0,0,5,Mock Distribution Branch - Chicago,Chicago,9500
+301,5,99,25,2026-06-24,Nitrile Gloves Medium Case,Safety and PPE,52.0,87.5,0,0,2,Mock Distribution Branch - Chicago,Chicago,9500
+302,5,108,25,2026-06-24,Safety Glasses Pack,Safety and PPE,18.0,31.99,0,0,3,Mock Distribution Branch - Chicago,Chicago,9500
+303,5,79,25,2026-06-24,Disposable Face Masks Case,Safety and PPE,35.0,58.0,0,0,4,Mock Distribution Branch - Chicago,Chicago,9500
+304,5,29,25,2026-06-24,High Visibility Safety Vest Pack,Safety and PPE,44.0,74.0,0,0,5,Mock Distribution Branch - Chicago,Chicago,9500
+401,5,174,35,2026-06-24,Bottled Water 24 Pack Case,Breakroom Supplies,4.8,8.99,0,0,2,Mock Distribution Branch - Chicago,Chicago,9500
+402,5,133,35,2026-06-24,Coffee Pods Box,Breakroom Supplies,21.0,38.0,0,0,3,Mock Distribution Branch - Chicago,Chicago,9500
+403,5,66,20,2026-06-24,Copy Paper Case,Office Supplies,34.0,58.99,0,0,4,Mock Distribution Branch - Chicago,Chicago,9500
+404,5,10,25,2026-06-24,Pallet Stretch Film Case,Packaging Supplies,52.0,88.0,0,0,5,Mock Distribution Branch - Chicago,Chicago,9500

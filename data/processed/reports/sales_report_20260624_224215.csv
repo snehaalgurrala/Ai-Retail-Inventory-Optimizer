@@ -1,0 +1,451 @@
+sale_id,date,product_id,store_id,quantity_sold,selling_price,product_name,category,cost_price,store_name,city,revenue
+1,2026-05-23,101,1,30,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,1762.5
+433,2026-05-23,404,5,9,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,744.48
+37,2026-05-23,201,1,23,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,756.47
+55,2026-05-23,301,1,8,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,658.0
+73,2026-05-23,404,1,7,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,579.04
+91,2026-05-23,101,2,27,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1586.25
+109,2026-05-23,104,2,15,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,1127.85
+127,2026-05-23,201,2,21,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,690.69
+145,2026-05-23,301,2,8,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,658.0
+163,2026-05-23,404,2,7,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,579.04
+181,2026-05-23,101,3,23,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1437.5
+199,2026-05-23,104,3,8,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,639.92
+217,2026-05-23,201,3,17,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,594.83
+235,2026-05-23,301,3,6,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,525.0
+253,2026-05-23,404,3,3,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,264.0
+271,2026-05-23,101,4,15,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,937.5
+289,2026-05-23,104,4,6,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,479.93999999999994
+307,2026-05-23,201,4,12,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,419.88
+325,2026-05-23,301,4,3,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,262.5
+343,2026-05-23,404,4,9,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,792.0
+361,2026-05-23,101,5,29,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,1703.75
+379,2026-05-23,104,5,17,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,1278.23
+397,2026-05-23,201,5,16,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,526.24
+415,2026-05-23,301,5,6,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,493.5
+19,2026-05-23,104,1,15,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1127.85
+2,2026-05-24,101,1,31,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,1821.25
+434,2026-05-24,404,5,10,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,827.2
+38,2026-05-24,201,1,22,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,723.58
+56,2026-05-24,301,1,14,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,1151.5
+74,2026-05-24,404,1,12,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,992.64
+92,2026-05-24,101,2,26,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1527.5
+110,2026-05-24,104,2,13,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,977.47
+128,2026-05-24,201,2,16,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,526.24
+146,2026-05-24,301,2,8,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,658.0
+164,2026-05-24,404,2,11,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,909.92
+182,2026-05-24,101,3,20,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1250.0
+200,2026-05-24,104,3,13,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,1039.87
+218,2026-05-24,201,3,13,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,454.87
+236,2026-05-24,301,3,8,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,700.0
+254,2026-05-24,404,3,2,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,176.0
+272,2026-05-24,101,4,19,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1187.5
+290,2026-05-24,104,4,6,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,479.93999999999994
+308,2026-05-24,201,4,17,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,594.83
+326,2026-05-24,301,4,9,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,787.5
+344,2026-05-24,404,4,2,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,176.0
+362,2026-05-24,101,5,27,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,1586.25
+380,2026-05-24,104,5,10,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,751.9
+398,2026-05-24,201,5,16,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,526.24
+416,2026-05-24,301,5,8,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,658.0
+20,2026-05-24,104,1,12,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,902.28
+3,2026-05-25,101,1,33,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,1938.75
+435,2026-05-25,404,5,12,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,992.64
+39,2026-05-25,201,1,22,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,723.58
+57,2026-05-25,301,1,8,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,658.0
+75,2026-05-25,404,1,10,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,827.2
+93,2026-05-25,101,2,24,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1410.0
+111,2026-05-25,104,2,13,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,977.47
+129,2026-05-25,201,2,16,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,526.24
+147,2026-05-25,301,2,7,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,575.75
+165,2026-05-25,404,2,6,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,496.32
+183,2026-05-25,101,3,23,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1437.5
+201,2026-05-25,104,3,13,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,1039.87
+219,2026-05-25,201,3,11,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,384.89000000000004
+237,2026-05-25,301,3,11,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,962.5
+255,2026-05-25,404,3,8,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,704.0
+273,2026-05-25,101,4,20,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1250.0
+291,2026-05-25,104,4,6,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,479.93999999999994
+309,2026-05-25,201,4,11,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,384.89000000000004
+327,2026-05-25,301,4,6,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,525.0
+345,2026-05-25,404,4,8,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,704.0
+363,2026-05-25,101,5,28,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,1645.0
+381,2026-05-25,104,5,10,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,751.9
+399,2026-05-25,201,5,17,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,559.13
+417,2026-05-25,301,5,11,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,904.75
+21,2026-05-25,104,1,14,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1052.6599999999999
+4,2026-05-26,101,1,32,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,1880.0
+436,2026-05-26,404,5,9,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,744.48
+40,2026-05-26,201,1,21,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,690.69
+58,2026-05-26,301,1,9,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,740.25
+76,2026-05-26,404,1,6,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,496.32
+94,2026-05-26,101,2,26,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1527.5
+112,2026-05-26,104,2,15,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,1127.85
+130,2026-05-26,201,2,21,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,690.69
+148,2026-05-26,301,2,7,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,575.75
+166,2026-05-26,404,2,7,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,579.04
+184,2026-05-26,101,3,21,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1312.5
+202,2026-05-26,104,3,8,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,639.92
+220,2026-05-26,201,3,12,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,419.88
+238,2026-05-26,301,3,7,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,612.5
+256,2026-05-26,404,3,10,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,880.0
+274,2026-05-26,101,4,20,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1250.0
+292,2026-05-26,104,4,11,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,879.89
+310,2026-05-26,201,4,11,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,384.89000000000004
+328,2026-05-26,301,4,7,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,612.5
+346,2026-05-26,404,4,9,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,792.0
+364,2026-05-26,101,5,27,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,1586.25
+382,2026-05-26,104,5,16,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,1203.04
+400,2026-05-26,201,5,19,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,624.91
+418,2026-05-26,301,5,14,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,1151.5
+22,2026-05-26,104,1,12,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,902.28
+5,2026-05-27,101,1,28,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,1645.0
+437,2026-05-27,404,5,5,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,413.6
+41,2026-05-27,201,1,25,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,822.25
+59,2026-05-27,301,1,8,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,658.0
+77,2026-05-27,404,1,7,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,579.04
+95,2026-05-27,101,2,24,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1410.0
+113,2026-05-27,104,2,9,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,676.71
+131,2026-05-27,201,2,20,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,657.8
+149,2026-05-27,301,2,12,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,987.0
+167,2026-05-27,404,2,5,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,413.6
+185,2026-05-27,101,3,21,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1312.5
+203,2026-05-27,104,3,8,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,639.92
+221,2026-05-27,201,3,12,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,419.88
+239,2026-05-27,301,3,8,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,700.0
+257,2026-05-27,404,3,4,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,352.0
+275,2026-05-27,101,4,22,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1375.0
+293,2026-05-27,104,4,10,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,799.9
+311,2026-05-27,201,4,12,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,419.88
+329,2026-05-27,301,4,6,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,525.0
+347,2026-05-27,404,4,10,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,880.0
+365,2026-05-27,101,5,26,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,1527.5
+383,2026-05-27,104,5,14,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,1052.6599999999999
+401,2026-05-27,201,5,17,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,559.13
+419,2026-05-27,301,5,8,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,658.0
+23,2026-05-27,104,1,18,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1353.42
+6,2026-05-28,101,1,31,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,1821.25
+438,2026-05-28,404,5,12,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,992.64
+42,2026-05-28,201,1,22,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,723.58
+60,2026-05-28,301,1,15,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,1233.75
+78,2026-05-28,404,1,11,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,909.92
+96,2026-05-28,101,2,26,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1527.5
+114,2026-05-28,104,2,14,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,1052.6599999999999
+132,2026-05-28,201,2,22,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,723.58
+150,2026-05-28,301,2,13,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,1069.25
+168,2026-05-28,404,2,11,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,909.92
+186,2026-05-28,101,3,24,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1500.0
+204,2026-05-28,104,3,9,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,719.91
+222,2026-05-28,201,3,14,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,489.86
+240,2026-05-28,301,3,7,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,612.5
+258,2026-05-28,404,3,8,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,704.0
+276,2026-05-28,101,4,17,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1062.5
+294,2026-05-28,104,4,8,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,639.92
+312,2026-05-28,201,4,15,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,524.85
+330,2026-05-28,301,4,4,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,350.0
+348,2026-05-28,404,4,4,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,352.0
+366,2026-05-28,101,5,25,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,1468.75
+384,2026-05-28,104,5,15,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,1127.85
+402,2026-05-28,201,5,18,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,592.02
+420,2026-05-28,301,5,9,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,740.25
+24,2026-05-28,104,1,19,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1428.61
+7,2026-05-29,101,1,34,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,1997.5
+439,2026-05-29,404,5,6,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,496.32
+43,2026-05-29,201,1,21,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,690.69
+61,2026-05-29,301,1,11,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,904.75
+79,2026-05-29,404,1,10,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,827.2
+97,2026-05-29,101,2,24,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1410.0
+115,2026-05-29,104,2,15,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,1127.85
+133,2026-05-29,201,2,17,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,559.13
+151,2026-05-29,301,2,9,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,740.25
+169,2026-05-29,404,2,7,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,579.04
+187,2026-05-29,101,3,25,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1562.5
+205,2026-05-29,104,3,12,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,959.8799999999999
+223,2026-05-29,201,3,14,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,489.86
+241,2026-05-29,301,3,10,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,875.0
+259,2026-05-29,404,3,10,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,880.0
+277,2026-05-29,101,4,18,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1125.0
+295,2026-05-29,104,4,12,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,959.8799999999999
+313,2026-05-29,201,4,17,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,594.83
+331,2026-05-29,301,4,5,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,437.5
+349,2026-05-29,404,4,11,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,968.0
+367,2026-05-29,101,5,28,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,1645.0
+385,2026-05-29,104,5,14,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,1052.6599999999999
+403,2026-05-29,201,5,17,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,559.13
+421,2026-05-29,301,5,8,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,658.0
+25,2026-05-29,104,1,19,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1428.61
+8,2026-05-30,101,1,31,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,1821.25
+440,2026-05-30,404,5,12,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,992.64
+44,2026-05-30,201,1,22,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,723.58
+62,2026-05-30,301,1,15,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,1233.75
+80,2026-05-30,404,1,7,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,579.04
+98,2026-05-30,101,2,31,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1821.25
+116,2026-05-30,104,2,16,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,1203.04
+134,2026-05-30,201,2,17,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,559.13
+152,2026-05-30,301,2,11,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,904.75
+170,2026-05-30,404,2,12,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,992.64
+188,2026-05-30,101,3,24,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1500.0
+206,2026-05-30,104,3,14,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,1119.86
+224,2026-05-30,201,3,19,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,664.8100000000001
+242,2026-05-30,301,3,10,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,875.0
+260,2026-05-30,404,3,9,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,792.0
+278,2026-05-30,101,4,21,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1312.5
+296,2026-05-30,104,4,10,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,799.9
+314,2026-05-30,201,4,15,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,524.85
+332,2026-05-30,301,4,4,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,350.0
+350,2026-05-30,404,4,6,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,528.0
+368,2026-05-30,101,5,30,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,1762.5
+386,2026-05-30,104,5,17,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,1278.23
+404,2026-05-30,201,5,18,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,592.02
+422,2026-05-30,301,5,10,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,822.5
+26,2026-05-30,104,1,14,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1052.6599999999999
+9,2026-05-31,101,1,32,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,1880.0
+27,2026-05-31,104,1,15,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1127.85
+45,2026-05-31,201,1,22,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,723.58
+63,2026-05-31,301,1,13,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,1069.25
+81,2026-05-31,404,1,12,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,992.64
+99,2026-05-31,101,2,32,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1880.0
+117,2026-05-31,104,2,16,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,1203.04
+135,2026-05-31,201,2,15,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,493.35
+153,2026-05-31,301,2,9,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,740.25
+171,2026-05-31,404,2,11,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,909.92
+189,2026-05-31,101,3,27,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1687.5
+207,2026-05-31,104,3,13,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,1039.87
+225,2026-05-31,201,3,16,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,559.84
+243,2026-05-31,301,3,5,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,437.5
+261,2026-05-31,404,3,9,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,792.0
+279,2026-05-31,101,4,21,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1312.5
+297,2026-05-31,104,4,13,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1039.87
+315,2026-05-31,201,4,11,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,384.89000000000004
+333,2026-05-31,301,4,7,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,612.5
+351,2026-05-31,404,4,7,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,616.0
+369,2026-05-31,101,5,30,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,1762.5
+387,2026-05-31,104,5,12,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,902.28
+405,2026-05-31,201,5,22,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,723.58
+423,2026-05-31,301,5,12,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,987.0
+441,2026-05-31,404,5,8,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,661.76
+406,2026-06-01,201,5,20,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,657.8
+136,2026-06-01,201,2,15,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,493.35
+442,2026-06-01,404,5,12,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,992.64
+280,2026-06-01,101,4,23,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1437.5
+298,2026-06-01,104,4,11,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,879.89
+316,2026-06-01,201,4,11,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,384.89000000000004
+334,2026-06-01,301,4,7,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,612.5
+352,2026-06-01,404,4,5,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,440.0
+370,2026-06-01,101,5,30,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,1762.5
+388,2026-06-01,104,5,14,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,1052.6599999999999
+154,2026-06-01,301,2,7,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,575.75
+172,2026-06-01,404,2,7,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,579.04
+190,2026-06-01,101,3,27,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1687.5
+208,2026-06-01,104,3,9,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,719.91
+226,2026-06-01,201,3,14,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,489.86
+244,2026-06-01,301,3,8,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,700.0
+262,2026-06-01,404,3,11,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,968.0
+10,2026-06-01,101,1,36,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,2115.0
+28,2026-06-01,104,1,15,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1127.85
+46,2026-06-01,201,1,21,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,690.69
+64,2026-06-01,301,1,9,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,740.25
+82,2026-06-01,404,1,13,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,1075.36
+100,2026-06-01,101,2,26,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1527.5
+118,2026-06-01,104,2,10,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,751.9
+424,2026-06-01,301,5,13,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,1069.25
+407,2026-06-02,201,5,18,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,592.02
+119,2026-06-02,104,2,16,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,1203.04
+443,2026-06-02,404,5,14,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,1158.08
+281,2026-06-02,101,4,26,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1625.0
+299,2026-06-02,104,4,10,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,799.9
+317,2026-06-02,201,4,16,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,559.84
+335,2026-06-02,301,4,11,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,962.5
+353,2026-06-02,404,4,9,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,792.0
+371,2026-06-02,101,5,30,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,1762.5
+389,2026-06-02,104,5,14,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,1052.6599999999999
+137,2026-06-02,201,2,18,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,592.02
+155,2026-06-02,301,2,14,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,1151.5
+173,2026-06-02,404,2,9,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,744.48
+191,2026-06-02,101,3,23,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1437.5
+209,2026-06-02,104,3,15,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,1199.85
+227,2026-06-02,201,3,15,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,524.85
+245,2026-06-02,301,3,7,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,612.5
+263,2026-06-02,404,3,10,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,880.0
+11,2026-06-02,101,1,31,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,1821.25
+29,2026-06-02,104,1,19,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1428.61
+47,2026-06-02,201,1,23,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,756.47
+65,2026-06-02,301,1,13,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,1069.25
+83,2026-06-02,404,1,10,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,827.2
+101,2026-06-02,101,2,32,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1880.0
+425,2026-06-02,301,5,13,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,1069.25
+408,2026-06-03,201,5,23,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,756.47
+120,2026-06-03,104,2,14,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,1052.6599999999999
+444,2026-06-03,404,5,8,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,661.76
+264,2026-06-03,404,3,7,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,616.0
+282,2026-06-03,101,4,26,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1625.0
+300,2026-06-03,104,4,11,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,879.89
+318,2026-06-03,201,4,18,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,629.82
+336,2026-06-03,301,4,8,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,700.0
+354,2026-06-03,404,4,8,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,704.0
+372,2026-06-03,101,5,33,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,1938.75
+390,2026-06-03,104,5,12,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,902.28
+138,2026-06-03,201,2,22,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,723.58
+156,2026-06-03,301,2,12,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,987.0
+174,2026-06-03,404,2,10,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,827.2
+192,2026-06-03,101,3,21,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1312.5
+210,2026-06-03,104,3,8,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,639.92
+228,2026-06-03,201,3,13,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,454.87
+246,2026-06-03,301,3,11,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,962.5
+12,2026-06-03,101,1,31,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,1821.25
+30,2026-06-03,104,1,20,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1503.8
+48,2026-06-03,201,1,22,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,723.58
+66,2026-06-03,301,1,12,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,987.0
+84,2026-06-03,404,1,8,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,661.76
+102,2026-06-03,101,2,27,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1586.25
+426,2026-06-03,301,5,14,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,1151.5
+391,2026-06-04,104,5,12,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,902.28
+121,2026-06-04,104,2,17,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,1278.23
+427,2026-06-04,301,5,12,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,987.0
+445,2026-06-04,404,5,11,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,909.92
+265,2026-06-04,404,3,11,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,968.0
+283,2026-06-04,101,4,26,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1625.0
+301,2026-06-04,104,4,13,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1039.87
+319,2026-06-04,201,4,18,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,629.82
+337,2026-06-04,301,4,11,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,962.5
+355,2026-06-04,404,4,5,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,440.0
+373,2026-06-04,101,5,32,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,1880.0
+139,2026-06-04,201,2,17,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,559.13
+157,2026-06-04,301,2,7,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,575.75
+175,2026-06-04,404,2,10,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,827.2
+193,2026-06-04,101,3,22,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1375.0
+211,2026-06-04,104,3,9,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,719.91
+229,2026-06-04,201,3,17,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,594.83
+247,2026-06-04,301,3,8,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,700.0
+13,2026-06-04,101,1,38,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,2232.5
+31,2026-06-04,104,1,16,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1203.04
+49,2026-06-04,201,1,24,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,789.36
+67,2026-06-04,301,1,10,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,822.5
+85,2026-06-04,404,1,12,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,992.64
+103,2026-06-04,101,2,33,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1938.75
+409,2026-06-04,201,5,19,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,624.91
+392,2026-06-05,104,5,13,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,977.47
+122,2026-06-05,104,2,17,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,1278.23
+428,2026-06-05,301,5,8,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,658.0
+446,2026-06-05,404,5,9,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,744.48
+266,2026-06-05,404,3,11,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,968.0
+284,2026-06-05,101,4,21,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1312.5
+302,2026-06-05,104,4,15,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1199.85
+320,2026-06-05,201,4,14,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,489.86
+338,2026-06-05,301,4,7,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,612.5
+356,2026-06-05,404,4,7,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,616.0
+374,2026-06-05,101,5,35,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,2056.25
+140,2026-06-05,201,2,21,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,690.69
+158,2026-06-05,301,2,13,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,1069.25
+176,2026-06-05,404,2,7,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,579.04
+194,2026-06-05,101,3,29,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1812.5
+212,2026-06-05,104,3,11,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,879.89
+230,2026-06-05,201,3,16,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,559.84
+248,2026-06-05,301,3,10,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,875.0
+14,2026-06-05,101,1,37,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,2173.75
+32,2026-06-05,104,1,15,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1127.85
+50,2026-06-05,201,1,20,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,657.8
+68,2026-06-05,301,1,9,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,740.25
+86,2026-06-05,404,1,13,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,1075.36
+104,2026-06-05,101,2,29,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1703.75
+410,2026-06-05,201,5,21,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,690.69
+393,2026-06-06,104,5,14,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,1052.6599999999999
+123,2026-06-06,104,2,14,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,1052.6599999999999
+429,2026-06-06,301,5,14,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,1151.5
+447,2026-06-06,404,5,12,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,992.64
+267,2026-06-06,404,3,7,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,616.0
+285,2026-06-06,101,4,24,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1500.0
+303,2026-06-06,104,4,10,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,799.9
+321,2026-06-06,201,4,13,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,454.87
+339,2026-06-06,301,4,9,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,787.5
+357,2026-06-06,404,4,11,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,968.0
+375,2026-06-06,101,5,35,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,2056.25
+141,2026-06-06,201,2,18,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,592.02
+159,2026-06-06,301,2,9,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,740.25
+177,2026-06-06,404,2,8,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,661.76
+195,2026-06-06,101,3,30,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1875.0
+213,2026-06-06,104,3,10,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,799.9
+231,2026-06-06,201,3,14,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,489.86
+249,2026-06-06,301,3,11,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,962.5
+15,2026-06-06,101,1,34,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,1997.5
+33,2026-06-06,104,1,18,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1353.42
+51,2026-06-06,201,1,25,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,822.25
+69,2026-06-06,301,1,250,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,20562.5
+87,2026-06-06,404,1,9,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,744.48
+105,2026-06-06,101,2,29,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1703.75
+411,2026-06-06,201,5,21,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,690.69
+394,2026-06-07,104,5,15,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,1127.85
+124,2026-06-07,104,2,12,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,902.28
+430,2026-06-07,301,5,13,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,1069.25
+448,2026-06-07,404,5,160,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,13235.2
+268,2026-06-07,404,3,14,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,1232.0
+286,2026-06-07,101,4,29,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1812.5
+304,2026-06-07,104,4,11,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,879.89
+322,2026-06-07,201,4,12,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,419.88
+340,2026-06-07,301,4,7,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,612.5
+358,2026-06-07,404,4,10,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,880.0
+376,2026-06-07,101,5,33,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,1938.75
+142,2026-06-07,201,2,18,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,592.02
+160,2026-06-07,301,2,10,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,822.5
+178,2026-06-07,404,2,13,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,1075.36
+196,2026-06-07,101,3,26,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1625.0
+214,2026-06-07,104,3,14,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,1119.86
+232,2026-06-07,201,3,17,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,594.83
+250,2026-06-07,301,3,12,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,1050.0
+16,2026-06-07,101,1,39,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,2291.25
+34,2026-06-07,104,1,18,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1353.42
+52,2026-06-07,201,1,24,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,789.36
+70,2026-06-07,301,1,13,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,1069.25
+88,2026-06-07,404,1,12,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,992.64
+106,2026-06-07,101,2,30,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1762.5
+412,2026-06-07,201,5,21,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,690.69
+395,2026-06-08,104,5,18,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,1353.42
+413,2026-06-08,201,5,19,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,624.91
+431,2026-06-08,301,5,13,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,1069.25
+449,2026-06-08,404,5,15,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,1240.8
+269,2026-06-08,404,3,10,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,880.0
+287,2026-06-08,101,4,26,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1625.0
+305,2026-06-08,104,4,9,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,719.91
+323,2026-06-08,201,4,12,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,419.88
+341,2026-06-08,301,4,10,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,875.0
+359,2026-06-08,404,4,7,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,616.0
+377,2026-06-08,101,5,37,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,2173.75
+143,2026-06-08,201,2,21,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,690.69
+161,2026-06-08,301,2,11,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,904.75
+179,2026-06-08,404,2,9,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,744.48
+197,2026-06-08,101,3,31,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1937.5
+215,2026-06-08,104,3,10,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,799.9
+233,2026-06-08,201,3,17,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,594.83
+251,2026-06-08,301,3,8,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,700.0
+17,2026-06-08,101,1,34,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,1997.5
+35,2026-06-08,104,1,18,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1353.42
+53,2026-06-08,201,1,23,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,756.47
+71,2026-06-08,301,1,11,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,904.75
+89,2026-06-08,404,1,10,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,827.2
+107,2026-06-08,101,2,35,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,2056.25
+125,2026-06-08,104,2,18,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,1353.42
+396,2026-06-09,104,5,15,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Chicago,Chicago,1127.85
+126,2026-06-09,104,2,14,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Plano,Plano,1052.6599999999999
+432,2026-06-09,301,5,9,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Chicago,Chicago,740.25
+450,2026-06-09,404,5,9,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Chicago,Chicago,744.48
+270,2026-06-09,404,3,9,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Irving,Irving,792.0
+288,2026-06-09,101,4,23,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,1437.5
+306,2026-06-09,104,4,12,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,959.8799999999999
+324,2026-06-09,201,4,12,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,419.88
+342,2026-06-09,301,4,6,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,525.0
+360,2026-06-09,404,4,11,88.0,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Eden Prairie,Eden Prairie,968.0
+378,2026-06-09,101,5,38,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Chicago,Chicago,2232.5
+144,2026-06-09,201,2,20,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Plano,Plano,657.8
+162,2026-06-09,301,2,14,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Plano,Plano,1151.5
+180,2026-06-09,404,2,15,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Plano,Plano,1240.8
+198,2026-06-09,101,3,31,62.5,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Irving,Irving,1937.5
+216,2026-06-09,104,3,10,79.99,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Irving,Irving,799.9
+234,2026-06-09,201,3,20,34.99,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Irving,Irving,699.8000000000001
+252,2026-06-09,301,3,10,87.5,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Irving,Irving,875.0
+18,2026-06-09,101,1,35,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Dallas,Dallas,2056.25
+36,2026-06-09,104,1,18,75.19,Compostable Takeout Containers Case,Foodservice Disposables,48.0,Mock Distribution Branch - Dallas,Dallas,1353.42
+54,2026-06-09,201,1,23,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Dallas,Dallas,756.47
+72,2026-06-09,301,1,15,82.25,Nitrile Gloves Medium Case,Safety and PPE,52.0,Mock Distribution Branch - Dallas,Dallas,1233.75
+90,2026-06-09,404,1,15,82.72,Pallet Stretch Film Case,Packaging Supplies,52.0,Mock Distribution Branch - Dallas,Dallas,1240.8
+108,2026-06-09,101,2,33,58.75,12 oz Paper Hot Cups Case,Foodservice Disposables,38.0,Mock Distribution Branch - Plano,Plano,1938.75
+414,2026-06-09,201,5,18,32.89,55 Gallon Industrial Trash Bags Case,Janitorial Supplies,19.0,Mock Distribution Branch - Chicago,Chicago,592.02

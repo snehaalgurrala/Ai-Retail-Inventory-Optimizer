@@ -1,6 +1,6 @@
 run_time,agent_name,finding_count,priority_level,latest_insight
-2026-06-23T19:41:58,inventory_agent,70,high,7 high demand items. 17 predictive inventory alerts. 2 demand spikes.
-2026-06-23T19:41:58,pricing_agent,50,medium,Inventory coverage is high compared with recent sales velocity.
-2026-06-23T19:41:58,transfer_agent,48,medium,One store is below reorder point while another store has surplus stock.
-2026-06-23T19:41:58,risk_agent,58,high,Supplier reliability or delivery time crosses the configured risk threshold.
-2026-06-23T19:41:58,procurement_agent,17,high,Pallet Stretch Film Case in Mock Distribution Branch - Plano is high with rising. Mock Distribution Branch - Irving can support with 9 surplus units before procurement. Supplier risk may delay replenishment.
+2026-06-24T22:57:43,inventory_agent,93,high,7 high demand items. 28 predictive inventory alerts. 25 demand spikes.
+2026-06-24T22:57:43,pricing_agent,53,medium,Stock has weak recent movement or may exceed shelf life.
+2026-06-24T22:57:43,transfer_agent,77,medium,One store is below reorder point while another store has surplus stock.
+2026-06-24T22:57:43,risk_agent,70,high,Supplier reliability or delivery time crosses the configured risk threshold.
+2026-06-24T22:57:43,procurement_agent,28,high,55 Gallon Industrial Trash Bags Case in Mock Distribution Branch - Irving is critical with demand spike. Demand spike detected. Mock Distribution Branch - Chicago can support with 8 surplus units before procurement. Supplier risk may delay replenishment.

@@ -795,10 +795,39 @@ def render_recommendation_execution_card(recommendation: pd.Series) -> None:
             render_edit_form(recommendation, context, disabled=disabled)
 
 
-render_page_header(
-    "🤖 Recommendations",
-    "Advanced human-in-the-loop execution for pricing, transfer, reorder, clearance, and risk actions.",
-)
+header_left, header_right = st.columns([4.5, 1.5], gap="large")
+with header_left:
+    render_page_header(
+        "🤖 Recommendations",
+        "Advanced human-in-the-loop execution for pricing, transfer, reorder, clearance, and risk actions.",
+    )
+with header_right:
+    st.caption("Recommendations are generated from the current Oracle data (inventory, sales, and orders).")
+    if st.button("🔄 Regenerate from current data", use_container_width=True):
+        try:
+            from backend.agents.orchestrator_agent import run_agent_graph
+
+            with st.status("Re-running all agents on the latest Oracle data...", expanded=True) as status:
+                st.write("Step 1: Rebuilding processed datasets from Oracle")
+                st.write("Step 2: Running pricing, transfer, risk, and procurement agents")
+                final_state = run_agent_graph(save_output=True)
+                st.write("Step 3: Saving regenerated recommendations")
+                clear_recommendation_caches()
+                st.cache_data.clear()
+                status.update(label="Recommendations regenerated.", state="complete")
+            refreshed_count = len(final_state.get("unified_recommendations", []))
+            refreshed_time = final_state.get("combined_output", {}).get("run_time", "just now")
+            st.session_state["recommendation_regenerate_message"] = (
+                f"Regenerated {refreshed_count:,} recommendations from current data at {refreshed_time}."
+            )
+            st.rerun()
+        except Exception as error:
+            st.error("Could not regenerate recommendations.")
+            st.exception(error)
+
+regenerate_message = st.session_state.pop("recommendation_regenerate_message", "")
+if regenerate_message:
+    st.success(regenerate_message)
 
 try:
     recommendations = load_recommendations()

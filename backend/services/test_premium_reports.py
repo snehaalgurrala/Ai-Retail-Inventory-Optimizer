@@ -354,7 +354,7 @@ def test_large_dataset():
             'reorder_threshold': [50] * 100,
             'recent_daily_sales_velocity': [1.0 + (i % 5)] * 100,
             'predicted_days_remaining': [5.0 + (i % 20)] * 100,
-            'risk_category': ['Critical', 'High', 'Medium', 'Low'][i % 4] for i in range(100),
+            'risk_category': [['Critical', 'High', 'Medium', 'Low'][i % 4] for i in range(100)],
             'suggested_reorder_quantity': [40 + (i % 20) for i in range(100)],
             'ai_alert_message': ['Standard alert message'] * 100,
         }
