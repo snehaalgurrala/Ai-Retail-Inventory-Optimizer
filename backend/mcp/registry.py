@@ -121,6 +121,8 @@ _TOOLS: list[Callable[..., dict]] = [
     customers.get_customer_products,
     customers.get_recent_orders,
     customers.detect_abnormal_ordering,
+    customers.get_customer_demand_trends,
+    customers.get_dormant_accounts,
     customers.get_order_inventory_impact,
     # Transfer
     transfer.get_transfer_opportunities,

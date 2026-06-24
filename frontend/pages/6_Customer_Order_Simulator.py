@@ -304,26 +304,6 @@ def render_catalogue(products: pd.DataFrame, stock_map: dict[str, int]) -> None:
                 _render_product_card(product, stock_map)
 
 
-def _enforce_qty_limit(product_id: str) -> None:
-    """Stepper on_change handler: enforce the per-customer limit at the "+" press.
-
-    Fires the instant the "+" stepper pushes this product's selected quantity above
-    the customer's limit. When that happens it clamps the quantity back to the limit
-    (so the value never displays over the limit) and arms the existing ``_limit_block``
-    flag, which the top-of-render modal renders. Within the limit it does nothing and
-    the quantity increments normally.
-    """
-    key = f"cos_qty_{product_id}"
-    limit = col.get_limit(st.session_state.get("cos_customer_id"))
-    if int(st.session_state.get(key, 1) or 1) > limit:
-        # Cap at the limit and surface the blocking modal on the rerun this fires.
-        st.session_state[key] = limit
-        st.session_state["_limit_block"] = {
-            "name": st.session_state.get("cos_customer_name"),
-            "limit": limit,
-        }
-
-
 def _render_product_card(product: pd.Series, stock_map: dict[str, int]) -> None:
     product_id = str(product["product_id"])
     name = str(product["product_name"])
@@ -387,10 +367,6 @@ def _render_product_card(product: pd.Series, stock_map: dict[str, int]) -> None:
         # locked at 0, drop the stale 0 so it doesn't fall below min_value=1.
         if int(st.session_state.get(qty_key, 1) or 0) < 1:
             st.session_state.pop(qty_key, None)
-        # max_value stays high so the "+" press actually registers a change above
-        # the limit — that's what fires _enforce_qty_limit, which clamps back to the
-        # limit and arms the modal. (Capping max_value at the limit would silently
-        # block the "+" with no modal.)
         qty = st.number_input(
             "Quantity",
             min_value=1,
@@ -398,34 +374,37 @@ def _render_product_card(product: pd.Series, stock_map: dict[str, int]) -> None:
             value=1,
             step=1,
             key=qty_key,
-            on_change=_enforce_qty_limit,
-            args=(product_id,),
         )
         if st.button("➕ Add to Cart", key=f"cos_add_{product_id}", use_container_width=True):
-            added = _try_add_to_cart(product_id, name, price, int(qty))
-            if added:
-                st.toast(f"Added {added} × {name} to cart", icon="🛒")
+            if _try_add_to_cart(product_id, name, price, int(qty), stock):
+                st.toast(f"Added {int(qty)} × {name} to cart", icon="🛒")
             st.rerun()
 
 
-def _try_add_to_cart(product_id: str, name: str, price: float, qty: int) -> int:
-    """Add the product to the cart, silently clamping to the per-product limit.
+def _try_add_to_cart(
+    product_id: str, name: str, price: float, qty: int, available: int
+) -> bool:
+    """Add the product to the cart unless it would exceed the customer's per-product
+    limit or the branch's available stock. On a violation, arm the matching blocking
+    modal and leave the cart untouched.
 
-    The user-facing block now happens at the "+" stepper (see ``_enforce_qty_limit``),
-    so by the time Add-to-cart runs the quantity is already within the limit. This is
-    only a cheap safety net: the per-product, per-customer cap (current quantity in
-    cart + ``qty``) may not exceed the customer's limit (default ``DEFAULT_LIMIT``),
-    so a stale/edge value can never persist an over-limit cart line. It clamps
-    silently — no modal — and returns how many units were actually added.
+    Two guards are checked against the product's intended cart quantity (current
+    quantity already in cart + ``qty`` being added):
+      1. Per-customer, per-product limit (default ``DEFAULT_LIMIT``) -> limit modal.
+      2. On-hand stock available at the home branch -> "not available" stock modal.
     """
     limit = col.get_limit(st.session_state.get("cos_customer_id"))
     cart = st.session_state["cos_cart"]
     in_cart = int(cart.get(product_id, {}).get("qty", 0))
-    add_qty = max(0, min(qty, limit - in_cart))
-    if add_qty <= 0:
-        return 0
-    _add_to_cart(product_id, name, price, add_qty)
-    return add_qty
+    desired = in_cart + qty
+    if desired > limit:
+        st.session_state["_limit_block"] = True
+        return False
+    if desired > available:
+        st.session_state["_stock_block"] = True
+        return False
+    _add_to_cart(product_id, name, price, qty)
+    return True
 
 
 def _add_to_cart(product_id: str, name: str, price: float, qty: int) -> None:
@@ -442,14 +421,23 @@ def _add_to_cart(product_id: str, name: str, price: float, qty: int) -> None:
 _dialog = getattr(st, "dialog", None) or getattr(st, "experimental_dialog", None)
 
 
-@_dialog("Order limit reached")
-def _limit_modal(customer_name: str, limit: int) -> None:
-    st.write(f"Sorry {customer_name} You can only add {limit} to your cart")
+@_dialog("Your Order limit Reached")
+def _limit_modal() -> None:
+    # The flag is cleared by the caller (read-and-clear) so the dialog shows once.
     # OK button pinned to the bottom-right of the dialog card.
     cols = st.columns([5, 1])
     with cols[1]:
         if st.button("OK", type="primary", use_container_width=True):
-            st.session_state.pop("_limit_block", None)
+            st.rerun()
+
+
+@_dialog("Quantity Not Available")
+def _stock_modal() -> None:
+    # The flag is cleared by the caller (read-and-clear) so the dialog shows once.
+    # OK button pinned to the bottom-right of the dialog card.
+    cols = st.columns([5, 1])
+    with cols[1]:
+        if st.button("OK", type="primary", use_container_width=True):
             st.rerun()
 
 
@@ -793,11 +781,17 @@ def main() -> None:
     # Logged in.
     customer_name = st.session_state["cos_customer_name"]
 
-    # If an add-to-cart action just violated the customer's per-product limit, show
-    # the centered blocking modal before anything else. Clicking OK clears the flag.
-    block = st.session_state.get("_limit_block")
-    if block:
-        _limit_modal(block.get("name"), block.get("limit"))
+    # If an add-to-cart action just violated the customer's per-product limit or the
+    # branch's available stock, show the matching centered blocking modal before
+    # anything else. The flag is read-and-cleared (pop) so the modal renders exactly
+    # once per violation — it never reappears on later reruns, page switches, or
+    # after placing an order.
+    limit_block = st.session_state.pop("_limit_block", False)
+    stock_block = st.session_state.pop("_stock_block", False)
+    if limit_block:
+        _limit_modal()
+    elif stock_block:
+        _stock_modal()
 
     # Home branch the session is locked to (resolve defensively if missing).
     branch_id = st.session_state.get("cos_home_branch")

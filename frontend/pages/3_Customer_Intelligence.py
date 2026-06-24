@@ -391,6 +391,8 @@ def render_executive_kpis(
     abnormal_df: pd.DataFrame,
     impact_df: pd.DataFrame,
     dormant_df: pd.DataFrame,
+    products_by_revenue_df: pd.DataFrame,
+    products_by_quantity_df: pd.DataFrame,
     threshold_pct: float = 50.0,
 ) -> None:
     """Render the 5 KPI flip cards. Reuses already-computed values only."""
@@ -469,6 +471,25 @@ def render_executive_kpis(
     else:
         dormant_lines = [("", "Every active customer has ordered.")]
 
+    # 6) Top Products (by revenue + by quantity, shown on one card)
+    if not products_by_revenue_df.empty:
+        rev_top = products_by_revenue_df.iloc[0]
+        product_front_name = str(rev_top["product_name"])
+        product_note = money(rev_top["revenue"]) + " revenue"
+        product_lines = [
+            ("By revenue", f"{rev_top['product_name']} — {money(rev_top['revenue'])}"),
+        ]
+        if not products_by_quantity_df.empty:
+            qty_top = products_by_quantity_df.iloc[0]
+            product_lines.append(
+                ("By quantity", f"{qty_top['product_name']} — {int(qty_top['quantity']):,} units")
+            )
+        product_lines.append(("", "Leaders across all customers."))
+    else:
+        product_front_name = "—"
+        product_note = "No product sales yet"
+        product_lines = [("", "No product order data is available.")]
+
     cards = [
         _kpi_card("Top Customer", kpis["top_customer_name"], "name",
                   money(kpis["top_customer_revenue"]) + " revenue",
@@ -477,6 +498,8 @@ def render_executive_kpis(
                   growth_note, "Growth — detail", growth_lines),
         _kpi_card("Demand Opportunities Identified", f"{kpis['abnormal_orders']:,}", "num",
                   f"Orders ≥ +{int(threshold_pct)}% over baseline", "Demand Opportunities — detail", abnormal_lines),
+        _kpi_card("Top Products", product_front_name, "name",
+                  product_note, "Top Products — detail", product_lines),
         _kpi_card("Dormant Accounts", f"{kpis['dormant_accounts']:,}", "num",
                   "Active, zero orders", "Dormant Accounts — detail", dormant_lines),
     ]
@@ -1368,6 +1391,8 @@ abnormal_df = cis.detect_abnormal_orders(facts, min_deviation_pct=deviation_thre
 trends_df = cis.customer_demand_trends(facts)
 impact_df = cis.inventory_impact(facts, inventory)
 dormant_df = cis.dormant_accounts(customers, orders)
+products_by_revenue = cis.top_products(facts, metric="revenue", limit=10)
+products_by_quantity = cis.top_products(facts, metric="quantity", limit=10)
 
 # Reuse the existing reorder-point logic to flag at-risk products for the cards.
 at_risk_ids = cis.at_risk_products(inventory)
@@ -1378,7 +1403,7 @@ abnormal_cards = build_abnormal_cards(
 # -- Executive KPIs --------------------------------------------------------
 st.subheader("Executive KPIs")
 st.caption("Hover (or tap) a card to flip it and reveal the supporting metrics.")
-render_executive_kpis(kpis, top_customers_df, trends_df, abnormal_df, impact_df, dormant_df, deviation_threshold)
+render_executive_kpis(kpis, top_customers_df, trends_df, abnormal_df, impact_df, dormant_df, products_by_revenue, products_by_quantity, deviation_threshold)
 
 # -- Customer Spotlight -----------------------------------------------------
 st.subheader("⭐ Customer Spotlight")
@@ -1404,9 +1429,6 @@ st.divider()
 
 # -- Top Products ----------------------------------------------------------
 st.subheader("Top Products")
-products_by_revenue = cis.top_products(facts, metric="revenue", limit=10)
-products_by_quantity = cis.top_products(facts, metric="quantity", limit=10)
-
 product_left, product_right = st.columns(2, gap="large")
 with product_left:
     render_chart_card(
@@ -1468,40 +1490,6 @@ else:
                     st.caption(f"{compact(row['customer_name'])} ({row['change_pct']:+.0f}%)")
                 if frame.empty:
                     st.caption("—")
-
-st.divider()
-
-# -- Inventory Impact Analysis ---------------------------------------------
-st.subheader("Inventory Impact Analysis")
-st.caption("Customers driving inventory pressure by ordering products at/below their reorder point.")
-if impact_df.empty:
-    st.info("No customers are currently ordering products that are at stockout risk.")
-else:
-    impact_left, impact_right = st.columns([1.1, 1], gap="large")
-    with impact_left:
-        render_chart_card(
-            "Inventory Pressure by Customer",
-            "Relative score (0–100) based on units ordered on at-risk products.",
-            make_impact_chart(impact_df),
-            "No inventory pressure to display.",
-        )
-    with impact_right:
-        render_table(
-            impact_df.rename(
-                columns={
-                    "customer_name": "Customer",
-                    "at_risk_units": "At-Risk Units",
-                    "at_risk_revenue": "At-Risk Revenue",
-                    "affected_products": "Products",
-                    "risk_score": "Risk Score",
-                }
-            )[["Customer", "At-Risk Units", "At-Risk Revenue", "Products", "Risk Score"]],
-            max_height=420,
-            formatters={
-                "At-Risk Revenue": lambda value: f"${float(value):,.0f}",
-                "Risk Score": lambda value: f"{int(round(float(value)))}",
-            },
-        )
 
 st.divider()
 

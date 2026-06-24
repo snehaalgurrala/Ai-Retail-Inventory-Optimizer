@@ -41,6 +41,8 @@ SAMPLE_QUESTIONS = [
     "Why is this product dead stock?",
     "Why is product P012 not selling?",
     "What is the best way to increase sales based on our trends?",
+    "Which customers are dormant?",
+    "Which customers are growing or declining?",
 ]
 
 # Compact suggestion chips shown directly above the chat input.

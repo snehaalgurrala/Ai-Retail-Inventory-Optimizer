@@ -291,6 +291,103 @@ def detect_abnormal_ordering(
     }
 
 
+def get_customer_demand_trends(trend: str = "", limit: int = 10) -> dict:
+    """Customers whose demand is Growing, Stable, or Declining over the order window.
+
+    THE tool for "which customers are growing?", "who is declining/churning?",
+    "show demand trends", or "which account grew the most?". Splits the order
+    window at its midpoint and compares each customer's second-half revenue to the
+    first half: > +10% = Growing, < -10% = Declining, else Stable (brand-new buyers
+    count as Growing). Mirrors the Customer Intelligence page exactly. Pass
+    ``trend`` = "growing", "declining", or "stable" to return only that bucket;
+    leave it blank for all customers, ranked by revenue change (largest growth first).
+    A directional signal over a short window, not a forecast.
+    """
+    limit = ctx.clamp_limit(limit)
+    facts = _facts()
+    trends = cis.customer_demand_trends(facts)
+    if trends is None or trends.empty:
+        return {
+            "tool": "get_customer_demand_trends",
+            "summary": {"count": 0},
+            "records": [],
+            "sources": ctx.sources("orders", "order_lines", "customers"),
+            "notes": _CUSTOMER_NOTE
+            + " Trend = second-half vs first-half order revenue (+/-10% bands).",
+        }
+    wanted = str(trend).strip().lower()
+    if wanted:
+        canonical = {"grow": "Growing", "growing": "Growing", "up": "Growing",
+                     "declin": "Declining", "declining": "Declining", "down": "Declining",
+                     "churn": "Declining", "stable": "Stable", "flat": "Stable"}
+        target = next((v for k, v in canonical.items() if wanted.startswith(k)), None)
+        if target:
+            trends = trends[trends["trend"] == target]
+    counts = (
+        cis.customer_demand_trends(facts)["trend"].value_counts().to_dict()
+        if facts is not None and not facts.empty else {}
+    )
+    return {
+        "tool": "get_customer_demand_trends",
+        "summary": {
+            "scope": wanted or "all_customers",
+            "customer_count": int(len(trends)),
+            "growing": int(counts.get("Growing", 0)),
+            "stable": int(counts.get("Stable", 0)),
+            "declining": int(counts.get("Declining", 0)),
+        },
+        "records": ctx.records(
+            trends,
+            ["customer_name", "trend", "change_pct",
+             "first_half_revenue", "second_half_revenue"],
+            limit,
+        ),
+        "sources": ctx.sources("orders", "order_lines", "customers"),
+        "notes": _CUSTOMER_NOTE
+        + " Trend = second-half vs first-half order revenue (+/-10% bands).",
+    }
+
+
+def get_dormant_accounts(limit: int = 10) -> dict:
+    """Active customers who have never placed an order — a re-engagement list.
+
+    THE tool for "which customers are dormant?", "who hasn't ordered?", "inactive
+    accounts", or "re-engagement opportunities". Returns active (active_flg='Y')
+    BZ_MOCK_CUSTOMER rows with zero orders in BZ_MOCK_ORDER_HEADER, with each
+    account's segment, contract tier, industry, city, credit limit, and signup
+    date. Matches the Dormant Accounts KPI on the Customer Intelligence page.
+    """
+    limit = ctx.clamp_limit(limit)
+    context = ctx.get_context()
+    customers = context.raw("customers")
+    orders = context.raw("orders")
+    dormant = cis.dormant_accounts(customers, orders)
+    if dormant is None or dormant.empty:
+        return {
+            "tool": "get_dormant_accounts",
+            "summary": {"dormant_count": 0},
+            "records": [],
+            "sources": ctx.sources("customers", "orders"),
+            "notes": _CUSTOMER_NOTE + " Dormant = active customer with zero orders.",
+        }
+    if "signup_date" in dormant.columns:
+        dormant["signup_date"] = pd.to_datetime(
+            dormant["signup_date"], errors="coerce"
+        ).dt.strftime("%Y-%m-%d")
+    return {
+        "tool": "get_dormant_accounts",
+        "summary": {"dormant_count": int(len(dormant))},
+        "records": ctx.records(
+            dormant,
+            ["customer_name", "customer_segment", "contract_tier", "industry",
+             "city", "credit_limit", "signup_date"],
+            limit,
+        ),
+        "sources": ctx.sources("customers", "orders"),
+        "notes": _CUSTOMER_NOTE + " Dormant = active customer with zero orders.",
+    }
+
+
 def get_order_inventory_impact(limit: int = 10) -> dict:
     """Inventory pressure created by customer orders on at-risk products.
 

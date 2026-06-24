@@ -52,6 +52,8 @@ SAMPLE_ARGS = {
     "get_customer_order_analysis": {"limit": 5},
     "get_customer_products": {"customer": "", "metric": "quantity", "limit": 5},
     "detect_abnormal_ordering": {"limit": 5},
+    "get_customer_demand_trends": {"trend": "", "limit": 5},
+    "get_dormant_accounts": {"limit": 5},
     "get_transfer_opportunities": {"limit": 5},
 }
 
